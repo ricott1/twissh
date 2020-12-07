@@ -21,7 +21,7 @@ class Location(object):
             self.has_changed = False
 
             self.visible_map = []
-
+            #update to have colors to markers depending on object
             for cont, line in zip(self.map_content, self.map):
                 for i, c in enumerate(cont):
                     if c == self:

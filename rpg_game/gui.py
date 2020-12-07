@@ -3,6 +3,12 @@
 import urwid
 import time, os
 from collections import OrderedDict
+from rpg_game.utils import log, mod
+from urwid import raw_display
+
+SIZE = lambda rows=True, scr=raw_display.Screen(): scr.get_cols_rows()[rows]
+HEADER_SIZE = 12
+FOOTER_SIZE = 5
 
 PALETTE = [
             ("line", 'black', 'white', "standout"),
@@ -17,7 +23,7 @@ PALETTE = [
             ("unique","light magenta",""),
             ("set","light green",""),
             ]
-BREATH_BARS_LENGTH = STAMINA_BARS_LENGTH = RECOIL_BARS_LENGTH = 15
+STAMINA_BARS_LENGTH = RECOIL_BARS_LENGTH = 15
 
 class UiFrame(urwid.Frame):
     def __init__(self, parent, mind, *args, **kargs):
@@ -25,6 +31,13 @@ class UiFrame(urwid.Frame):
         self.mind = mind
         urwid.AttrMap(self,"frame")
         super(UiFrame, self).__init__(*args, **kargs)
+
+    @property
+    def player(self):
+        if self.mind.avatar.uuid in self.mind.master.players:
+            return self.mind.master.players[self.mind.avatar.uuid]
+        else: 
+            return None
 
     def handle_input(self, input):
         pass
@@ -54,7 +67,7 @@ class UiFrame(urwid.Frame):
         else:
             self.contents["body"] = (urwid.LineBox(self.active_body, title=title), None)
 
-class GUI(UiFrame):#convert to UIFrame?
+class GUI(UiFrame):
     def __init__(self, parent, mind):
         self.bodies = {b : globals()[f"{b}Frame"](self, mind) for b in ("Game", "Start", "Create", "Help")}
 
@@ -150,8 +163,8 @@ class CreateFrame(UiFrame):
 class HelpFrame(UiFrame):
     def __init__(self, parent, mind):
         text = """
- write me, help!
- help!"""
+         write me, help!
+         help!"""
         utext = urwid.Text(text, align="left")
         
         body = [utext]
@@ -179,7 +192,7 @@ class GameFrame(UiFrame):
         screen_btns = [urwid.LineBox(urwid.AttrMap(urwid.Text("{:^10}".format(s), align="center"), None, focus_map="line")) for s in self.bodies]
         footer = FrameColumns(self, screen_btns)
 
-        super(GameFrame, self).__init__(parent, mind, urwid.LineBox(self.active_body, title="Status"), header=urwid.LineBox(urwid.BoxAdapter(header, 12), title="Players"),  footer = footer, focus_part="header")
+        super(GameFrame, self).__init__(parent, mind, urwid.LineBox(self.active_body, title="Status"), header=urwid.LineBox(urwid.BoxAdapter(header, HEADER_SIZE), title="Players"),  footer = footer, focus_part="header")
         self.header_widget = self.header.original_widget.box_widget
 
     def on_update(self):
@@ -231,10 +244,7 @@ class RoomFrame(UiFrame):
         super(RoomFrame, self).__init__(parent, mind, room)
         
     def on_update(self):
-        index = self.parent.header_widget.focus_position
-        players = [p for i, p in self.mind.master.players.items()]
-        player = players[index]
-        loots = ["Lootings: "] + [(loot.rarity, "{} ".format(loot.name)) for loot in player.location.inventory] 
+        loots = ["Lootings: "] + [(loot.rarity, "{} ".format(loot.name)) for loot in self.player.location.inventory] 
         widgets = [urwid.Text(loots)]
         try:
             index = self.active_body.focus_position
@@ -242,7 +252,7 @@ class RoomFrame(UiFrame):
         except:
             pass
 
-        villains = [c for c in player.location.characters if c.__class__.__name__ =="Villain"]
+        villains = [c for c in self.player.location.characters if c.__class__.__name__ =="Villain"]
         for v in villains:
             widgets.append(urwid.AttrMap(urwid.Text(print_status(v)),None,"line"))
 
@@ -255,30 +265,24 @@ class MapFrame(UiFrame):
         super(MapFrame, self).__init__(parent, mind, map_box)
         
     def on_update(self):
-        index = self.parent.header_widget.focus_position
-        players = [p for i, p in self.mind.master.players.items()]
-        player = players[index]
-        
-        
-        x, y = player.position
-        vis = player.location.visible_map
-        # line = ws[y]
-        # ws[y] = urwid.Text([ws[y][:x], ("other", player.marker), ws[y][x + 1:]])
-        self.map_box[:] = [urwid.Text(line)  if y != j else  urwid.Text([line[:x], ("other", player.marker), line[x + 1:]]) for j, line in enumerate(vis)]
+        vis = self.player.location.visible_map
+        x, y = self.player.position
+        widget_height = SIZE() - HEADER_SIZE - FOOTER_SIZE - 2
+        print(widget_height, y)
+        #if abs(j- y) < widget_height
+        self.map_box[:] = [urwid.Text(line)  for j, line in enumerate(vis) if abs(y-j)<widget_height//2]
 
     def handle_input(self, input):
-        index = self.parent.header_widget.focus_position
-        players = [p for i, p in self.mind.master.players.items()]
-        player = players[index]
         if input == "w":
-            player.move("up")
+            self.player.move("up")
         elif input == "s":
-            player.move("down")
+            self.player.move("down")
         elif input == "a":
-            player.move("left")
+            self.player.move("left")
         elif input == "d":
-            player.move("right")
-
+            self.player.move("right")
+        elif input == "p":
+            self.player.pickup()
 
 class InventoryFrame(UiFrame):    
     def __init__(self, parent, mind):
@@ -286,9 +290,6 @@ class InventoryFrame(UiFrame):
         self.state = "normal"
 
     def on_update(self):
-        index = self.parent.header_widget.focus_position
-        players = [p for i, p in self.parent.parent.mind.master.players.items()]
-        player = players[index]
         def show_item(item, button):
             self.state = item.id
         
@@ -296,18 +297,18 @@ class InventoryFrame(UiFrame):
             self.state = "normal"
             
         def drop_item(item, button):
-            player.drop(item)
+            self.player.drop(item)
             
         def send_equip(item, button):
             if not item.is_equipped:
-                player.equip(item)
+                self.player.equip(item)
             
         def send_unequip(item, button):
             if item.is_equipped:
-                player.unequip(item)
+                self.player.unequip(item)
         
         widgets = []
-        items = [i for i in player.inventory]
+        items = [i for i in self.player.inventory]
         if self.state == "normal":
             for i in items:
                 bonus = ",".join([" {}: {} ".format(bns, i.bonus[bns]) for bns in i.bonus if i.bonus[bns]!=0] ) + " " + ",".join([" {}: {} ".format(ab, i.abilities[ab].name) for ab in i.abilities] )
@@ -321,7 +322,7 @@ class InventoryFrame(UiFrame):
                 bdrop._label.align = 'center'
                 urwid.connect_signal(bdrop, "click", drop_item, user_args = [i])
                 if i.is_equipment:
-                    if i.requisites(player):
+                    if i.requisites(self.player):
                         if i.is_equipped:
                             bequip = urwid.Button("Unequip") 
                             bequip._label.align = 'center'
@@ -370,20 +371,17 @@ class EquipmentFrame(UiFrame):
         self.state = "normal"
 
     def on_update(self):
-        index = self.parent.header_widget.focus_position
-        players = [p for i, p in self.parent.parent.mind.master.players.items()]
-        player = players[index]
         def open_equipment(typ, button):
             self.state = typ
             
         def send_equip(item, button):
             if not item.is_equipped:
-                player.equip(item)
+                self.player.equip(item)
             self.state = "normal"
             
         def send_unequip(button):
-            if self.state in player.equipment:
-                player.unequip(player.equipment[self.state])
+            if self.state in self.player.equipment:
+                self.player.unequip(player.equipment[self.state])
             self.state = "normal"
              
         widgets = []
@@ -395,8 +393,8 @@ class EquipmentFrame(UiFrame):
             for e in ["Weapon", "Armor", "Helm", "Belt", "Gloves", "Boots"]:
                 equip_btn = create_button(f"{e}", open_equipment, user_args = [e])
                     
-                if e in player.equipment:
-                    i = player.equipment[e]
+                if e in self.player.equipment:
+                    i = self.player.equipment[e]
                     bonus = ",".join([" {}: {} ".format(bns, i.bonus[bns]) for bns in i.bonus if i.bonus[bns]!=0])
                     text = urwid.Text([(i.rarity, "{} ".format(i.name)), bonus])
                 else:
@@ -405,11 +403,11 @@ class EquipmentFrame(UiFrame):
                 columns = SelectableColumns(line, dividechars=2)
                 widgets.append(columns)    
                     
-            bonus = player.bonus.copy()            
-            for obj in player.equipment:
-                for b in player.equipment[obj].bonus:
+            bonus = self.player.bonus.copy()            
+            for obj in self.player.equipment:
+                for b in self.player.equipment[obj].bonus:
                     if b in bonus:
-                        bonus[b] += player.equipment[obj].bonus[b]
+                        bonus[b] += self.player.equipment[obj].bonus[b]
                     
             t.set_text(" ".join(["{:3}: {:<2}".format(b, bonus[b]) for b in bonus]))
         else:
@@ -420,7 +418,7 @@ class EquipmentFrame(UiFrame):
             line = [(16, unequip_btn), text]
             columns = SelectableColumns(line, dividechars=2)
             widgets.append(columns)
-            eqs = [i for i in player.inventory if i.type == self.state and i.requisites(player)]
+            eqs = [i for i in self.player.inventory if i.type == self.state and i.requisites(self.player)]
             for i in eqs:
                 bonus = ",".join([" {}: {}".format(bns, i.bonus[bns]) for bns in i.bonus if i.bonus[bns]!=0]) + " " + ",".join([" {}: {} ".format(ab, i.abilities[ab].name) for ab in i.abilities] )
                 b = urwid.Button(i.name)
@@ -458,7 +456,7 @@ class StatusFrame(UiFrame):
             STR:{:<2d}({:+d})  RES:{:<2d}({:+d})  MAG:{:<2d}({:+d})  SPD:{:<2d}({:+d})  DEX:{:<2d}({:+d})
             Room: {}""".format(player.race.name, player.job.name, player.level, player.exp, state,
                     player.MP, player.max_MP, player.HB, player.max_HB, str(int(player.STA)) +"/"+str(player.HP)+"/"+str(player.max_HP), player.on_rythm, player.RTM, player.AC,
-                    player.STR, player.STRmod, player.RES, player.RESmod, player.MAG, player.MAGmod, player.SPD, player.SPDmod, player.DEX, player.DEXmod,          
+                    player.STR, mod(player.STR), player.RES, mod(player.RES), player.MAG, mod(player.MAG), player.SPD, mod(player.SPD), player.DEX, mod(player.DEX),          
                     player.location.name)
         
         widgets = [urwid.Text(data)]
@@ -666,14 +664,6 @@ def print_status(char):
         else: 
             h = [u"♡",u"♥"][int(time.time())%2] 
         
-        if char.is_catching_breath >0:        
-            breath = "Breathing "
-            breath_bars = int( round((1.-char.is_catching_breath/char.time_to_catch_breath()) * BREATH_BARS_LENGTH))
-            
-        elif char.MP >= 0:
-            b = "Breath" if not char.on_rythm else "Rythm "
-            breath = "{:<6s}:{:<3d}".format(b, char.MP)
-            breath_bars = int(round(1.*char.MP/char.max_MP * BREATH_BARS_LENGTH))
         stamina = " {:>d}/{:^d}/{:<d} ".format(int(round(char.STA)), char.HP, char.max_HP)
         stamina_bars = int(round(1.*char.STA/(char.max_HP) * STAMINA_BARS_LENGTH))
         max_stamina_bars = int(round(1.*char.HP/(char.max_HP) * STAMINA_BARS_LENGTH))
@@ -682,9 +672,9 @@ def print_status(char):
         max_recoil_bars = RECOIL_BARS_LENGTH
         incipit = f"{char.name}, {char.race.name} {char.job.name} {char.job.level}"
         return u"""
-            {:12s} {:1s} {:<3d} {:^17s} {:^18s}   
-            {:16s}   {:17s} {:18s} {}""".format(incipit, h, char.HB, stamina, breath,
-            recoil_bars * u"\u25AE" + (max_recoil_bars - recoil_bars) * u"\u25AF", stamina_bars * u"\u25B0" + (max_stamina_bars - stamina_bars) * u"\u25B1"+' '*(max_bars-max_stamina_bars)+'/', ":" + breath_bars* "|" + ' '*(max_bars - breath_bars) + ":",  char.print_action)
+            {:12s} {:1s} {:<3d} {:^17s}   
+            {:16s}   {:17s} {}""".format(incipit, h, char.HB, stamina,
+            recoil_bars * u"\u25AE" + (max_recoil_bars - recoil_bars) * u"\u25AF", stamina_bars * u"\u25B0" + (max_stamina_bars - stamina_bars) * u"\u25B1"+' '*(max_bars-max_stamina_bars)+'/', char.print_action)
 
 def create_button(label, cmd, focus = "line", align = "center", user_args = None):
     btn = urwid.Button(label)
@@ -696,9 +686,3 @@ def create_button(label, cmd, focus = "line", align = "center", user_args = None
     if focus:
         return urwid.AttrMap(btn, None, focus_map=focus)
     return btn
-        
-def log(text):
-    with open("log.tiac", "a") as f:
-        f.write("{}: {}\n".format(time.time(), text))
-
-

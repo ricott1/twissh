@@ -15,21 +15,28 @@ class World(object):
 
 
 def quick_room(world, name, _map): 
+    
     r = location.Location(name, _map)
+    sword = inventory.LongSword(location = r)
+    free = [(i, j) for j, line in enumerate(r.map_content) for i, l in enumerate(line)  if not l]
+    x, y = random.choice(free)
+    sword.position = (x, y)
+    r.map_content[y][x] = sword
+    r.has_changed = True
     #r.inventory.append(inventory.FuryArmor(location = r))
-    r.inventory.append(inventory.ChainArmor(location = r))
-    r.inventory.append(inventory.LongSword(location = r))
-    #r.inventory.append(inventory.GreatAxe(location = r))
-    #r.inventory.append(inventory.BeltOfGiants(location = r))
-    r.inventory.append(inventory.HelmOfContinency(location = r))
-    r.inventory.append(inventory.JacksonHelm(location = r))
-    r.inventory.append(inventory.JacksonBelt(location = r))
-    r.inventory.append(inventory.JacksonBoots(location = r))
-    for i in range(random.randint(0,1)):
-        v = quick_villain()
-        v.location = r
-        v.world = world
-        r.characters.append(v)
+    # r.inventory.append(inventory.ChainArmor(location = r))
+    # r.inventory.append(inventory.LongSword(location = r))
+    # #r.inventory.append(inventory.GreatAxe(location = r))
+    # #r.inventory.append(inventory.BeltOfGiants(location = r))
+    # r.inventory.append(inventory.HelmOfContinency(location = r))
+    # r.inventory.append(inventory.JacksonHelm(location = r))
+    # r.inventory.append(inventory.JacksonBelt(location = r))
+    # r.inventory.append(inventory.JacksonBoots(location = r))
+    # for i in range(random.randint(0,1)):
+    #     v = quick_villain()
+    #     v.location = r
+    #     v.world = world
+    #     r.characters.append(v)
     return r
         
 def quick_villain(r = 'random', j = 'random'):

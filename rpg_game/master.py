@@ -1,18 +1,17 @@
 import time, datetime, os, sys, uuid, random
 sys.path.append(os.path.abspath(os.path.dirname(__file__)))
 import character, world
-from twisted.internet.task import LoopingCall
 
 GAME_SPEED = 1
 RANDOM_NAMES = ("Gorbacioff", "Gundam", "Pesca", "Lukiko","Armando","Mariella","Formaggio","Pancrazio","Tancredi","Swallace","Faminy","Pertis","Pericles","Atheno","Mastella","Ciriaco")
 
 class Master(object):
-    def __init__(self, update_timestep = 0.1):
+    def __init__(self, update_timestep = 0.025):
         self.players = {}
+    
+        self.redraw = False
         self.time = time.time()
         self.world = world.World()
-        self.update_loop = LoopingCall(self.update)
-        self.update_loop.start(update_timestep)
         
     def quick_game(self, _id):
         data = quick_data()
@@ -26,14 +25,17 @@ class Master(object):
         if _id in self.players:
             del self.players[_id]  
         
-    def update(self, *args):
+    def on_update(self, *args):
         DELTATIME =  time.time() - self.time
         self.time = time.time()
         WORK_MODIFIER = 1
         self.world.update_visible_maps()
         for id, p in self.players.items():
+            #change to return True if something changed
             p.update(GAME_SPEED * DELTATIME * WORK_MODIFIER)
-   
+            self.redraw = self.redraw or p.redraw
+            p.redraw = False
+
 def get_time():
     return datetime.datetime.now().strftime("%H:%M:%S")
 

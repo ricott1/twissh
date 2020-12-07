@@ -1,6 +1,6 @@
 import random,os, math, time
-import ability, race, job, strategy, mission, inventory
-   
+import ability, race, job, strategy, mission, inventory, item
+from rpg_game.utils import log, mod
    
              
 class Character(object):
@@ -9,8 +9,6 @@ class Character(object):
     MED_RECOIL = 50
     SHORT_RECOIL = 25
     ACTION_TIME_DEFAULT = 5
-    BREATH_DMG_MULTI = 1
-    BREATH_DMG_NORM = 100.
     HP_DMG_MULTI = 0.2
     HP_DMG_NORM = 100.
     HB_DMG_MULTI = 0.2
@@ -24,6 +22,7 @@ class Character(object):
     def __init__(self, _id, data, location = None):
         self.id = _id
         self.name = data["name"]
+        self.redraw = False
         
         self.location = location
         if location:
@@ -33,8 +32,8 @@ class Character(object):
             self.location.map_content[y][x] = self
             self.location.has_changed = True
         else:
-            self.position = (0, 0)    
-        self.marker = "O"
+            self.position = (0, 0)
+        self.direction = "right"
 
         _race = random.sample(race.get_player_races(), 1)[0]
         _job = random.sample(job.get_jobs(), 1)[0]
@@ -62,8 +61,6 @@ class Character(object):
 
         self._STA, self.STA = data["HP"], data["MP"]
         self._HB, self.HB = data["HB"], data["HB"]
-
-        
         
         self._RES, self.RES = data["RES"], data["RES"]
         self._STR, self.STR = data["STR"],data["STR"]
@@ -87,10 +84,20 @@ class Character(object):
         self.abilities = {"offense" : ability.Attack()}#, "defense" , "recover", "special",'support"
         #attributes that print the ongoing action
         
-        self.is_moving = 0
-        
         self.restore()
      
+    @property
+    def marker(self):
+        if self.direction == "up":
+            return "▲"
+        elif self.direction == "down":
+            return "▼"
+        elif self.direction == "left":
+            return "◀"
+        elif self.direction == "right":
+            return "▶"
+    
+
     @property
     def MP(self):
         bonus = sum([self.equipment[obj].bonus["MP"] for obj in self.equipment])
@@ -146,9 +153,6 @@ class Character(object):
     @STR.setter
     def STR(self, value):
         self._STR = max(0, int(round(value)))
-    @property
-    def STRmod(self):
-        return int((self.STR-10)/2)
     
                
     @property
@@ -158,9 +162,6 @@ class Character(object):
     @SPD.setter
     def SPD(self, value):
         self._SPD = max(0, int(round(value)))
-    @property
-    def SPDmod(self):
-        return int((self.SPD-10)/2) 
                   
     @property
     def DEX(self):
@@ -169,9 +170,6 @@ class Character(object):
     @DEX.setter
     def DEX(self, value):
         self._DEX = max(0, int(round(value)))
-    @property
-    def DEXmod(self):
-        return int((self.DEX-10)/2)
                   
     @property
     def MAG(self):
@@ -183,9 +181,6 @@ class Character(object):
     @MAG.setter
     def MAG(self, value):
         self._MAG = max(0, int(round(value)))
-    @property
-    def MAGmod(self):
-        return int((self.MAG-10)/2)
                
     @property
     def RES(self):
@@ -197,9 +192,6 @@ class Character(object):
     @RES.setter
     def RES(self, value):
         self._RES = max(0, int(round(value)))
-    @property
-    def RESmod(self):
-        return int((self.RES-10)/2)
            
     @property
     def RTM(self):
@@ -211,7 +203,7 @@ class Character(object):
     
     @property
     def AC(self):
-        return 10 + self.DEXmod
+        return 10 + mod(self.DEX)
     
     @property
     def recoil(self):
@@ -266,7 +258,10 @@ class Character(object):
               
     @property
     def is_dead(self):
-        return self.HP <= 0 or self.max_MP <= 0 or self.HB <= 0
+        if self.HP <= 0 or self.max_MP <= 0 or self.HB <= 0:
+            self.set_death()
+            return True
+        return False
 
     def all_abilities(self):
         allAb = self.abilities.copy()
@@ -308,85 +303,23 @@ class Character(object):
         
     def update(self, DELTATIME):
         if self.is_dead:
-            self.set_death()
             return
-        self.action_time -= DELTATIME
-        if self.action_time <= 0:
-            self.action_time = 0
-            self.print_action = ""
 
-        abilities = self.all_abilities()    
-        for a in abilities:
-            abilities[a].on_update(DELTATIME, self)
-        for eq in self.equipment:
-            self.equipment[eq].on_update(DELTATIME, self)
-        self.job.on_update(DELTATIME, self)
-        self.race.on_update(DELTATIME, self)
-        if self.mission != None:
-            self.mission.on_update()
-        immunities = self.all_immunities()
-        for i in immunities:
-            if immunities[i]>0:
-                immunities[i] = max(0, immunities[i] - DELTATIME ) 
-                   
-        self.recoil -= self.RECOIL_MULTI * DELTATIME * (1. + self.SPDmod/self.RECOIL_NORM)
+        if self.action_time > 0:
+            self.action_time -= DELTATIME
+            if self.action_time <= 0:
+                self.action_time = 0
+                self.print_action = ""
+                self.redraw = True
+
+        if self.recoil > 0:
+            self.recoil -= self.RECOIL_MULTI * DELTATIME * (1. + mod(self.SPD)/self.RECOIL_NORM)
         
-        #MP part
-        if  self.is_catching_breath == 0 and self.MP <= 0:
-            self.is_catching_breath = self.time_to_catch_breath()
-        elif self.is_catching_breath > 0:
-            self.is_catching_breath -= DELTATIME * self.BREATH_DMG_MULTI * (1. + self.HB/self.BREATH_DMG_NORM)
-            if self.is_catching_breath <= 0:
-                self.catchBreath()
-                self.is_catching_breath = 0
-        else:
-            self.MP_damage += DELTATIME * self.BREATH_DMG_MULTI * (1. + self.HB/self.BREATH_DMG_NORM)
-        
-        #HP part     
-        self.HP_damage = max(0, self.HP_damage - DELTATIME * self.HP_DMG_MULTI/ (1. + self.HB/self.HP_DMG_NORM))
-        self.STA += DELTATIME       
-        
-        if self.is_dreaming > 0:
-            self.HP_damage = max(0, self.HP_damage - self.DREAM_MULTI * DELTATIME * self.HP_DMG_MULTI/ (1. + self.HB/self.HP_DMG_NORM))
-            self.MP_damage -= self.DREAM_MULTI * DELTATIME * self.BREATH_DMG_MULTI * (1. + self.HB/self.BREATH_DMG_NORM)
-            self.HB_damage = max(0, self.HB_damage - self.DREAM_MULTI * DELTATIME ) 
-            self.recoil = self.MAX_RECOIL
-            
-        if self.is_shocked == 0:
-            self.HB_damage = max(0, self.HB_damage - - DELTATIME * self.HB_DMG_MULTI/ (1. + self.HB/self.HB_DMG_NORM))
-           
-        #check rithm changing state
-        for i in range(1, self.RTM + 1):
-            if self.max_MP*(1.*i/(self.RTM+1)  - self.RTM_RANGE) < self.MP_damage < self.max_MP*(1.*i/(self.RTM+1) + self.RTM_RANGE):
-                self.on_rythm = 2
-                break
-            elif self.max_MP*(1.*i/(self.RTM+1)  - 2 * self.RTM_RANGE) < self.MP_damage < self.max_MP*(1.*i/(self.RTM+1) + 2* self.RTM_RANGE):
-                self.on_rythm = 1
-                break
-            
-        else:
-            self.on_rythm = 0
-            
-        #if no stamina gets shocked
-        if self.STA < 0.1 * self.HP and self.is_shocked == 0:
-            self.is_shocked += DELTATIME
-        elif self.is_shocked > 0 and self.STA >= 0.1 * self.max_MP:
-            self.is_shocked = max(0,self.is_shocked - DELTATIME )            
-        if self.is_muted >0:
-            self.is_muted = max(0,self.is_muted - DELTATIME )
-            
-        # if self.recoil == 0 and self.is_dreaming == 0:
-        #     self.move(target)
-            
-        elif self.recoil == 0 and not self.is_dreaming:
-            self.take_action()  
-      
-    def time_to_catch_breath(self):
-        return self.max_MP/2.15
-        
-    def catchBreath(self):
-        self.MP_damage = 0
-        self.STA += 0.5*self.HP
+        s = int(self.STA)
+        if self.STA < self.HP:
+            self.STA += DELTATIME  
+            #redraw only if integer changed, hence nneed to display it  
+            self.redraw = self.redraw or int(self.STA) > s
     
     def set_death(self):
         self.MP = 0
@@ -404,8 +337,6 @@ class Character(object):
         self.is_shocked = 0
         self.is_muted = 0
         
-        self.is_catching_breath = 0
-        
     def add_experience(self, exp):
         self.exp += exp
         while self.exp>= self.level**2*1000:
@@ -416,39 +347,35 @@ class Character(object):
         self.level = self.job.level
         self.restore()
     
-    def roll(self):
-        return random.randint(1, 20) + self.job.proficiency
-       
-    def take_action(self):
-        pass 
-            
-        
-    def move(self, direction):
-        if not (self.is_dead or self.is_dreaming):
-            x, y = self.position
+    def target(self):
+        x, y = self.position
 
-            if direction == "up":
-                position = (x, y-1) 
-                self.marker = "▲"
-            elif direction == "down":
-                position = (x, y+1)
-                self.marker = "▼"
-            elif direction == "left":
-                position = (x-1, y)
-                self.marker = "◀"
-            elif direction == "right":
-                position = (x+1, y)
-                self.marker = "▶"
+        if self.direction == "up":
+            position = (x, y-1)
+        elif self.direction == "down":
+            position = (x, y+1)
+        elif self.direction == "left":
+            position = (x-1, y)
+        elif self.direction == "right":
+            position = (x+1, y)
+
+        return self.location.map_content[position[1]][position[0]]
+
+    def move(self, direction):
+        self.redraw = True
+        self.direction = direction
+        if not (self.is_dead or self.is_dreaming):
             self.location.has_changed = True
-            if not self.location.map_content[position[1]][position[0]]:
-                self.location.map_content[self.position[1]][self.position[0]] = None
-                self.location.map_content[position[1]][position[0]] = self
-                self.position = position
-            
-            
+            target = self.target()
+            if not target:
+                x, y = self.position 
+                new_x = x + int(self.direction=="right") - int(self.direction=="left")
+                new_y = y + int(self.direction=="down") - int(self.direction=="up")
+                self.location.map_content[y][x] = None
+                self.location.map_content[new_y][new_x] = self
+                self.position = (new_x, new_y)
             
     def add_inventory(self, obj):
-        self.location.inventory.remove(obj)
         obj.location = self
         self.inventory.append(obj)
         self.location.has_changed = True
@@ -470,11 +397,14 @@ class Character(object):
             self.equipment.pop(obj.type)
             obj.on_unequip(self)
     
-    def pick_up(self, item):
-        self.recoil += self.LONG_RECOIL
-        self.add_inventory(item)
-        self.print_action = "Picked up: {}".format(item.name)
-        self.action_time = self.ACTION_TIME_DEFAULT       
+    def pickup(self):
+        target = self.target()
+        if isinstance(target, item.Item):
+            self.recoil += self.LONG_RECOIL
+            self.add_inventory(target)
+            self.print_action = "Picked up: {}".format(target.name)
+            self.action_time = self.ACTION_TIME_DEFAULT  
+            self.redraw = True     
 
     def drop(self, item):
         self.recoil += 5
@@ -499,8 +429,4 @@ class Player(Character):
     def start_mission(self, mission):
         self.mission = mission  
         mission.on_start() 
-        
-def log(text):
-    with open("log.tiac", "a") as f:
-        f.write("{}: {}\n".format(time.time(), text))
-   
+

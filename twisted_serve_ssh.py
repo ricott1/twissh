@@ -39,22 +39,23 @@ class IUrwidMind(Interface):
     def draw():
         """Refresh the UI"""
 
+    def draw_all():
+        """Refresh all UIs"""
+
+    def on_update():
+        """Update cycle"""
 
 class UrwidUi(object):
 
     def __init__(self, urwid_mind, toplevel, palette=None):
         self.mind = urwid_mind
         self.toplevel = toplevel(self, self.mind)
-        print("top", self.toplevel)
         self.palette = palette
         self.screen = TwistedScreen(self.mind.terminalProtocol)
         self.loop = self.create_urwid_mainloop()
-        self.update_loop = LoopingCall(self.on_update)
-        self.update_loop.start(0.25)
         
     def on_update(self):
         self.toplevel.on_update()
-        self.loop.draw_screen()
 
     def create_urwid_mainloop(self):
         evl = urwid.TwistedEventLoop(manage_reactor=False)
@@ -68,7 +69,6 @@ class UrwidUi(object):
 
     def disconnect(self):
         self.toplevel.disconnect()
-        self.update_loop.stop()
 
 class UnhandledKeyHandler(object):
 
@@ -108,6 +108,7 @@ implementer(IUrwidMind)
 class UrwidMind(Adapter):
 
     ui = None
+    master_factory = None
     master = None
     connections = {}
     ui_factory = UrwidUi
@@ -126,12 +127,27 @@ class UrwidMind(Adapter):
         self.unhandled_key_handler = self.unhandled_key_factory(self)
         self.unhandled_key = self.unhandled_key_handler.push
         self.ui = self.ui_factory(self, self.ui_toplevel, palette = self.ui_palette)
+        #self.connections[self.avatar.uuid]['ui'] = self.ui
+        # self.update_loop = LoopingCall(self.on_update)
+        #self.update_loop.start(0.05)
 
     def push(self, data):
         self.ui.screen.push(data)
+        self.draw()
 
     def draw(self):
-        self.ui.loop.draw_screen()
+        if self.ui:
+            self.ui.on_update()
+            self.ui.loop.draw_screen()
+
+    def draw_all(self):
+        #deprecated
+        for uuid in self.connections:
+            if self.connections[uuid]['ui']:
+                self.connections[uuid]['ui'].loop.draw_screen()
+
+    def on_update(self):
+        self.draw()
 
     def register_GUI_event(self, event_type, callback):
         self.events[event_type] = callback
@@ -147,6 +163,8 @@ class UrwidMind(Adapter):
         self.master.disconnect(self.avatar.uuid)
         self.terminal.loseConnection()
         self.ui.disconnect()
+        self.ui = None
+        #self.update_loop.stop()
         
 
 class TwistedScreen(Screen):
@@ -203,7 +221,6 @@ class TwistedScreen(Screen):
         for i, row in enumerate(r.content()):
             self.terminal.cursorPosition(0, i)
             for (attr, cs, text) in row:
-                #print(attr, type(text), type(f"{self._attr_to_escape(attr)}{text}"))
                 if attr != lasta:
                     text = b"%s%s" % (self._attr_to_escape(attr).encode("utf-8"), text)
                 lasta = attr
@@ -255,11 +272,9 @@ class TwistedScreen(Screen):
         2. Calculate escapes and other clever things using urwid's
         `escape.process_keyqueue`.
         3. Pass the calculated keys as a list to the Urwid main loop.
-        4. Redraw the screen
         """
         self._data = list(map(ord, data.decode("utf-8")))
         self.parse_input(self._evl, self._urwid_callback, self.get_available_raw_input())
-        self.loop.draw_screen()
 
     # Convenience
     def write(self, data):
@@ -411,7 +426,26 @@ class UrwidRealm(TerminalRealm):
     def __init__(self, mind_factories):
         self.mind_factories = mind_factories
         self.mind = None
+        self.minds = []
 
+        self.update_loop = LoopingCall(self.on_update)
+        self.update_loop.start(0.05)
+
+    def on_update(self):
+        #update cycle
+        #note: user inputs that do not imply a change of the game state (i.e. changing menu currently viewed) are handled on the mind push function, and drawn immediately (only for the user)
+        
+        for k, mind in self.mind_factories.items():
+            #first update each master
+            mind.master.on_update()
+            # #then update each mind, that updates each ui if necessary
+        for m in self.minds:
+            if m.master.redraw:
+                m.on_update()
+
+        for k, mind in self.mind_factories.items():
+            #first update each master
+            mind.master.redraw = False
 
     def _getAvatar(self, avatarId):
         comp = Componentized()
@@ -421,15 +455,19 @@ class UrwidRealm(TerminalRealm):
         comp.setComponent(ISession, sess)
         self.mind = self.mind_factories[avatarId](comp)
         #instead get correct mind from dictionary using mind = self.mind_factories[avatarId](comp)
-        ##add user to mind connections
-        self.mind.connections[user.uuid] = {"user" : user, "log" : []}
+        
         comp.setComponent(IUrwidMind, self.mind)
+        #add user to mind connections, used for general tasks.
+        #add ui, used to update all uis centrally
+        self.mind.connections[user.uuid] = {"user" : user, "log" : []}
+
+        self.minds.append(self.mind)
+        
         return user
 
     def requestAvatar(self, avatarId, mind, *interfaces):
         for i in interfaces:
             if i is IConchUser:
-                print("minds:", avatarId, self.mind_factories)
                 if avatarId not in self.mind_factories:
                     return defer.fail(credError.UnauthorizedLogin(f"{avatarId} is not a valid application"))
                 return (IConchUser,
@@ -456,7 +494,7 @@ def create_service(urwid_mind_factories, cred_checkers, port, *args, **kw):
     """
 
     f = create_server_factory(urwid_mind_factories, cred_checkers)
-    return TCPServer(port, f)#, reactor = reactor)
+    return TCPServer(port, f)
 
 
 def create_application(application_name, urwid_mind_factories, cred_checkers,

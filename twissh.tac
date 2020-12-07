@@ -13,6 +13,8 @@ from rpg_game.gui import GUI as GameGUI
 from rpg_game.gui import PALETTE as GamePalette
 from rpg_game.master import Master as GameMaster 
 
+
+#each mind is an ssh application
 class GameMind(UrwidMind):
     ui_palette = GamePalette
     ui_toplevel = GameGUI
