@@ -4,13 +4,14 @@ class Item(object):
     def __init__(self, location=None, position = (0,0), marker = "i"):
         self.name = None
         self.type = None
+        self.layer = 0
         self.id = uuid.uuid4()
         self.marker = marker
         self.description = [""]
         self.rarity = "common" #common, uncommon, rare, unique, set
         self.position = position
         self.location = location
-        self.bonus = {"MP" : 0, "HP" : 0, "HB" : 0, "RES" : 0, "STR" : 0, "DEX" : 0, "SPD" : 0, "MAG" : 0, "RTM" : 0, "AC" : 0}
+        self.bonus = {"MP" : 0, "HP" : 0, "HB" : 0, "CON" : 0, "STR" : 0, "DEX" : 0, "CHA" : 0, "INT" : 0, "WIS" : 0, "AC" : 0}
         self.is_equipment = False
         self.is_equipped = False
         self.immunities = {}

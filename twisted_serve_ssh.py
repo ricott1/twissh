@@ -16,13 +16,10 @@ from twisted.conch.manhole_ssh import (ConchFactory, TerminalRealm,
     TerminalUser, TerminalSession, TerminalSessionTransport)
 from twisted.conch.ssh.keys import EncryptedKeyError, Key
 from twisted.cred import error as credError
-from twisted.cred.checkers import InMemoryUsernamePasswordDatabaseDontUse, AllowAnonymousAccess
 from twisted.python.components import Componentized, Adapter
 from twisted.internet.task import LoopingCall
 from twisted.internet import reactor, defer
 from datetime import datetime
-
-UNIQUELOGIN = False
 
 class IUrwidMind(Interface):
     ui = Attribute('')
@@ -31,16 +28,12 @@ class IUrwidMind(Interface):
     checkers = Attribute('')
     avatar = Attribute('The avatar')
     connections = Attribute('The connections')
-    events = Attribute('Registered events')
 
     def push(data):
         """Push data"""
 
     def draw():
         """Refresh the UI"""
-
-    def draw_all():
-        """Refresh all UIs"""
 
     def on_update():
         """Update cycle"""
@@ -51,6 +44,7 @@ class UrwidUi(object):
         self.mind = urwid_mind
         self.toplevel = toplevel(self, self.mind)
         self.palette = palette
+        self.redraw = False
         self.screen = TwistedScreen(self.mind.terminalProtocol)
         self.loop = self.create_urwid_mainloop()
         
@@ -132,22 +126,19 @@ class UrwidMind(Adapter):
         #self.update_loop.start(0.05)
 
     def push(self, data):
-        self.ui.screen.push(data)
-        self.draw()
+        if self.ui:
+            self.ui.redraw = True
+            self.ui.screen.push(data)
+            # self.draw()
 
     def draw(self):
-        if self.ui:
-            self.ui.on_update()
-            self.ui.loop.draw_screen()
-
-    def draw_all(self):
-        #deprecated
-        for uuid in self.connections:
-            if self.connections[uuid]['ui']:
-                self.connections[uuid]['ui'].loop.draw_screen()
+        self.ui.on_update()
+        self.ui.loop.draw_screen()
+        self.ui.redraw = False
 
     def on_update(self):
-        self.draw()
+        if self.ui and (self.ui.redraw or self.master.redraw):
+            self.draw()
 
     def register_GUI_event(self, event_type, callback):
         self.events[event_type] = callback
@@ -438,10 +429,10 @@ class UrwidRealm(TerminalRealm):
         for k, mind in self.mind_factories.items():
             #first update each master
             mind.master.on_update()
+
             # #then update each mind, that updates each ui if necessary
         for m in self.minds:
-            if m.master.redraw:
-                m.on_update()
+            m.on_update()
 
         for k, mind in self.mind_factories.items():
             #first update each master

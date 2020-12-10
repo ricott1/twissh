@@ -30,7 +30,7 @@ class ChainArmor(item.Armor):
             return True
         return False
 class FuryArmor(item.Armor):
-    def __init__(self, name="Fury Armor", description=["A cringeworthy armor"], bonus={"RES" : +1, "AC" : 2, "HB" : 8}, location=None):
+    def __init__(self, name="Fury Armor", description=["A cringeworthy armor"], bonus={"CON" : +1, "AC" : 2, "HB" : 8}, location=None):
         super(FuryArmor, self).__init__(name=name, description=description, bonus=bonus, location=location)
         self.abilities.update({"support" :  ability.Frenzy()})
         self.rarity = "uncommon"
@@ -65,7 +65,7 @@ class BeltOfGiants(item.Belt):
         return True
 
 class HelmOfContinency(item.Helm):
-    def __init__(self, name="Helm of Continency", description=["A monk cast helm"], bonus={"HB" : -12, "RES" : +2, "AC" : 1}, location=None):
+    def __init__(self, name="Helm of Continency", description=["A monk cast helm"], bonus={"HB" : -12, "CON" : +2, "AC" : 1}, location=None):
         super(HelmOfContinency, self).__init__(name=name, description=description, bonus=bonus, location=location)
         self.rarity = "rare"
     def requisites(self, player):
@@ -77,26 +77,26 @@ class JacksonHelm(item.Helm):
         self.rarity = "set"
     def on_unequip(self, char): 
         self.is_equipped = False 
-        self.bonus["RES"] = 0
+        self.bonus["CON"] = 0
     def on_update(self, DELTATIME, player):
         my_set = ["Jackson Helm", "Jackson Belt", "Jackson Boots"]
         if set(my_set) <= set([eq.name for (k, eq) in player.equipment.items()]):
-            self.bonus["RES"] = +2
+            self.bonus["CON"] = +2
         else:
-            self.bonus["RES"] = 0
+            self.bonus["CON"] = 0
 class JacksonBelt(item.Belt):
     def __init__(self, name="Jackson Belt", description=["Belt that belonged to Jackson", "Part of Jackson set"], bonus={}, location=None):
         super(JacksonBelt, self).__init__(name=name, description=description, bonus=bonus, location=location)
         self.rarity = "set"
     def on_unequip(self, char): 
         self.is_equipped = False 
-        self.bonus["RES"] = 0
+        self.bonus["CON"] = 0
     def on_update(self, DELTATIME, player):
         my_set = ["Jackson Helm", "Jackson Belt", "Jackson Boots"]
         if set(my_set) <= set([eq.name for (k, eq) in player.equipment.items()]):
-            self.bonus["RES"] = +2
+            self.bonus["CON"] = +2
         else:
-            self.bonus["RES"] = 0
+            self.bonus["CON"] = 0
 
 class JacksonBoots(item.Boots):
     def __init__(self, name="Jackson Boots", description=["Boots that belonged to Jackson", "Part of Jackson set"], bonus={"SPD" : 1}, location=None):
@@ -104,13 +104,13 @@ class JacksonBoots(item.Boots):
         self.rarity = "set"
     def on_unequip(self, char): 
         self.is_equipped = False 
-        self.bonus["RES"] = 0
+        self.bonus["CON"] = 0
     def on_update(self, DELTATIME, player):
         my_set = ["Jackson Helm", "Jackson Belt", "Jackson Boots"]
         if set(my_set) <= set([eq.name for (k, eq) in player.equipment.items()]):
-            self.bonus["RES"] = +2
+            self.bonus["CON"] = +2
         else:
-            self.bonus["RES"] = 0
+            self.bonus["CON"] = 0
 
 
 
