@@ -7,10 +7,15 @@ class World(object):
     def __init__(self):
         self.locations = []
         self.locations.append(quick_room(self, "base", world_map))
+        self.redraw = False
 
-    def on_update(self):
+    def on_update(self, _deltatime):
+        self.redraw = False
         for l in self.locations:
-            l.on_update()
+            l.on_update(_deltatime)
+        self.redraw = any(l.redraw for l in self.locations)
+        for l in self.locations:
+            l.redraw = False
 
 def add_inventory(inv, room):
     inv.location = room

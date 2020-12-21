@@ -188,7 +188,7 @@ class MapFrame(UiFrame):
         _map = self.player.location.map
         x, y, z = self.player.position
         widget_height = SIZE()[1] - HEADER_HEIGHT() - FOOTER_HEIGHT - 2
-        visible_map = [line for j, line in enumerate(_map) if abs(y-j)<widget_height//2]
+        visible_map = [line for j, line in enumerate(_map) if abs(x-j)<widget_height//2]
         
         #color player cursor
         visible_map[x][y] = ("player", self.player.marker)

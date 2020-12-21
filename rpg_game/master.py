@@ -21,24 +21,19 @@ class Master(object):
         print("disconnect", _id)
         if _id in self.players:
             print("deleting", _id)
-            p = self.players[_id]
             #comment next line to keep disconnected bodies in (maybe set them dead)
-            p.location.unregister(p)
+            self.players[_id].destroy()
             del self.players[_id]
-        
+            
     def on_update(self, *args):
         t = time.time()
         DELTATIME =  t - self.time
-        self.redraw = False
         self.time = t
-        self.world.on_update()
-        sending = []
-        for _id, p in self.players.items():
-            sending += p.chat_sent_log
-            #change to return True if something changed
-            p.on_update(GAME_SPEED * DELTATIME)
-            self.redraw = self.redraw or p.redraw
-            p.redraw = False
+        self.redraw = False
+        self.world.on_update(GAME_SPEED * DELTATIME)
+        self.redraw = self.world.redraw
+        sending = [l  for _id, p in self.players.items() for l in p.chat_sent_log]
+        
         self.redraw = self.redraw or len(sending) > 0
         for _id, p in self.players.items():
             p_sending = [m for m in sending if m['sender'] != p.name]#bug for same names characters

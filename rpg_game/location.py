@@ -7,6 +7,7 @@ class Location(object):
         self.events = {}
         self.redraw = False
         self.height = _height
+        self.entities = {}
 
     @property
     def all(self):
@@ -33,12 +34,16 @@ class Location(object):
         for xp, yp, zp in content.extra_position:
             self.content[x+xp][y+yp][z+zp] = content
         self.redraw = True
+        if not content.id in self.entities:
+            self.entities[content.id] = content
 
     def unregister(self, content):
         """register content"""
         self.clear(content.position)
         for xp, yp, zp in content.extra_position:
             self.clear((x+xp, y+yp, z+zp))
+        # if content.id in self.entities:
+        #     del self.entities[content.id]
 
     def get(self, position):
         x, y, z = position
@@ -50,8 +55,10 @@ class Location(object):
     def is_empty(self, position):
         return not bool(self.get(position))
 
-    def on_update(self):
-        pass
+    def on_update(self, _deltatime):
+        for _id, e in list(self.entities.items()):
+            e.on_update(_deltatime)
+        self.redraw = self.redraw or any(e.redraw for key, e in self.entities.items())
 
     def free_position(self, _layer=1, _extra_position=[]):
         for x in range(len(self.content)):
@@ -115,9 +122,9 @@ class Room(Location):
         new_y = y + int(direction=="right") - int(direction=="left")
         return (new_x, new_y, z)
 
-    def on_update(self):
+    def on_update(self, DELTATIME):
+        super().on_update(DELTATIME)
         if self.redraw:
-            self.redraw = False
             self.map = self.map_from_content()
         
      

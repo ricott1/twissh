@@ -1,6 +1,7 @@
-from rpg_game.constants import DIRECTIONS
+from rpg_game.constants import *
 from rpg_game.utils import new_id
 from rpg_game.characteristic import Characteristic
+import action
 
 """
 Entity --> has Body, Location
@@ -35,12 +36,20 @@ class Entity(object):
         self.description = _description
 
     @property
+    def forward(self):
+        if not self.location:
+            return None
+        return self.location.forward(self.position, self.direction)
+    
+    @property
     def marker(self):
         return self.base_marker
 
-    def destroy():
+    def destroy(self):
         """Destroy body"""
         self.location.unregister(self)
+        if self.id in self.location.entities:
+            del self.location.entities[self.id]
 
     @property
     def location(self):
@@ -67,11 +76,23 @@ class Wall(Entity):
 
 class Projectile(Entity):
     """docstring for Projectile"""
-    def __init__(self, _movement_speed=1, _max_range=10, _spawner=None, **kwargs):
+    def __init__(self, _movement_speed=2, _max_range=10, _spawner=None, _direction="right", _on_hit=None, **kwargs):
         super().__init__(**kwargs)
         self.spawner = _spawner
         self.movement_speed = _movement_speed
         self.max_range = _max_range
+        self.direction = _direction
+        self.increment = (0,0,0)
+        self.recoil = SHORT_RECOIL
+        self.on_hit = _on_hit
+
+    @property
+    def recoil(self):
+        return self._recoil
+
+    @recoil.setter
+    def recoil(self, value):
+        self._recoil = min(MAX_RECOIL, max(0, value))
 
     @property
     def marker(self):
@@ -84,14 +105,17 @@ class Projectile(Entity):
         if self.direction == "right":
             return "→"
 
-    def on_update(self, DELTATIME):
-        mov = DELTATIME * self.movement_speed
-        if self.direction == "right":
-            increment = (mov, 0, 0)
-        elif self.direction == "left":
-            increment = (-mov, 0, 0)
-        elif self.direction == "up":
-            increment = (0, mov, 0)
-        elif self.direction == "down":
-            increment = (0, -mov, 0)
-        self._position = tuple(self._position[i] + increment[i] for i in range(len(self._position)))
+    def on_update(self, _deltatime):
+        s = int(self.recoil)
+        if self.recoil > 0:
+            self.recoil -= RECOIL_MULTI * _deltatime
+            #redraw only if integer changed, hence nneed to display it  
+            self.redraw = int(self.recoil) < s
+
+        if self.recoil == 0:
+            if self.location.is_empty(self.forward):
+                {"right":action.MoveRight, "left":action.MoveLeft, "up":action.MoveUp, "down":action.MoveDown}[self.direction].use(self)
+            else:
+                if self.on_hit:
+                    self.on_hit(self)
+                self.destroy()

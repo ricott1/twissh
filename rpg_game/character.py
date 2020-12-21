@@ -35,13 +35,9 @@ class Character(entity.Entity):
         
         self.print_action = self._print_action = ""
         self.print_action_time = self._print_action_time = 0
-        
-        self.game_class = game_class.Warrior()
-        self.actions = self.game_class.actions
+        self.actions = {}
         self.action_counters = {}
-        for key, act in self.actions.items():
-            setattr(self, key, lambda action=act, **kwargs: action.use(self, **kwargs))
-            self.action_counters[key] = 0. 
+        self.game_class = game_class.Warrior()
 
     @property
     def con(self):
@@ -78,6 +74,18 @@ class Character(entity.Entity):
             if eqp and hasattr(eqp, "dmg_reduction"):
                 tot += eqp.dmg_reduction
         return tot
+
+    @property
+    def game_class(self):
+        return self._game_class
+    
+    @game_class.setter
+    def game_class(self, value):
+        self._game_class = value
+        self.actions = self.game_class.actions
+        for key, act in self.actions.items():
+            setattr(self, key, lambda action=act, **kwargs: action.use(self, **kwargs))
+            self.action_counters[key] = 0. 
 
     @property
     def marker(self):
@@ -122,23 +130,24 @@ class Character(entity.Entity):
             return True
         return False
         
-    def on_update(self, DELTATIME):
+    def on_update(self, _deltatime):
+        self.redraw = False
         if self.is_dead:
             return
 
         if self.print_action_time > 0:
-            self.print_action_time -= DELTATIME
+            self.print_action_time -= _deltatime
 
         s = int(self.recoil)
         if self.recoil > 0:
-            self.recoil -= RECOIL_MULTI * DELTATIME
+            self.recoil -= RECOIL_MULTI * _deltatime
             #redraw only if integer changed, hence nneed to display it  
             self.redraw = int(self.recoil) < s
 
         for key in self.actions:
-            self.actions[key].on_update(DELTATIME)
+            self.actions[key].on_update(_deltatime)
             if self.action_counters[key] > 0:
-                self.action_counters[key] -= COUNTER_MULTI * DELTATIME
+                self.action_counters[key] -= COUNTER_MULTI * _deltatime
                 if self.action_counters[key] <= 0:
                     #self.actions[key].on_end()
                     self.action_counters[key] = 0
@@ -209,6 +218,11 @@ class Villain(Character):
         if self.action_counters["parry"] > 0:
             return ("monster", "X")
         return ("monster", super().marker)
+
+    def on_update(self, _deltatime):
+        super().on_update(_deltatime)
+        if self.recoil ==0:
+            self.parry()
     
 
 class Player(Character): 
