@@ -27,7 +27,7 @@ class IUrwidMind(Interface):
     terminal = Attribute('')
     checkers = Attribute('')
     avatar = Attribute('The avatar')
-    connections = Attribute('The connections')
+    #connections = Attribute('The connections')
 
     def push(data):
         """Push data"""
@@ -49,6 +49,7 @@ class UrwidUi(object):
         self.loop = self.create_urwid_mainloop()
         
     def on_update(self):
+        self.redraw = False
         self.toplevel.on_update()
 
     def create_urwid_mainloop(self):
@@ -121,9 +122,7 @@ class UrwidMind(Adapter):
         self.unhandled_key_handler = self.unhandled_key_factory(self)
         self.unhandled_key = self.unhandled_key_handler.push
         self.ui = self.ui_factory(self, self.ui_toplevel, palette = self.ui_palette)
-        #self.connections[self.avatar.uuid]['ui'] = self.ui
-        # self.update_loop = LoopingCall(self.on_update)
-        #self.update_loop.start(0.05)
+        self.master.on_start(self.avatar.uuid)
 
     def push(self, data):
         if self.ui:
@@ -134,7 +133,6 @@ class UrwidMind(Adapter):
     def draw(self):
         self.ui.on_update()
         self.ui.loop.draw_screen()
-        self.ui.redraw = False
 
     def on_update(self):
         if self.ui and (self.ui.redraw or self.master.redraw):
@@ -148,14 +146,13 @@ class UrwidMind(Adapter):
             self.events[event_type](*args)
 
     def disconnect(self):
-        print("disconnected avatar: ", self.avatar, self.connections)
-        if self.avatar.uuid in self.connections:
-            del self.connections[self.avatar.uuid]
+        # print("disconnected avatar: ", self.avatar, self.connections)
+        # if self.avatar.uuid in self.connections:
+        #     del self.connections[self.avatar.uuid]
         self.master.disconnect(self.avatar.uuid)
         self.terminal.loseConnection()
         self.ui.disconnect()
         self.ui = None
-        #self.update_loop.stop()
         
 
 class TwistedScreen(Screen):
@@ -325,7 +322,6 @@ class TwistedScreen(Screen):
             bg = "49"
         return f"{urwid.escape.ESC}[0;{fg};{st}{bg}m"#{urwid.escape.ESC}[0m
 
-
 class UrwidTerminalProtocol(TerminalProtocol):
     """A terminal protocol that knows to proxy input and receive output from
     Urwid.
@@ -434,9 +430,8 @@ class UrwidRealm(TerminalRealm):
         for m in self.minds:
             m.on_update()
 
-        for k, mind in self.mind_factories.items():
-            #first update each master
-            mind.master.redraw = False
+        # for k, mind in self.mind_factories.items():
+        #     mind.master.redraw = False
 
     def _getAvatar(self, avatarId):
         comp = Componentized()
@@ -449,8 +444,7 @@ class UrwidRealm(TerminalRealm):
         
         comp.setComponent(IUrwidMind, self.mind)
         #add user to mind connections, used for general tasks.
-        #add ui, used to update all uis centrally
-        self.mind.connections[user.uuid] = {"user" : user, "log" : []}
+        #self.mind.connections[user.uuid] = {"user" : user, "log" : []}
 
         self.minds.append(self.mind)
         

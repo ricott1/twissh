@@ -1,89 +1,123 @@
-import os
-
-class Empty(object):
-    def __init__(self, x, y, marker):
-        self.position = (x, y)
-        self.marker = " "
-
-class Wall(object):
-    def __init__(self, x, y, marker):
-        self.position = (x, y)
-        self.marker = marker
-        self.HP = 100
+from rpg_game.entity import Wall
+import numpy as np
 
 class Location(object):
-    def __init__(self):
+    def __init__(self, _height=3):
         self.content = []
         self.events = {}
         self.redraw = False
+        self.height = _height
 
-    def clear(self, position, layer):
+    @property
+    def all(self):
+        _all = []
+        for x in range(len(self.content)):
+            for y in range(len(self.content[x])):
+                for z in range(len(self.content[x][y])):
+                    if self.content[x][y][z]:
+                        _all.append(self.content[y][x][z])
+        return set(_all)
+
+    def clear(self, position):
         """clear content"""
-        x, y = position
-        del self.content[y][x][layer]
-        self.redraw = True
+        x, y, z = position
+        if self.get((x, y, z)):
+            self.redraw = True
+        self.content[x][y][z] = None
 
     def register(self, content):
         """register content"""
-        x, y = content.position
+        x, y, z = content.position
         #in the future use content.layer
-        self.content[y][x][content.layer] = content
+        self.content[x][y][z] = content
+        for xp, yp, zp in content.extra_position:
+            self.content[x+xp][y+yp][z+zp] = content
         self.redraw = True
 
-    def is_empty(self, position, layer):
-        x, y = position
-        if layer not in self.content[y][x]:
-            return True
-        if self.content[y][x][layer]:
-            return False
-        return True
+    def unregister(self, content):
+        """register content"""
+        self.clear(content.position)
+        for xp, yp, zp in content.extra_position:
+            self.clear((x+xp, y+yp, z+zp))
+
+    def get(self, position):
+        x, y, z = position
+        try:
+            return self.content[x][y][z]
+        except IndexError:
+            return None
+
+    def is_empty(self, position):
+        return not bool(self.get(position))
 
     def on_update(self):
         pass
 
+    def free_position(self, _layer=1, _extra_position=[]):
+        for x in range(len(self.content)):
+            for y in range(len(self.content[x])):
+                _all = [(x, y, _layer)] + _extra_position
+                if all(self.is_empty((xp, yp, zp)) for (xp, yp, zp) in _all):
+                    return (x, y, _layer)
+        else:
+            return None
+
+
+class Inventory(Location):
+    def __init__(self, size):
+        super().__init__(_height=1)
+        self.size = size
+        self.content = [[[None for _ in range(self.height)] for _ in range(self.size)] for _ in range(self.size)]
+        
 
 class Room(Location):
     def __init__(self, name, _map):
         super().__init__()
         self.name = name
-        self.raw_map = _map
-        #each square of the map can contain something on several layers: 0 for pickable items, 1 for living bodies, 2 for flying etc...
-        # self.content = [[{}  if l == " " else {1 : Wall(x, y, _map[y][x])} for x, l in enumerate(line)] for y, line in enumerate(_map)]
-        for y, line in enumerate(_map):
+        self.raw_map = [l for l in _map.split("\n") if l]
+        
+        X = len(self.raw_map)
+        Y = max([len(l) for l in self.raw_map])
+        self.content = [[[None for _ in range(self.height)] for _ in range(Y)] for _ in range(X)]
+        self.register_content()
+
+        self.map = self.map_from_content()
+
+    def register_content(self):
+        for x in range(len(self.content)):
+            for y in range(len(self.content[x])):
+                _marker = self.raw_map[x][y]
+                # print(x, y, _marker)
+                if _marker != " ":
+                    #here it could be possible to add special characters for montesrs, items, etc...
+                    #or thin vs thick walls
+                    w = Wall(_location=self, _position=(x, y, 0), _extra_position=[(0,0,1), (0,0,2)], _marker=_marker)
+
+    def map_from_content(self):
+        _map = []
+        for x in range(len(self.content)):
             _line = []
-            for x, l in enumerate(line):
-                _l = {}
-                if l != " ":
-                    w = Wall(x, y, _map[y][x])
-                    _l = {0: w, 1 : w, 2: w}
-                _line.append(_l)
-            self.content.append(_line)
+            for y in range(len(self.content[x])):
+                non_empty = [z for z in range(len(self.content[x][y])) if not self.is_empty((x, y, z))]
+                #print("NONEMPRTY", x, y, non_empty)
+                if non_empty:
+                    #show top marker
+                    z = max(non_empty)
+                    _line.append(self.get((x, y, z)).marker)
+                else:
+                    _line.append(" ")
+            _map.append(_line) 
+        return _map
 
-
-        self.map = self.raw_map
+    def forward(self, position, direction):
+        x, y, z = position
+        new_x = x + int(direction=="down") - int(direction=="up")
+        new_y = y + int(direction=="right") - int(direction=="left")
+        return (new_x, new_y, z)
 
     def on_update(self):
         if self.redraw:
             self.redraw = False
-            self.map = []
-            #update to have colors to markers depending on object
-            # for cont, line in zip(self.content, self.raw_map):
-            #     for i, c in enumerate(cont):
-            #         if c:
-            #             #show only the content on top layer
-            #             max_layer = max([key for key, value in c.items()])
-            #             if max_layer and c[max_layer].marker:
-            #                 line = line[:i] +  c[max_layer].marker + line[i + 1:]
-            #     self.map.append(line)
-            for line in self.content:
-                _line = ""
-                for i, content in enumerate(line):
-                    if content:
-                        #show only the content on top layer
-                        max_layer = max([key for key, value in content.items()])
-                        _line += content[max_layer].marker
-                    else:
-                        _line += " "
-                self.map.append(_line)
+            self.map = self.map_from_content()
         
      

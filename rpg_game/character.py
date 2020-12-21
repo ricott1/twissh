@@ -1,106 +1,48 @@
 import random,os, math, time
-import ability, race, job, strategy, mission, inventory, item
-from rpg_game.utils import log, mod
-   
+import action, location, item, game_class, entity
+from rpg_game.utils import log, mod, roll, random_name, random_stats
+from rpg_game.constants import *
+from rpg_game.characteristic import Characteristic
 
 
-class Characteristic(object):
-    def __init__(self, name, short, value, _min=3, _max=25):
-        self.name = name
-        self.short = short
-        self._value = value
-        self.bonus = {}
-        self._min = _min
-        self._max = _max
-        self._dmg = 0
-
-    @property
-    def mod(self):
-        return mod(self.value)
-
-    @property
-    def max(self):
-        bonus = sum([b for k, b in self.bonus.items()])
-        v = self._value + bonus
-        return max(self._min, min(self._max, v))
-
-    @property
-    def value(self):
-        bonus = sum([b for k, b in self.bonus.items()])
-        v = self._value + bonus - self._dmg
-        return max(self._min, min(self._max, v))  
-    @value.setter
-    def value(self, value):
-        v = int(round(value))
-        self._value = max(self._min, min(self._max, v))
-    
-    
              
-class Character(object):
-    MAX_RECOIL = 100
-    LONG_RECOIL = 75
-    MED_RECOIL = 50
-    SHORT_RECOIL = 25
-    ACTION_TIME_DEFAULT = 5
-    HP_DMG_MULTI = 0.2
-    HP_DMG_NORM = 100.
-    HB_DMG_MULTI = 0.2
-    HB_DMG_NORM = 100.
-    RECOIL_MULTI = 9. 
-    RECOIL_NORM = 6.
-    LVUP_MULTI = 1000
-
-    def __init__(self, _id, data, location = None):
-        self.id = _id
-        self.name = data["name"]
-        self.redraw = False
-        self.layer = 1
+class Character(entity.Entity):
+    def __init__(self, _direction="right", _stats=None, **kwargs):
+        super().__init__(_layer=1, **kwargs)
         
-        self.location = location
-        if location:
-            free = [(i, j) for j, line in enumerate(self.location.content) for i, l in enumerate(line)  if not l]
-            x, y = random.choice(free)
-            self.position = (x, y)
-            self.location.register(self)
-        else:
-            self.position = (0, 0)
-        self.direction = "right"
+        self.direction = _direction
 
-        _race = random.sample(race.get_player_races(), 1)[0]
-        _job = random.sample(job.get_jobs(), 1)[0]
-        
-        self.description = []
+        self.movement_speed = 1
         self.recoil = 0
         
         self.level = 1
         self.exp = 0
         
-        self.bonus = {}
-        self.immunities = {}
-        self.inventory = []#data["inventory"]
-        self.equipment = {}#data["equipment"] #key = type, value = object
+        self.inventory = location.Inventory(size=4)
+        self.equipment = {"main_hand" : None, "off_hand": None, "helm": None, "body":None, "belt":None, "gloves":None, "ring_1":None, "ring_2":None, "boots":None }
         self.crafting = {}
         #base value is the bare character value, without objects
-        self.HP = Characteristic("hit points", "HP", data["HP"], _min = 0, _max=9999)
+        if not _stats:
+            _stats = random_stats()
+        self.HP = Characteristic("hit points", "HP", _stats["HP"], _min = 0, _max=9999)
         
-        self.CON = Characteristic("constitution", "CON", data["CON"])
-        self.STR = Characteristic("strength", "STR", data["STR"])
-        self.DEX = Characteristic("dexterity", "DEX", data["DEX"])
-        self.CHA = Characteristic("charisma", "CHA", data["CHA"])
-        self.INT = Characteristic("intelligence", "INT", data["INT"])
-        self.WIS = Characteristic("wisdom", "WIS", data["WIS"])
+        self.CON = Characteristic("constitution", "CON", _stats["CON"])
+        self.STR = Characteristic("strength", "STR", _stats["STR"])
+        self.DEX = Characteristic("dexterity", "DEX", _stats["DEX"])
+        self.CHA = Characteristic("charisma", "CHA", _stats["CHA"])
+        self.INT = Characteristic("intelligence", "INT", _stats["INT"])
+        self.WIS = Characteristic("wisdom", "WIS", _stats["WIS"])
+        
+        self.print_action = self._print_action = ""
+        self.print_action_time = self._print_action_time = 0
+        
+        self.game_class = game_class.Warrior()
+        self.actions = self.game_class.actions
+        self.action_counters = {}
+        for key, act in self.actions.items():
+            setattr(self, key, lambda action=act, **kwargs: action.use(self, **kwargs))
+            self.action_counters[key] = 0. 
 
-        self.characteristics = []
-        
-        self.acquiredTargets = []
-        self.print_action = ""
-        self.action_time = 0
-        
-        self.abilities = {"offense" : ability.Attack()}#, "defense" , "recover", "special",'support"
-        #attributes that print the ongoing action
-        
-        self.restore()
-    
     @property
     def con(self):
         return self.CON.value
@@ -122,11 +64,28 @@ class Character(object):
     @property
     def hp(self):
         return self.HP.value
-         
-    
+
     @property
-    def AC(self):
+    def atk(self):
+        return self.STR.mod
+    @property
+    def ac(self):
         return 10 + self.DEX.mod
+    @property
+    def dmg_reduction(self):
+        tot = 0
+        for part, eqp in self.equipment.items():
+            if eqp and hasattr(eqp, "dmg_reduction"):
+                tot += eqp.dmg_reduction
+        return tot
+
+    @property
+    def marker(self):
+        if self.is_dead:
+            return u"☠"
+        if self.action_counters["parry"] > 0:
+            return "X"
+        return {"up":"▲", "down":"▼", "left":"◀", "right":"▶"}[self.direction]
     
     @property
     def recoil(self):
@@ -134,8 +93,29 @@ class Character(object):
 
     @recoil.setter
     def recoil(self, value):
-        self._recoil = min(self.MAX_RECOIL, max(0, value))
-              
+        self._recoil = min(MAX_RECOIL, max(0, value))
+     
+    @property
+    def print_action(self):
+        return self._print_action
+     
+    @print_action.setter
+    def print_action(self, text):
+        self.print_action_time = ACTION_TIME_DEFAULT
+        self._print_action = text
+
+    @property
+    def print_action_time(self):
+        return self._print_action_time
+     
+    @print_action_time.setter
+    def print_action_time(self, value):
+        self._print_action_time = value
+        if self._print_action_time <= 0:
+            self._print_action_time = 0
+            self._print_action = ""
+            self.redraw = True
+
     @property
     def is_dead(self):
         if self.hp <= 0:
@@ -144,23 +124,34 @@ class Character(object):
         
     def on_update(self, DELTATIME):
         if self.is_dead:
-            self.set_death()#should set redraw only if first time death
             return
 
-        if self.action_time > 0:
-            self.action_time -= DELTATIME
-            if self.action_time <= 0:
-                self.action_time = 0
-                self.print_action = ""
-                self.redraw = True
+        if self.print_action_time > 0:
+            self.print_action_time -= DELTATIME
 
         s = int(self.recoil)
         if self.recoil > 0:
-            self.recoil -= self.RECOIL_MULTI * DELTATIME * (1. + self.DEX.mod/self.RECOIL_NORM)
+            self.recoil -= RECOIL_MULTI * DELTATIME
             #redraw only if integer changed, hence nneed to display it  
-            self.redraw = self.redraw or int(self.recoil) < s
-    
+            self.redraw = int(self.recoil) < s
+
+        for key in self.actions:
+            self.actions[key].on_update(DELTATIME)
+            if self.action_counters[key] > 0:
+                self.action_counters[key] -= COUNTER_MULTI * DELTATIME
+                if self.action_counters[key] <= 0:
+                    #self.actions[key].on_end()
+                    self.action_counters[key] = 0
+                    self.redraw = True
+
+    def hit(self, dmg):
+        self.HP._dmg += max(1, dmg - self.dmg_reduction)
+        if self.is_dead:
+            self.set_death()
+
     def set_death(self):
+        self.redraw = True
+        self.location.redraw = True
         self.print_action = f"{self.name} is dead"
       
     def restore(self):
@@ -173,83 +164,75 @@ class Character(object):
           
     def level_up(self):
         self.restore()
-
-    def move(self, direction):
-        self.direction = direction
-        x, y = self.position 
-        new_x = x + int(self.direction=="right") - int(self.direction=="left")
-        new_y = y + int(self.direction=="down") - int(self.direction=="up")
-        if self.location.is_empty((new_x, new_y), self.layer):
-            self.location.clear(self.position, self.layer)
-            self.position = (new_x, new_y)
-            self.location.register(self)
             
     def add_inventory(self, obj):
-        self.inventory.append(obj)
+        free = self.inventory.free_position(_layer=0)
+        if not free:
+            print("Inventory full")
+            return
+        obj.location.unregister(obj)
+        x, y, z = free
+        obj.position = (x, y, z)
+        obj.location = self.inventory
         
     def remove_inventory(self, obj):
-        self.unequip(obj)
-        self.inventory.remove(obj)
+        if obj.is_equipped:
+            for _type in obj.type:
+                if self.equipment[_type] == obj:
+                    self.unequip(_type)
+                    break
+        obj.location.unregister(obj)
+        x, y, z = self.position
+        obj.position = (x, y, 0)
+        obj.location = self.location
             
-    def equip(self, obj):
-        if obj.type in self.equipment:
-            self.equipment[obj.type].on_unequip(self)
-        self.equipment[obj.type] = obj
-        obj.on_equip(self)
+    def equip(self, obj, _type):
+        if _type not in obj.type:
+            return
+        if not obj.is_equipment:
+            return
+        self.unequip(_type)
+        self.equipment[_type] = obj
+        obj.on_equip()
         
-    def unequip(self, obj):
-        if obj.type in self.equipment and self.equipment[obj.type] == obj:
-            self.equipment.pop(obj.type)
-            obj.on_unequip(self)
-    
-    def pickup(self):
-        x, y = self.position
-        target = self.location.content[y][x][0]
-        if isinstance(target, item.Item):
-            self.location.clear(target.position, target.layer)
-            self.add_inventory(target)
-            target.location = self
-
-            self.recoil += self.LONG_RECOIL
-            self.print_action = "Picked up: {}".format(target.name)
-            self.action_time = self.ACTION_TIME_DEFAULT
+    def unequip(self, _type):
+        if self.equipment[_type]:
+            self.equipment[_type].on_unequip()
+        self.equipment[_type] = None
             
 
-    def drop(self, item):
-        x, y = self.position
-        if self.location.is_empty((x, y), 0):
-            item.position = (x, y)
-            self.location.register(item)
-            self.remove_inventory(item)
-            item.location = self.location
-
-            self.recoil += self.MED_RECOIL
-            self.print_action = "Dropped: {}".format(item.name)
-            self.action_time = self.ACTION_TIME_DEFAULT
-        
-           
 class Villain(Character):
     @property
     def marker(self):
-        if self.direction == "up":
-            return "△"
-        elif self.direction == "down":
-            return "▽"
-        elif self.direction == "left":
-            return "◁"
-        elif self.direction == "right":
-            return "▷" 
+        if self.is_dead:
+            return u"☠"
+        if self.action_counters["parry"] > 0:
+            return ("monster", "X")
+        return ("monster", super().marker)
     
-    
-class Player(Character):   
-    @property
-    def marker(self):
-        if self.direction == "up":
-            return "▲"
-        elif self.direction == "down":
-            return "▼"
-        elif self.direction == "left":
-            return "◀"
-        elif self.direction == "right":
-            return "▶"
+
+class Player(Character): 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.chat_sent_log = []
+        self.chat_received_log = []
+
+    def handle_input(self, _input):
+        if _input == "w":
+            self.move_up()
+        elif _input == "s":
+            self.move_down()
+        elif _input == "a":
+            self.move_left()
+        elif _input == "d":
+            self.move_right()
+        elif _input == "p":
+            self.pick_up()
+        elif _input == "l":
+            self.attack()
+        elif _input == "o":
+            self.parry()
+        elif _input == "k":
+            self.fire()
+
 

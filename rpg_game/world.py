@@ -1,28 +1,29 @@
-from os import walk
 import os
-import location, character, random, uuid, item, race, job, inventory
-from rpg_game.utils import quick_data, new_id
-
-RANDOM_NAMES = ("Gimmi", "Renny","Hop","Hip", "Cat", "Batman", "Yitterium", "Micha","Reynolds","Giangi","Paolino","Ventura","Mariachi","Favetti","Orleo","Bissaglia", "Fonzie","Alvarez","Selenio","Paul","Fedor","Gutierrez","Raul Bravo","Ricardo","Lopez","Figueroa","Beniamino", "Gino","Yasser","Gandalf","Komeini","Blasfy","Misfit","Pinto","Cucchi","Monty","Python","Fia Mei","Sean Penn","Pio Nono","Fau","Tella","Suarez","Hannibal","Maori")
+import location, character, random, item, inventory
+from rpg_game.utils import random_stats, random_name
+from rpg_game.world_map import world_map
 
 class World(object):
     def __init__(self):
         self.locations = []
-        self.locations.append(quick_room(self, "base", map_from_file()))
+        self.locations.append(quick_room(self, "base", world_map))
 
     def on_update(self):
         for l in self.locations:
             l.on_update()
 
+def add_inventory(inv, room):
+    inv.location = room
+    free = [(i, j) for j, line in enumerate(room.content) for i, l in enumerate(line)  if not l]
+    x, y = random.choice(free)
+    inv.position = (x, y, 0)
+    room.register(inv)
 
 def quick_room(world, name, _map): 
-    
     r = location.Room(name, _map)
-    sword = inventory.LongSword(location = r)
-    free = [(i, j) for j, line in enumerate(r.content) for i, l in enumerate(line)  if not l]
-    x, y = random.choice(free)
-    sword.position = (x, y)
-    r.register(sword)
+    long_sword = inventory.LongSword(_location=r)
+    chain_armor = inventory.ChainArmor(_location=r)
+    
     #r.inventory.append(inventory.FuryArmor(location = r))
     # r.inventory.append(inventory.ChainArmor(location = r))
     # r.inventory.append(inventory.LongSword(location = r))
@@ -33,25 +34,12 @@ def quick_room(world, name, _map):
     # r.inventory.append(inventory.JacksonBelt(location = r))
     # r.inventory.append(inventory.JacksonBoots(location = r))
     # for i in range(random.randint(0,1)):
-    v = quick_villain(location = r)
-    r.register(v)
+    v = quick_villain(_location = r)
     return r
 
-def quick_villain(location = None):
-    return character.Villain(new_id(), quick_data(), location = location)
+def quick_villain(_location = None):
+    return character.Villain(_name=random_name(), _stats=random_stats(), _location = _location)
 
-def map_from_file(filename = "map.txt"):
-    map_path = "/Users/alessandro.ricottone/Desktop/personal/coding/twissh/twissh/rpg_game/"
-    with open(map_path + filename, "r") as f:
-        _map = f.readlines()
-    return [line.rstrip('\n') for line in _map]
-
-def map_starting_position(_map):
-    for y, m in enumerate(_map):
-        x = m.find("P")
-        if x >= 0: 
-            return (x, y)
-    return (0, 0)
-
-if __name__ == "__main__":
-    w = World()
+# def map_from_file(filename = "map.txt"):
+#     _map = world_map.split('\n')
+#     return [line.rstrip('\n') for line in _map]
