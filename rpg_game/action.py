@@ -7,7 +7,7 @@ class Action(object):
     """implements rigid body properties"""
     name = ""
     recoil_cost = 0
-    description = [""]
+    description = ""
 
     @classmethod
     def use(cls):
@@ -20,7 +20,7 @@ class Action(object):
         pass
 
     @classmethod
-    def on_update(cls, DELTATIME):
+    def on_update(cls, user, DELTATIME):
         """On update effects"""
         pass
 
@@ -38,14 +38,14 @@ class Action(object):
     def action_direction(cls, user):
         x, y, z = user.position
         xt, yt, zt = cls.target_square(user)
-        if (xt > x) and (yt == y):
-            return "left"
-        elif (xt < x) and (yt == y):
-            return "right"
-        elif (xt == x) and (yt > y):
+        if (xt < x) and (yt == y):
+            return "down"
+        elif (xt > x) and (yt == y):
             return "up"
         elif (xt == x) and (yt < y):
-            return "down"
+            return "right"
+        elif (xt == x) and (yt > y):
+            return "left"
 
     @classmethod
     def target(cls, user):
@@ -54,60 +54,118 @@ class Action(object):
 
 
     @classmethod
-    def is_legal(cls, user):
+    def requisites(cls, user):
         """Defines action legality"""
-        return user.recoil == 0
+        return user.recoil == 0 and not user.is_dead
 
 class Move(Action):
     name = "move"
     recoil_cost = SHORT_RECOIL
-    description = ["Step forward"]
+    description = "Move forward"
     direction = None
 
     @classmethod
-    def is_legal(cls, user, target):
+    def requisites(cls, user):
         """Defines action legality"""
-        return super().is_legal(user) and not target
+        return user.movement_recoil == 0 and not user.is_dead
 
     @classmethod
     def use(cls, user):
+        if not cls.requisites(user):
+            return
         if user.direction != cls.direction:
             #turning cost no recoil
+            #user.movement_recoil += MIN_RECOIL
             user.direction = cls.direction
             user.location.redraw = True
-        target = cls.target(user)
-        if cls.is_legal(user, target):
-            user.location.clear(user.position)
-            user.position = cls.target_square(user)
-            user.location.register(user)
-            user.recoil += cls.recoil_cost / user.movement_speed
+        else:
+            user.direction = cls.direction
+            delta_x = int(user.direction=="down") - int(user.direction=="up")
+            delta_y = int(user.direction=="right") - int(user.direction=="left")
+            for xp, yp, zp in user.positions:
+                t = user.location.get((delta_x+xp, delta_y+yp, zp))
+                if t not in (None, user):
+                    return
+            x, y, z = user.position
+            user.position = (x + delta_x, y + delta_y, z)
+            user.recoil += MIN_RECOIL
+            user.movement_recoil += SHORTER_RECOIL
+
 
 class MoveUp(Move):
     name = "move_up"
-    description = ["Step up"]
+    description = "Move up"
     direction = "up"
 
 class MoveDown(Move):
     name = "move_down"
-    description = ["Step down"]
+    description = "Move down"
     direction = "down"
 
 class MoveLeft(Move):
     name = "move_left"
-    description = ["Step left"]
+    description = "Move left"
     direction = "left"
 
 class MoveRight(Move):
     name = "move_right"
-    description = ["Step right"]
+    description = "Move right"
     direction = "right"
 
-    
+class Dash(Action):
+    name = "dash"
+    recoil_cost = SHORT_RECOIL
+    description = "Dash forward"
+    direction = None
+
+    @classmethod
+    def requisites(cls, user):
+        """Defines action legality"""
+        return user.movement_recoil == 0 and not user.is_dead
+
+    @classmethod
+    def use(cls, user):
+        if not cls.requisites(user):
+            return
+        
+        user.direction = cls.direction
+        delta_x = int(user.direction=="down") - int(user.direction=="up")
+        delta_y = int(user.direction=="right") - int(user.direction=="left")
+        for xp, yp, zp in user.positions:
+            t = user.location.get((delta_x+xp, delta_y+yp, zp))
+            if t not in (None, user):
+                return
+        x, y, z = user.position
+        user.position = (x + delta_x, y + delta_y, z)
+        user.recoil += SHORTER_RECOIL
+        user.movement_recoil += SHORTER_RECOIL/user.movement_speed
+
+
+class DashUp(Dash):
+    name = "dash_up"
+    description = "Dash up"
+    direction = "up"
+
+class DashDown(Dash):
+    name = "dash_down"
+    description = "Dash down"
+    direction = "down"
+
+class DashLeft(Dash):
+    name = "dash_left"
+    description = "Dash left"
+    direction = "left"
+
+class DashRight(Dash):
+    name = "dash_right"
+    description = "Dash right"
+    direction = "right"
+
 
 class PickUp(Action):
     name = "pick_up"
     recoil_cost = MED_RECOIL
-    description = ["Pick up item"]
+    description = "Pick up item"
 
     @classmethod
     def target_square(cls, user):
@@ -116,14 +174,14 @@ class PickUp(Action):
         return (x, y, 0)
 
     @classmethod
-    def is_legal(cls, user, target):
+    def requisites(cls, user, target):
         """Defines action legality"""
-        return super().is_legal(user) and isinstance(target, item.Item)
+        return super().requisites(user) and isinstance(target, item.Item)
 
     @classmethod
     def use(cls, user):
         target = cls.target(user)
-        if cls.is_legal(user, target):
+        if cls.requisites(user, target):
             user.add_inventory(target)
             user.recoil += cls.recoil_cost
             user.print_action = "Picked up: {}".format(target.name)
@@ -132,7 +190,7 @@ class PickUp(Action):
 class Drop(Action):
     name = "drop"
     recoil_cost = SHORT_RECOIL
-    description = ["Drop item"]
+    description = "Drop item"
 
     @classmethod
     def target_square(cls, user):
@@ -141,16 +199,16 @@ class Drop(Action):
         return (x, y, 0)
 
     @classmethod
-    def is_legal(cls, user, target, obj):
+    def requisites(cls, user, target, obj):
         """Defines action legality"""
-        return super().is_legal(user) and not target and isinstance(obj, item.Item)
+        return super().requisites(user) and not target and isinstance(obj, item.Item)
 
     @classmethod
     def use(cls, user, obj=None):
         if not obj:
             return
         target = cls.target(user)
-        if cls.is_legal(user, target, obj):
+        if cls.requisites(user, target, obj):
             user.remove_inventory(obj)
             user.recoil += cls.recoil_cost
             user.print_action = "Dropped: {}".format(obj.name)
@@ -158,18 +216,18 @@ class Drop(Action):
 class Attack(Action):
     name = "attack"
     recoil_cost = LONG_RECOIL
-    description = ["Basic attack"]
+    description = "Attack"
 
     @classmethod
-    def is_legal(cls, user, target):
+    def requisites(cls, user, target):
         """Defines action legality"""
-        return super().is_legal(user) and isinstance(target, character.Character)
+        return super().requisites(user) and isinstance(target, character.Character)
 
     @classmethod
     def use(cls, user):
         weapon = user.equipment["main_hand"]#use weapon range
         target = cls.target(user)
-        if cls.is_legal(user, target):
+        if cls.requisites(user, target):
             user.recoil += cls.recoil_cost
             if target.is_dead:
                 user.print_action = f"Attack {target.name}: it's already dead!"
@@ -182,6 +240,8 @@ class Attack(Action):
                 num, dice = (1, 4)
 
             r = roll1d20()
+            print("ATTACK", cls.action_direction(user), target.direction)
+            user.action_marker = {"up":"⩓", "down":"⩔", "left":"⪡", "right":"⪢", "time":SHORT_RECOIL}
             if r == 20:
                 dmg = max(1, roll(num, dice) + roll(num, dice) + base)
                 target.hit(dmg)
@@ -199,36 +259,36 @@ class Attack(Action):
 
 class Parry(Action):
     name = "parry"
-    recoil_cost = SHORT_RECOIL
-    description = ["Parry attacks"]
+    description = "Parry"
     #PARRY_INTERVAL = 5#for testing, should be 1
 
     @classmethod
-    def is_legal(cls, user):
+    def requisites(cls, user):
         """Defines action legality"""
-        return super().is_legal(user) and user.action_counters["parry"] == 0
+        return super().requisites(user) and user.action_counters["parry"] == 0 and isinstance(user.equipment["off_hand"], item.Shield)
 
     @classmethod
     def use(cls, user):
-        if cls.is_legal(user):
-            user.action_counters["parry"] += cls.recoil_cost
-            user.recoil += cls.recoil_cost
+        if cls.requisites(user):
+            user.action_counters["parry"] += SHORT_RECOIL
+            user.recoil += MED_RECOIL
+            user.action_marker = {"up":"◠", "down":"◡", "left":"(", "right":")", "time":SHORT_RECOIL}
 
-class Fire(Action):
-    name = "fire"
+class Arrow(Action):
+    name = "arrow"
     recoil_cost = LONG_RECOIL
-    description = ["Fire arrow"]
+    description = "Fire arrow"
     #PARRY_INTERVAL = 5#for testing, should be 1
 
     @classmethod
-    def is_legal(cls, user):
+    def requisites(cls, user):
         """Defines action legality"""
-        return super().is_legal(user) and user.location.is_empty(user.forward)
+        return super().requisites(user) and user.location.is_empty(user.forward) and isinstance(user.equipment["main_hand"], item.Bow)
 
     @classmethod
     def hit(cls, proj):
         num, dice = (1, 4)
-        base = 0
+        base = proj.spawner.DEX.mod
         target = proj.location.get(proj.forward)
         if not isinstance(target, character.Character):
             return
@@ -237,7 +297,7 @@ class Fire(Action):
             dmg = max(1, roll(num, dice) + roll(num, dice) + base)
             target.hit(dmg)
             proj.spawner.print_action = f"Attack {target.name}: critical! {dmg} damage{'s'*int(dmg>1)}!"
-        elif target.action_counters["parry"]>0:# and target.direction == cls.action_direction(proj):
+        elif target.action_counters["parry"]>0 and target.direction == cls.action_direction(proj):
             proj.spawner.print_action = f"Attack {target.name}: blocked!"
             target.print_action = f"Parry {proj.spawner.name}\'s arrow!"
             target.action_counters["parry"] = 0
@@ -250,8 +310,85 @@ class Fire(Action):
 
     @classmethod
     def use(cls, user):
-        if cls.is_legal(user):
-            proj = entity.Projectile(_spawner = user, _direction=user.direction, _position=user.forward, _location=user.location, _on_hit=cls.hit)
+        if cls.requisites(user):
+            proj = entity.Arrow(_spawner = user, _on_hit=cls.hit)
             user.recoil += cls.recoil_cost
+
+class FireBall(Action):
+    name = "fire"
+    recoil_cost = MAX_RECOIL
+    description = "Just cast fireball"
+
+    @classmethod
+    def requisites(cls, user):
+        """Defines action legality"""
+        return super().requisites(user) and user.location.is_empty(user.forward)
+
+    @classmethod
+    def hit(cls, proj):
+        num, dice = (proj.fragment, 6)
+        base = 0
+        target = proj.location.get(proj.forward)
+        if isinstance(target, character.Character):
+            dmg = max(1, roll(num, dice) + base)
+            target.hit(dmg)
+            proj.spawner.print_action = f"FIREBALL in {target.name}\'s face: {dmg} damage{'s'*int(dmg>1)}!"
+        
+        if proj.fragment > 1:
+            px, py, pz = proj.position
+            print("SPLITTIN AT", proj.position)
+            extra_pos = {"up": (-1, 0), "down": (1, 0), "left": (0, -1), "right": (0, 1)}
+            for direction in extra_pos:
+                x, y = extra_pos[direction]
+                new_pos = (x+px, y+py, pz)
+                if proj.location.is_empty(new_pos):
+                    frag = entity.FireBall(_spawner = proj.spawner, _on_hit=cls.hit, _direction=direction, _position=new_pos, _fragment = proj.fragment - 1, _location=proj.location)
+                    frag.max_range = frag.fragment
+
+    @classmethod
+    def use(cls, user):
+        if cls.requisites(user):
+            proj = entity.FireBall(_spawner = user, _on_hit=cls.hit, _direction=user.direction, _position=user.forward, _fragment = user.INT.mod + 1)
+            user.recoil += cls.recoil_cost
+
+class Teleport(Action):
+    name = "teleport"
+    recoil_cost = MAX_RECOIL
+    description = "Teleport"
+
+    @classmethod
+    def use(cls, user):
+        if cls.requisites(user):
+            x, y, z = user.position
+            new_pos = user.location.free_position(_layer=z)
+            if new_pos:
+                user.position = new_pos
+                user.recoil += cls.recoil_cost
+
+class Hide(Action):
+    name = "hide"
+    recoil_cost = MIN_RECOIL
+    description = "Hide in shadows"
+
+    @classmethod
+    def on_update(cls, user, DELTATIME):
+        """On update effects"""
+        if user.action_counters["hide"] > 0:
+            user.recoil += DELTATIME * (1 + cls.recoil_cost)
+
+    @classmethod
+    def requisites(cls, user):
+        """Defines action legality"""
+        return super().requisites(user) and user.action_counters["hide"] == 0 and not user.equipment["body"]
+
+    @classmethod
+    def use(cls, user):
+        if cls.requisites(user):
+            user.action_counters["hide"] = MAX_RECOIL
+            user.recoil += MED_RECOIL
+            user.action_marker = {"up":" ", "down":" ", "left":" ", "right":" ", "time":MAX_RECOIL}
+        elif user.action_counters["hide"] > 0:
+            user.action_counters["hide"] = 0
+            user.action_marker = {}
 
 

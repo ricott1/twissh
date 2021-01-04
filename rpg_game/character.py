@@ -1,19 +1,15 @@
 import random,os, math, time
-import action, location, item, game_class, entity
+import action, location, item, entity
 from rpg_game.utils import log, mod, roll, random_name, random_stats
 from rpg_game.constants import *
 from rpg_game.characteristic import Characteristic
+from rpg_game.game_class import *
 
 
              
-class Character(entity.Entity):
+class Character(entity.ActingEntity):
     def __init__(self, _direction="right", _stats=None, **kwargs):
         super().__init__(_layer=1, **kwargs)
-        
-        self.direction = _direction
-
-        self.movement_speed = 1
-        self.recoil = 0
         
         self.level = 1
         self.exp = 0
@@ -24,20 +20,21 @@ class Character(entity.Entity):
         #base value is the bare character value, without objects
         if not _stats:
             _stats = random_stats()
-        self.HP = Characteristic("hit points", "HP", _stats["HP"], _min = 0, _max=9999)
+        self.HP = Characteristic(self, "hit points", "HP", _stats["HP"], _min = 0, _max=9999)
         
-        self.CON = Characteristic("constitution", "CON", _stats["CON"])
-        self.STR = Characteristic("strength", "STR", _stats["STR"])
-        self.DEX = Characteristic("dexterity", "DEX", _stats["DEX"])
-        self.CHA = Characteristic("charisma", "CHA", _stats["CHA"])
-        self.INT = Characteristic("intelligence", "INT", _stats["INT"])
-        self.WIS = Characteristic("wisdom", "WIS", _stats["WIS"])
+        self.CON = Characteristic(self, "constitution", "CON", _stats["CON"])
+        self.STR = Characteristic(self, "strength", "STR", _stats["STR"])
+        self.DEX = Characteristic(self, "dexterity", "DEX", _stats["DEX"])
+        self.CHA = Characteristic(self, "charisma", "CHA", _stats["CHA"])
+        self.INT = Characteristic(self, "intelligence", "INT", _stats["INT"])
+        self.WIS = Characteristic(self, "wisdom", "WIS", _stats["WIS"])
         
         self.print_action = self._print_action = ""
         self.print_action_time = self._print_action_time = 0
-        self.actions = {}
-        self.action_counters = {}
-        self.game_class = game_class.Warrior()
+        self.action_marker = {}
+        
+        self.status_counters = {}
+        self.movement_speed = 2.5
 
     @property
     def con(self):
@@ -83,25 +80,21 @@ class Character(entity.Entity):
     def game_class(self, value):
         self._game_class = value
         self.actions = self.game_class.actions
+        self.class_actions = self.game_class.class_actions
         for key, act in self.actions.items():
-            setattr(self, key, lambda action=act, **kwargs: action.use(self, **kwargs))
-            self.action_counters[key] = 0. 
+            if key not in self.action_counters:
+                self.action_counters[key] = 0. 
 
     @property
     def marker(self):
         if self.is_dead:
-            return u"☠"
-        if self.action_counters["parry"] > 0:
-            return "X"
-        return {"up":"▲", "down":"▼", "left":"◀", "right":"▶"}[self.direction]
-    
-    @property
-    def recoil(self):
-        return self._recoil
-
-    @recoil.setter
-    def recoil(self, value):
-        self._recoil = min(MAX_RECOIL, max(0, value))
+            m = "X"
+        elif self.action_marker:
+            #m = {"up":"⨪", "down":"ꜙ", "left":"꜏", "right":"꜊"}[self.direction]
+            m = self.action_marker[self.direction]
+        else:
+            m = {"up":"▲", "down":"▼", "left":"◀", "right":"▶"}[self.direction]
+        return [m for _ in self.positions]
      
     @property
     def print_action(self):
@@ -133,25 +126,26 @@ class Character(entity.Entity):
     def on_update(self, _deltatime):
         self.redraw = False
         if self.is_dead:
-            return
+            self.status_counters["dead"] -= COUNTER_MULTI * _deltatime
+            if self.status_counters["dead"] <=0:
+                self.destroy()
+                return
+
+        super().on_update(_deltatime)
 
         if self.print_action_time > 0:
             self.print_action_time -= _deltatime
+        if self.action_marker:
+            self.action_marker["time"] -= _deltatime
+            if self.action_marker["time"] <=0:
+                self.action_marker = {}
 
-        s = int(self.recoil)
-        if self.recoil > 0:
-            self.recoil -= RECOIL_MULTI * _deltatime
-            #redraw only if integer changed, hence nneed to display it  
-            self.redraw = int(self.recoil) < s
-
-        for key in self.actions:
-            self.actions[key].on_update(_deltatime)
-            if self.action_counters[key] > 0:
-                self.action_counters[key] -= COUNTER_MULTI * _deltatime
-                if self.action_counters[key] <= 0:
+        for key in self.status_counters:
+            if self.status_counters[key] > 0:
+                self.status_counters[key] -= COUNTER_MULTI * _deltatime
+                if self.status_counters[key] <= 0:
                     #self.actions[key].on_end()
-                    self.action_counters[key] = 0
-                    self.redraw = True
+                    self.status_counters[key] = 0
 
     def hit(self, dmg):
         self.HP._dmg += max(1, dmg - self.dmg_reduction)
@@ -162,6 +156,7 @@ class Character(entity.Entity):
         self.redraw = True
         self.location.redraw = True
         self.print_action = f"{self.name} is dead"
+        self.status_counters["dead"] = DEATH_INTERVAL
       
     def restore(self):
         self.HP._dmg = 0
@@ -179,9 +174,8 @@ class Character(entity.Entity):
         if not free:
             print("Inventory full")
             return
-        obj.location.unregister(obj)
-        x, y, z = free
-        obj.position = (x, y, z)
+        # obj.location.unregister(obj)
+        obj.position = free
         obj.location = self.inventory
         
     def remove_inventory(self, obj):
@@ -190,7 +184,7 @@ class Character(entity.Entity):
                 if self.equipment[_type] == obj:
                     self.unequip(_type)
                     break
-        obj.location.unregister(obj)
+        # obj.location.unregister(obj)
         x, y, z = self.position
         obj.position = (x, y, 0)
         obj.location = self.location
@@ -203,6 +197,7 @@ class Character(entity.Entity):
         self.unequip(_type)
         self.equipment[_type] = obj
         obj.on_equip()
+        print("EQUPP", self.STR.bonus, self.equipment[_type].bonus)
         
     def unequip(self, _type):
         if self.equipment[_type]:
@@ -211,42 +206,48 @@ class Character(entity.Entity):
             
 
 class Villain(Character):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.game_class = Monster()
+
     @property
     def marker(self):
-        if self.is_dead:
-            return u"☠"
-        if self.action_counters["parry"] > 0:
-            return ("monster", "X")
-        return ("monster", super().marker)
+        return [("monster", m) for m in super().marker]
 
     def on_update(self, _deltatime):
         super().on_update(_deltatime)
-        if self.recoil ==0:
-            self.parry()
+        if self.recoil == 0 and not self.is_dead and random.random() < 0.01:
+            return
+            {"up":action.MoveUp, "down":action.MoveDown, "left":action.MoveLeft, "right":action.MoveRight}[self.direction].use(self)
     
 
 class Player(Character): 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, _game_class, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        try:
+            self.game_class = globals()[_game_class]()
+        except:
+            self.game_class = game_class.Monster()
         self.chat_sent_log = []
         self.chat_received_log = []
+        self.input_map = {
+            "w": "move_up",
+            "s": "move_down",
+            "a": "move_left",
+            "d": "move_right",
+            "W": "dash_up",
+            "S": "dash_down",
+            "A": "dash_left",
+            "D": "dash_right",
+            "p": "pick_up",
+            "l": "attack"}
+
+        extra_keys = ["o", "k", "j"]
+        for i, act in enumerate(self.class_actions):
+            self.input_map[extra_keys[i]] = act
 
     def handle_input(self, _input):
-        if _input == "w":
-            self.move_up()
-        elif _input == "s":
-            self.move_down()
-        elif _input == "a":
-            self.move_left()
-        elif _input == "d":
-            self.move_right()
-        elif _input == "p":
-            self.pick_up()
-        elif _input == "l":
-            self.attack()
-        elif _input == "o":
-            self.parry()
-        elif _input == "k":
-            self.fire()
-
-
+        if _input in self.input_map:
+            action = self.input_map[_input]
+            if action in self.actions:
+                self.actions[action].use(self)

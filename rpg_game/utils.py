@@ -36,6 +36,9 @@ def mod(value):
     elif (value >= 13): return 1
     return 0
 
+def distance(a, b):
+    return sum([(a[i]-b[i])**2 for i in range(len(a))])**0.5
+
 def log(text):
     with open("log.tiac", "a") as f:
         f.write("{}: {}\n".format(time.time(), text))

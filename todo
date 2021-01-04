@@ -2,14 +2,8 @@ access to race and job screens, access monster status
 file generates monsters, treasures etc procedurally
 just implement od&d rules
 
-use components:
-
-BODY (self.HP, isWalkable, position, location, weight)
-DESCRIPTION (description, marker)
---> Item, Character, Wall
-
-LOCATION
---> Room, Inventory
+spalsh screen with vta and class selection
+add movement recoil, possible to move even with recoil0 but if recoil recheaes max thenn slow_recovery = true
 
 possible apps:
 chat room a la IRC

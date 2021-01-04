@@ -20,12 +20,17 @@ PALETTE = [
             ("player", "light green", "black"),
             ("other", "light blue", "black"),
             ("monster", "dark red", "black"),
+            ("fatigued", "dark red", "white", "standout"),
             ("reversed", "standout", ""),
             ("common","white","black"),
             ("uncommon","light blue","black"),
             ("rare","yellow","black"),
             ("unique","light magenta","black"),
             ("set","light green","black"),
+            ("normal","white","black"),
+            ("positive","light green","black"),
+            ("negative","dark red","black"),
+            ("red","dark red","black"),
             ]
 HEALTH_BARS_LENGTH = RECOIL_BARS_LENGTH = 15
 
@@ -80,7 +85,8 @@ class UiFrame(urwid.Frame):
 
 class GUI(UiFrame):
     def __init__(self, parent, mind):
-        self.active_body = GameFrame(self, mind)
+        self.bodies = {b : globals()[f"{b}Frame"](self, mind) for b in ("Intro", "Game")}
+        self.active_body = self.bodies["Intro"]
         super().__init__(parent, mind, self.active_body)
 
     def on_update(self):
@@ -93,6 +99,28 @@ class GUI(UiFrame):
         self.disconnect()
         self.mind.disconnect()#should use dispatch event
   
+class IntroFrame(UiFrame):
+    def __init__(self, parent, mind):
+        line = [urwid.Text("Choose your class")]            
+        btn = create_button("Warrior", self.select_class, user_args=["Warrior"])
+        line.append(btn)
+        btn = create_button("Novice", self.select_class, user_args=["Novice"])
+        line.append(btn)
+        btn = create_button("Thief", self.select_class, user_args=["Thief"])
+        line.append(btn)
+        listbox = SelectableListBox(urwid.SimpleListWalker(line))
+        self.listbox = listbox.body
+        super().__init__(parent, mind, listbox)
+
+    def select_class(self, _class, button):
+        self.mind.master.new_player(self.mind.avatar.uuid, _class)
+        self.parent.update_body("Game")
+
+    # def handle_input(self, _input):
+    #     if _input == "w":
+    #         self.body.focus_previous() 
+    #     elif _input == "s":
+    #         self.body.focus_next()
 
 class GameFrame(UiFrame):
     def __init__(self, parent, mind):
@@ -131,7 +159,10 @@ class GameFrame(UiFrame):
         #         self.active_body.focus_previous() 
         #     elif self.focus_position == "footer":
         #         self.footer.focus_previous()
-        if _input == "down":
+        if _input == "tab":
+            self.focus_position = "body"
+            self.update_body("Map")
+        elif _input == "down":
             self.focus_position = "header"
             self.header_widget.focus_previous() 
         elif _input == "up":
@@ -191,7 +222,9 @@ class MapFrame(UiFrame):
         visible_map = [line for j, line in enumerate(_map) if abs(x-j)<widget_height//2]
         
         #color player cursor
-        visible_map[x][y] = ("player", self.player.marker)
+        for m, p in zip(self.player.marker, self.player.positions):
+            x, y, z = p
+            visible_map[x][y] = ("player", m)
 
         # #color (other) active player cursor
         # index = self.parent.header_widget.focus_position
@@ -220,7 +253,7 @@ class InventoryFrame(UiFrame):
             self.state = "normal"
             
         def drop_item(item, button):
-            self.player.drop(obj=item)
+            self.player.actions["drop"].use(self.player, obj=item)
             
         # def send_equip(item, button):
         #     if not item.is_equipped:
@@ -236,12 +269,12 @@ class InventoryFrame(UiFrame):
             for i in items:   
                 line = []            
                 btn = create_button(i.name, show_item, attr=i.rarity, user_args = [i])
-                line.append((22, btn))
+                line.append((20, btn))
                 if i.is_equipment:
-                    description = urwid.Text((" - {} {}".format(i.eq_description, "(eq)"*int(i.is_equipped))))
+                    description = urwid.Text(f"- {i.eq_description}")
                 else:
-                    description = urwid.Text()
-                line.append((38, description))
+                    description = urwid.Text(f"- {i.description}")
+                line.append((32, description))
                 
                 
                 # if i.is_equipment:
@@ -257,11 +290,12 @@ class InventoryFrame(UiFrame):
                 #     else:
                 #         bequip = urwid.Button("Not Equipable") 
                 #         bequip._label.align = 'center'                
+                   
+                bdrop = create_button("Drop", drop_item, user_args = [i])
+                line.append((8, bdrop))
                 if i.is_consumable:
                     btn = create_button("Use", lambda obj=i:obj.on_use)  
-                    line.append((18, btn))   
-                bdrop = create_button("Drop", drop_item, user_args = [i])
-                line.append((12, bdrop))
+                    line.append((8, btn))
                 
                 columns = SelectableColumns(line, dividechars=2)
                 try:
@@ -369,26 +403,34 @@ class StatusFrame(UiFrame):
     def on_update(self):
         index = self.parent.header_widget.focus_position
         players = [p for i, p in self.mind.master.players.items()]
+        if not players:
+            return
         player = players[index]
         
-        data = []
-        data.append(f" {player.name:<20s} Lev:{player.level:<2d} Exp:{player.exp:<6d} {player.location.name}\n")
-        data.append(f"╭──────────────────────╮")
-        data.append(f"│ Strength     {player.str:>2d} ({player.STR.mod:<+2d}) │")
-        data.append(f"│ Intelligence {player.int:>2d} ({player.INT.mod:<+2d}) │")
-        data.append(f"│ Wisdom       {player.wis:>2d} ({player.WIS.mod:<+2d}) │")
-        data.append(f"│ Constitution {player.con:>2d} ({player.CON.mod:<+2d}) │")
-        data.append(f"│ Dexterity    {player.dex:>2d} ({player.DEX.mod:<+2d}) │")
-        data.append(f"│ Charisma     {player.cha:>2d} ({player.CHA.mod:<+2d}) │")
-        data.append(f"╰──────────────────────╯")
+        
+        _top = f" {player.name:<20s} {player.game_class.name:>12s} Lev:{player.level:<2d} Exp:{player.exp:<6d} {player.location.name}\n"
 
+        _left = []
+        _left.append(f"╭──────────────────────╮\n")
+
+        for s in ["STR", "INT", "WIS", "CON", "DEX", "CHA"]:
+            c = getattr(player, s)
+            state = ["normal", "positive", "negative"][-int(c.bonus < 0) + int(c.bonus > 0)]
+            _left += [f"│ {c.name:<12} ", (state, f"{c.value:>2d}"), f" ({c.mod:<+2d}) │\n"]
         
-        data.append(f"╭──────────────────────╮")
-        data.append(f"│ Dmg reduction   {player.dmg_reduction:>2d}   │")
-        data.append(f"╰──────────────────────╯")
+        _left.append(f"╰──────────────────────╯\n")
+        _left.append(f"╭──────────────────────╮\n")
+        _left.append(f"│ Dmg reduction   {player.dmg_reduction:>2d}   │\n")
+        _left.append(f"╰──────────────────────╯\n")
         
-        widgets = [urwid.Text(d) for d in data]
-        self.box[:] = widgets
+
+        _right = []
+        for k, act in player.input_map.items():
+            if act in player.actions:
+                _right.append(f"{k}: {player.actions[act].description}\n")
+
+
+        self.box[:] = [urwid.Text(_top), urwid.Columns([urwid.Text(_left), urwid.Text(_right)], dividechars = 2) ]
        
 class ChatFrame(UiFrame):
     def __init__(self, parent, mind):
@@ -428,7 +470,7 @@ class ChatFrame(UiFrame):
 
             if text.strip():
                 self.print_sent_message(text)
-                self.player.chat_sent_log.append({"sender":self.player.name, "time":time.time(), "text":text})
+                self.player.chat_sent_log.append({"sender_id":self.player.id, "sender":self.player.name, "time":time.time(), "text":text})
 
     def print_sent_message(self, text):
         self.output_walker.append(urwid.AttrMap(urwid.Text(f'You: {text}'), "uncommon"))
@@ -561,6 +603,8 @@ def print_status(char):
                 
         if char.is_dead:
             h = u"☠"
+        elif char.slow_recovery:
+            h = u"f"
         #elif char.is_dreaming:
         #     h = u"☾"
         # elif char.is_shocked:
