@@ -1,29 +1,3 @@
-from rpg_game.constants import *
-
-class Counter(object):
-    def __init__(self, name=None, entity=None, on_end=lambda:None)
-        self.name = name
-        self.entity = entity
-        self._value = value
-        self.on_end = on_end
-
-    def on_set(self, *args):
-        pass
-
-    def on_update(self, *args):
-        if self.value > 0:
-            self.value -= COUNTER_MULTI * _deltatime
-            if self.value == 0:
-                self.on_end()
-
-    @property
-    def value(self):
-        return self._value  
-
-    @value.setter
-    def value(self, val):
-        self._value = max(0, min(COUNTER_MAX, val))
-        
 
 class Component(object):
     """docstring for Component"""
@@ -105,8 +79,7 @@ class HitBox(Component):
     def __init__(self, entity, _hp = 10):
         import characteristic
         super().__init__(name="hit_box", entity=entity)
-        self.HP = Characteristic("hit points", "HP", _hp, _min = 0, _max=9999)  
-        self.counters = {"dead":Counter(name="dead", entity=entity, on_end=lambda : self.entity.destroy)}    
+        self.HP = Characteristic("hit points", "HP", _hp, _min = 0, _max=9999)   
 
     def on_set(self):
         setattr(self.entity, "dmg_reduction", property(self.HP.dmg_reduction))
@@ -120,11 +93,6 @@ class HitBox(Component):
         if self.entity.is_dead:
             self.set_death()
 
-    def set_death(self):
-        self.entity.redraw = True
-        self.entity.print_action = f"{self.entity.name} is dead"
-        self.counters["dead"] = DEATH_INTERVAL
-
     def dmg_reduction(self):
         tot = 0
         for part, eqp in self.entity.equipment.items():
@@ -133,11 +101,11 @@ class HitBox(Component):
         return tot
        
 class MovingBody(Component):
- 	"""docstring for ClassName"""
- 	def __init__(self, entity):
- 		super().__init__(name="body", entity=entity)
- 		self.direction = "down"
- 		self.actions = {"move_up": action.MoveUp, "move_down": action.MoveDown, "move_left": action.MoveLeft, "move_right": action.MoveRight}
+    """docstring for ClassName"""
+    def __init__(self, entity):
+        super().__init__(name="body", entity=entity)
+        self.direction = "down"
+        self.actions = {"move_up": action.MoveUp, "move_down": action.MoveDown, "move_left": action.MoveLeft, "move_right": action.MoveRight}
 
         self.counters = {key:Counter(name=key, entity=entity) for key in self.actions}
 

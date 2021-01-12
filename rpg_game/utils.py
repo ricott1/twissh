@@ -1,6 +1,8 @@
-import uuid, random
+import uuid, random, collections
 
 RANDOM_NAMES = ("Gorbacioff", "Gundam", "Pesca", "Lukiko","Armando","Mariella","Formaggio","Pancrazio","Tancredi","Swallace","Faminy","Pertis","Pericles","Atheno","Mastella","Ciriaco")
+
+nested_dict = lambda: collections.defaultdict(nested_dict)
 
 def roll3d6():
 	return sum([random.randint(1,6) for _ in range(3)])

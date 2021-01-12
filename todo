@@ -1,32 +1,16 @@
 access to race and job screens, access monster status
-file generates monsters, treasures etc procedurally
-just implement od&d rules
-
-spalsh screen with vta and class selection
-add movement recoil, possible to move even with recoil0 but if recoil recheaes max thenn slow_recovery = true
-
-possible apps:
-chat room a la IRC
-Radio over ssh
-game
 
 
-## Radio
+attacco furtivo
+stop time
+costruire muri usando risorse
+enchant weapons
 
-ssh <user>@<host> "wget <stream> -O -" | mplayer -cache 512 -
-
-ssh r1.scenesat.com "wget album/the-sound-of-scenesat-volume-5 -O -" | mplayer -cache 512 -
-
-https://music.scenesat.com/album/the-sound-of-scenesat-volume-5
-The subtleties:
-
-wget's -O (capital letter oh) option sets its output file; - (dash) implies stdout.
-
-mplayer's -cache option causes a configurable amount of input to be buffered, compensating for network jitter. The - (dash) option makes it read from stdin.
-
-Try streaming SceneSat Radio, for example. http://r1.scenesat.com:8000/scenesat
-
-https://archive-server.liveatc.net/klax/KLAX-Final-Aug-31-2020-0130Z.mp3
+use markers central file and constants
+wall dmg markers
+dwarf, extra dmg to walls
+add build house, enabling saving
+in house, no updates
 
 
-wget https://archive-server.liveatc.net/klax/KLAX-Final-Aug-31-2020-0130Z.mp3 -O - | mplayer -cache 512 -
+https://www.compart.com/en/unicode/category/So

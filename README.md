@@ -1,6 +1,6 @@
 ## Start twistd server
 
-`twistd -ny twissh.tac`
+`./run.sh`
 
 ## Connect
 

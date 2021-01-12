@@ -1,15 +1,25 @@
-from rpg_game.entity import Wall
-import numpy as np
-import copy, collections, random
+import entity
+from rpg_game.utils import nested_dict
+import character, item
+import copy, random, math
 
-nested_dict = lambda: collections.defaultdict(nested_dict)
 
+
+
+
+"""COORDINATES:
+    |    y
+   - ---->
+    |
+    |
+    |
+    v x
+"""
 class Location(object):
     def __init__(self, _height=3):
         self.content = nested_dict()
         self.container = []
         self.events = {}
-        self.redraw = False
         self.height = _height
         self.entities = {}
 
@@ -17,9 +27,12 @@ class Location(object):
     def all(self):
         return [ent for k, ent in self.entities.items()]
 
+    @property
+    def characters(self):
+        return [ent for k, ent in self.entities.items() if isinstance(ent, character.Character)]
+
     def register(self, obj):
         """register content"""
-        self.redraw = True
         if not obj.id in self.entities:
             self.entities[obj.id] = obj
             for x, y, z in obj.positions:
@@ -27,7 +40,6 @@ class Location(object):
 
     def unregister(self, obj):
         """register content"""
-        self.redraw = True
         if obj.id in self.entities:
             del self.entities[obj.id]
             for x, y, z in obj.positions:
@@ -36,18 +48,20 @@ class Location(object):
 
     def get(self, position):
         x, y, z = position
-        if z in self.content[x][y]:
+        if x in self.content and y in self.content[x] and z in self.content[x][y]:
             return self.content[x][y][z]
         return None
 
     def is_empty(self, position):
         x, y, z = position
-        return not z in self.content[x][y]
+        out_of_bounds = x < 0 or x >= len(self.container) or y < 0 or y >= len(self.container[x]) or z < 0 or z >= self.height
+        if out_of_bounds:
+            return False
+        return not bool(self.get(position))
 
     def on_update(self, _deltatime):
-        for _id, e in list(self.entities.items()):
-            e.on_update(_deltatime)
-        self.redraw = self.redraw or any(e.redraw for key, e in self.entities.items())
+        for _id, ent in self.entities.copy().items():
+            ent.on_update(_deltatime)
 
     def free_position(self, _layer, _extra_position=[]):
         pos = self.all_free_position(_layer, _extra_position)
@@ -65,22 +79,37 @@ class Location(object):
         return _free
 
 class Inventory(Location):
-    def __init__(self, size):
-        super().__init__(_height=1)
+    def __init__(self, size, *args, **kwargs):
+        super().__init__( *args, **kwargs, _height=1)
         self.size = size
         self.container = [[" " for _ in range(self.size)] for _ in range(self.height)]
 
 class Room(Location):
-    def __init__(self, name, _map):
+    def __init__(self, name, world, _map):
         super().__init__()
         self.name = name
+        self.world = world
+        self._redraw = False
         raw_map = [l for l in _map.split("\n") if l]
         X = len(raw_map)
         Y = max([len(l) for l in raw_map])
         self.container = [[" " for _ in range(Y)] for _ in range(X)]
+        self.content = nested_dict()
+        
         self.register_raw_map(raw_map)
-        self.content = self.content_from_entities()
         self.map = self.map_from_entities()
+        # for k, ent in self.entities.items():
+        #     self.update_content(ent)
+
+
+    @property
+    def redraw(self):
+        return self._redraw
+    @redraw.setter
+    def redraw(self, value):
+        if value:
+            self.world.redraw = True
+        self._redraw = value
 
     def register_raw_map(self, raw_map):
         for x in range(len(self.container)):
@@ -90,16 +119,21 @@ class Room(Location):
                 if _marker != " ":
                     #here it could be possible to add special characters for montesrs, items, etc...
                     #or thin vs thick walls
-                    w = Wall(_location=self, _position=(x, y, 0), _extra_position=[(0,0,1), (0,0,2)], _marker=_marker)
+                    if _marker == "░":
+                        entity.Portal(_location=self, _position=(x, y, 0), _marker=_marker)
+                    elif _marker in ("┘", "┐", "┌", "└", "┤", "┴", "┬", "├", "─", "│", "┼"):
+                        entity.ThinWall(_location=self, _position=(x, y, 0), _marker=_marker)
+                    else:
+                        entity.HardWall(_location=self, _position=(x, y, 0), _marker=_marker)
 
     def map_from_entities(self):
         _map = copy.deepcopy(self.container)
         for k, ent in self.entities.items():
             for m, p in zip(ent.marker, ent.positions):
                 x, y, z = p
-                max_z = max([z for z in self.content[x][y]])
+                max_z = max([z for z in self.content[x][y]], default=-1)
                 if z == max_z:
-                    _map[x][y] = m
+                    _map[x][y] = (ent.color, m)
         return _map
 
     def content_from_entities(self):
@@ -109,10 +143,43 @@ class Room(Location):
                 _content[x][y][z] = ent
         return _content
 
-    def on_update(self, DELTATIME):
-        super().on_update(DELTATIME)
+    def register(self, obj):
+        """register content"""
+        if not obj.id in self.entities:
+            self.entities[obj.id] = obj
+            self.update_content(obj)
+
+    def unregister(self, obj):
+        """register content"""
+        if obj.id in self.entities:
+            del self.entities[obj.id]
+            for x, y, z in obj.positions:
+                if z in self.content[x][y]:
+                    del self.content[x][y][z]
+            self.redraw = True
+
+    def update_content(self, _entity):
+        for x, y, z in _entity.last_positions:
+            if z in self.content[x][y]:
+                del self.content[x][y][z]
+        for x, y, z in _entity.positions:
+            self.content[x][y][z] = _entity
+        self.redraw = True
+
+    def draw_entity(self, _entity):
+        for m, p in zip(_entity.marker, _entity.positions):
+            x, y, z = p
+            max_z = max([z for z in self.content[x][y]], default=-1)
+            if z == max_z:
+                self.map[x][y] = (_entity.color, m)
+
+
+    def on_update(self, _deltatime):
+        super().on_update(_deltatime)
         if self.redraw:
-            self.content = self.content_from_entities()
+            # self.content = self.content_from_entities()
             self.map = self.map_from_entities()
+            # self.redraw = False
+            
         
      

@@ -2,10 +2,11 @@ from rpg_game.utils import new_id
 import entity, game_class
      
 class Item(entity.Entity):
-    def __init__(self, _marker="i", **kwargs):
+    def __init__(self, _marker="i", _rarity="common", **kwargs):
         super().__init__(_marker=_marker, _layer=0, **kwargs)
         self.type = None
-        self.rarity = "common" #common, uncommon, rare, unique, set
+        self.rarity = _rarity #common, uncommon, rare, unique, set
+        self.color = self.rarity
 
     @property
     def is_consumable(self):
@@ -15,13 +16,14 @@ class Item(entity.Entity):
         return isinstance(self, Equipment)
 
     @property
-    def marker(self):
-        return [(self.rarity, m) for m in super().marker]
+    def status(self):
+        return [(self.rarity, f"{self.name:12s} {type(self).__name__} {self.rarity}")]
+        
     
 class Equipment(Item):
     def __init__(self, _marker="e", _bonus={}, **kwargs):
         super().__init__(_marker=_marker, **kwargs)
-        self.eq_description = ""
+        self.eq_description = "Equipment placeholder"
         self.bonus = _bonus
         for k, b in self.bonus.items():
             self.eq_description += f"{k}:{b}  "
@@ -84,12 +86,17 @@ class Weapon(Equipment):
         self.eq_description = f"Damage:{_dmg[0]}d{_dmg[1]}  " + self.eq_description
         self.dmg = _dmg
 
+class Sword(Weapon):
+    def __init__(self, _dmg=(1,4), _marker="w", **kwargs):
+        super().__init__(_marker=_marker, **kwargs)
+        self.type = ["main_hand", "off_hand"]
+        self.eq_description = f"Melee:{_dmg[0]}d{_dmg[1]}  " + self.eq_description
+
 class Bow(Weapon):
     def __init__(self, _dmg=(1,6), _marker="b", **kwargs):
         super().__init__(_marker=_marker, **kwargs)
         self.type = ["main_hand"]
-        self.eq_description = f"Action: Arrow"
-        self.dmg = _dmg
+        self.eq_description = f"Range:{_dmg[0]}d{_dmg[1]}"
 
 class Shield(Equipment):
     def __init__(self, _marker="s", **kwargs):
@@ -98,7 +105,7 @@ class Shield(Equipment):
         self.eq_description = f"Action: Parry"
 
     def requisites(self, user):
-        return isinstance(user.game_class, game_class.Warrior)
+        return "parry" in user.game_class.class_actions
  
    
 
