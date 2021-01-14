@@ -17,8 +17,8 @@ class Character(entity.ActingEntity):
         self._level = 1
         self._exp = 0
         
-        self.inventory = location.Inventory(size=4)
-        self.equipment = {"main_hand" : None, "off_hand": None, "helm": None, "body":None, "belt":None, "gloves":None, "ring_1":None, "ring_2":None, "boots":None }
+        self.inventory = location.Inventory()
+        self.equipment = {"main_hand" : None, "off_hand": None, "helm": None, "body":None, "belt":None, "gloves":None, "ring":None, "boots":None }
         self.crafting = {}
         #base value is the bare character value, without objects
         
@@ -49,6 +49,8 @@ class Character(entity.ActingEntity):
         self._game_class = value
         self.actions = self.game_class.actions
         self.class_actions = self.game_class.class_actions
+        for obj in self.game_class.initial_inventory:
+            self.add_inventory(obj(self.location))
 
     @property
     def invulnerable(self):
@@ -79,7 +81,7 @@ class Character(entity.ActingEntity):
     def is_controllable(self):
         if "charge" in self.counters:
             return False
-        if "dead" in self.counters:
+        if self.is_dead:
             return False
         return True
 
@@ -110,6 +112,11 @@ class Character(entity.ActingEntity):
 
         return _status
 
+    def on_update(self, _deltatime):
+        super().on_update(_deltatime)
+        self.inventory.on_update(_deltatime)
+        self.inventory.redraw = False
+
     def hit(self, dmg):
         if self.invulnerable:
             return
@@ -123,7 +130,7 @@ class Character(entity.ActingEntity):
         self.HP.dmg = 0
             
     def add_inventory(self, obj):
-        free = self.inventory.free_position(_layer=0)
+        free = self.inventory.free_position(_layer=0, _extra_position=obj.inventory_extra_positions)
         if not free:
             print("Inventory full")
             return
@@ -131,8 +138,8 @@ class Character(entity.ActingEntity):
         obj.position = free
         obj.location = self.inventory
         
-    def remove_inventory(self, obj):
-        if obj.is_equipped:
+    def drop_inventory(self, obj):
+        if obj.is_equipment and obj.is_equipped:
             for _type in obj.type:
                 if self.equipment[_type] == obj:
                     self.unequip(_type)
@@ -182,10 +189,7 @@ class Player(Character):
     def __init__(self, _game_class, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.color = self.id
-        try:
-            self.game_class = getattr(globals()[f"game_class"], _game_class)()
-        except:
-            self.game_class = game_class.Monster()
+        self.game_class = getattr(globals()[f"game_class"], _game_class)()
         self.chat_sent_log = []
         self.chat_received_log = []
         self.input_map = {

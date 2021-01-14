@@ -153,7 +153,7 @@ class DashRight(Dash):
 
 class PickUp(Action):
     name = "pick_up"
-    recoil_cost = MED_RECOIL
+    recoil_cost = MIN_RECOIL
     description = "Pick up item"
 
     @classmethod
@@ -163,22 +163,42 @@ class PickUp(Action):
         return (x, y, 0)
 
     @classmethod
-    def requisites(cls, user, target):
+    def requisites(cls, user):
         """Defines action legality"""
+        target = cls.target(user)
         return super().requisites(user) and isinstance(target, item.Item)
 
     @classmethod
     def use(cls, user):
-        target = cls.target(user)
-        if cls.requisites(user, target):
+        if cls.requisites(user):
+            target = cls.target(user)
             user.add_inventory(target)
             user.recoil += cls.recoil_cost
             counter.TextCounter(user, f"Picked up: {target.name}")
 
+class Consume(Action):
+    name = "consume"
+    recoil_cost = MED_RECOIL
+    description = "Consume item"
+
+
+    @classmethod
+    def requisites(cls, user, obj):
+        """Defines action legality"""
+        return super().requisites(user) and isinstance(obj, item.Consumable)
+
+    @classmethod
+    def use(cls, user, obj=None):
+        if not obj:
+            return
+        if cls.requisites(user, obj):
+            user.recoil += cls.recoil_cost
+            counter.TextCounter(user, f"Consumed: {obj.name}")
+            obj.on_use(user)
 
 class Drop(Action):
     name = "drop"
-    recoil_cost = SHORT_RECOIL
+    recoil_cost = MIN_RECOIL
     description = "Drop item"
 
     @classmethod
@@ -198,7 +218,7 @@ class Drop(Action):
         if not obj:
             return
         if cls.requisites(user, obj):
-            user.remove_inventory(obj)
+            user.drop_inventory(obj)
             user.recoil += cls.recoil_cost
             counter.TextCounter(user, f"Dropped: {obj.name}")
 
@@ -257,7 +277,42 @@ class Attack(Action):
             if cls.requisites(user):
                 target = cls.target(user)
                 cls.hit(user, target)
-                
+
+class Demolish(Action):
+    name = "demolish"
+    recoil_cost = MED_RECOIL
+    description = "Demolish"
+
+    @classmethod
+    def hit(cls, user, target):
+        user.recoil += cls.recoil_cost
+        base = user.STR.mod
+        weapon = user.equipment["main_hand"]
+        num, dice = weapon.dmg
+
+        r = roll1d20()
+        counter.MarkerCounter(user, {k:[v for _ in user.positions] for k, v in zip(("up", "down", "left", "right"), ("⩓", "⩔", "⪡", "⪢"))}, SHORT_RECOIL)
+        if r == 20:
+            dmg = target.HP.max
+            target.hit(dmg)
+            counter.TextCounter(user, f"Demolish {target.name}: demolished!")
+        else:
+            dmg = max(1, 3*roll(num, dice) + base)
+            target.hit(dmg)
+            counter.TextCounter(user, f"Demolish {target.name}: {dmg} damage{'s'*int(dmg>1)}!")
+
+    @classmethod
+    def requisites(cls, user):
+        """Defines action legality"""
+        target = cls.target(user)
+        weapon = user.equipment["main_hand"]
+        return user.recoil == 0 and target and isinstance(target, entity.Wall) and isinstance(weapon, item.Hammer)
+
+    @classmethod
+    def use(cls, user):
+        if cls.requisites(user):
+            target = cls.target(user)
+            cls.hit(user, target)               
 
 class Parry(Action):
     name = "parry"

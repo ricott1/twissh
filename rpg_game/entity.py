@@ -41,6 +41,19 @@ class Entity(object):
         self.last_positions = list(self.positions)
         self._position = value
         self.location.update_content(self)
+    @property
+    def positions(self):
+        x, y, z = self.position
+        #don't transform coordinates if facing down.
+        if self.direction == "down":
+            _extra_positions = [(x, y, z) for x, y, z in self.extra_position]
+        elif self.direction == "up":
+            _extra_positions = [(-x, -y, z) for x, y, z in self.extra_position]
+        elif self.direction == "right":
+            _extra_positions = [(-y, x, z) for x, y, z in self.extra_position]
+        elif self.direction == "left":
+            _extra_positions = [(y, -x, z) for x, y, z in self.extra_position]
+        return [(x+xp, y+yp, z+zp) for xp, yp, zp in [(0,0,0)] + _extra_positions]
 
     @property
     def direction(self):
@@ -100,20 +113,6 @@ class Entity(object):
     def status(self):
         _status = [("top", f"{self.name:12s} {type(self).__name__}")]
         return _status
-
-    @property
-    def positions(self):
-        x, y, z = self.position
-        #don't transform coordinates if facing down.
-        if self.direction == "down":
-            _extra_positions = [(x, y, z) for x, y, z in self.extra_position]
-        elif self.direction == "up":
-            _extra_positions = [(-x, -y, z) for x, y, z in self.extra_position]
-        elif self.direction == "right":
-            _extra_positions = [(-y, x, z) for x, y, z in self.extra_position]
-        elif self.direction == "left":
-            _extra_positions = [(y, -x, z) for x, y, z in self.extra_position]
-        return [(x+xp, y+yp, z+zp) for xp, yp, zp in [(0,0,0)] + _extra_positions]
     
     @property
     def location(self):
@@ -142,7 +141,6 @@ class Entity(object):
             self.counters[key].on_update(_deltatime)
             if self.counters[key].ended:
                 del self.counters[key]
-        self.status
 
     def hit(self, dmg):
         self.HP.dmg += max(0, dmg)
@@ -184,6 +182,11 @@ class HardWall(Wall):
     def __init__(self, _HP=math.inf, **kwargs):
         super().__init__(_HP=_HP, **kwargs)
 
+    @property
+    def status(self):
+        return None
+    
+
 class ThinWall(Wall):
     def __init__(self, _HP=30, **kwargs):
         super().__init__(_HP=_HP, **kwargs)
@@ -208,7 +211,7 @@ class ThinWall(Wall):
 
             # "┄""┈"┆┊
 
-class IceWall(Entity):
+class IceWall(Wall):
     VANISH_COEFF = 1.5
     VANISH_SPAWNER_COEFF = 0.15
 
@@ -349,7 +352,7 @@ class ActingEntity(Entity):
             #if slow recovery, only recover portion of it
             self.recoil -= RECOIL_MULTI * _deltatime * (1 - SLOW_RECOVERY_MULTI*int(self.slow_recovery))
             #redraw only if integer changed, hence nneed to display it  
-            self.redraw = math.ceil(REDRAW_MULTI*self.recoil) != s
+            self.location.redraw = math.ceil(REDRAW_MULTI*self.recoil) != s
         if self.movement_recoil > 0:
             #if slow recovery, only recover portion of it
             self.movement_recoil -= RECOIL_MULTI * _deltatime * (1 - SLOW_RECOVERY_MULTI*int(self.slow_recovery))
