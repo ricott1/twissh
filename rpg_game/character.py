@@ -130,13 +130,11 @@ class Character(entity.ActingEntity):
         self.HP.dmg = 0
             
     def add_inventory(self, obj):
-        free = self.inventory.free_position(_layer=0, _extra_position=obj.inventory_extra_positions)
+        free = self.inventory.free_position(obj)
         if not free:
             print("Inventory full")
             return
-        # obj.location.unregister(obj)
-        obj.position = free
-        obj.location = self.inventory
+        obj.change_location(free, self.inventory)
         
     def drop_inventory(self, obj):
         if obj.is_equipment and obj.is_equipped:
@@ -144,16 +142,19 @@ class Character(entity.ActingEntity):
                 if self.equipment[_type] == obj:
                     self.unequip(_type)
                     break
-        # obj.location.unregister(obj)
+
         x, y, z = self.position
-        obj.position = (x, y, 0)
-        obj.location = self.location
+        obj.change_location((x, y, 0), self.location)
             
     def equip(self, obj, _type):
         if _type not in obj.type:
             return
         if not obj.is_equipment:
             return
+        #if already equipped somwehere, then unequip it from there
+        for t in self.equipment:
+            if self.equipment[t] is obj:
+                self.unequip(t)
         self.unequip(_type)
         self.equipment[_type] = obj
         obj.on_equip()

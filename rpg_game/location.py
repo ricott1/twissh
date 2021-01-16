@@ -66,7 +66,7 @@ class Location(object):
 
     def update_content(self, _entity):
         for x, y, z in _entity.last_positions:
-            if z in self.content[x][y]:
+            if z in self.content[x][y] and self.content[x][y][z] is _entity:
                 del self.content[x][y][z]
         for x, y, z in _entity.positions:
             self.content[x][y][z] = _entity
@@ -93,17 +93,14 @@ class Location(object):
             return False
         return not bool(self.get(position))
 
-    def free_position(self, _layer, _extra_position=[]):
-        pos = self.all_free_position(_layer, _extra_position)
-        if pos:
-            return random.sample(pos, 1)[0]
+    def free_position(self, _entity):
         return None
 
-    def all_free_position(self, _layer, _extra_position):
+    def all_free_position(self, _layer, _extra_positions):
         _free = []
         for x in range(len(self.container)):
             for y in range(len(self.container[x])):
-                _all = [(x+xp, y+yp, _layer+zp) for xp, yp, zp in [(0,0,0)] + _extra_position]
+                _all = [(x+xp, y+yp, _layer+zp) for xp, yp, zp in [(0,0,0)] + _extra_positions]
                 if all(self.is_empty((xp, yp, zp)) for xp, yp, zp in _all):
                     _free.append((x, y, _layer))
         return _free
@@ -116,33 +113,13 @@ class Inventory(Location):
         self.container = [[" " for _ in range(self.horizontal_size)] for _ in range(self.vertical_size)]
         self.map = self.map_from_entities()
 
-    def map_from_entities(self):
-        _map = copy.deepcopy(self.container)
-        for k, ent in self.entities.items():
-            for m, p in zip(ent.in_inventory_marker, ent.in_inventory_positions):
-                x, y, z = p
-                max_z = max([z for z in self.content[x][y]], default=-1)
-                if z == max_z:
-                    _map[x][y] = (ent.color, m)
-
-        return _map
-
-    def unregister(self, obj):
-        """register content"""
-        if obj.id in self.entities:
-            del self.entities[obj.id]
-            for x, y, z in obj.in_inventory_positions:
-                if z in self.content[x][y]:
-                    del self.content[x][y][z]
-            self.redraw = True
-
-    def update_content(self, _entity):
-        for x, y, z in _entity.in_inventory_last_positions:
-            if z in self.content[x][y]:
-                del self.content[x][y][z]
-        for x, y, z in _entity.in_inventory_positions:
-            self.content[x][y][z] = _entity
-        self.redraw = True
+    def free_position(self, _entity):
+        _layer = _entity.layer
+        _extra_positions = _entity.in_inventory_extra_positions
+        pos = self.all_free_position(_layer, _extra_positions)
+        if pos:
+            return random.sample(pos, 1)[0]
+        return None
 
 
 class Room(Location):
@@ -172,6 +149,14 @@ class Room(Location):
                         entity.ThinWall(_location=self, _position=(x, y, 0), _marker=_marker)
                     else:
                         entity.HardWall(_location=self, _position=(x, y, 0), _marker=_marker)
+
+    def free_position(self, _entity):
+        _layer = _entity.layer
+        _extra_positions = _entity.extra_positions
+        pos = self.all_free_position(_layer, _extra_positions)
+        if pos:
+            return random.sample(pos, 1)[0]
+        return None
 
 
             

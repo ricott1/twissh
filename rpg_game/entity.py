@@ -5,26 +5,29 @@ import math, random
 
 class Entity(object):
     """docstring for Entity"""
-    def __init__(self, _name="", _id=None, _location=None, _position=(), _extra_position = [], _HP=1, _color="white", _marker=".", _extra_markers= [], _description="", _layer=1, _direction="down"):
+    def __init__(self, _name="", _id=None, _location=None, _position=(), _extra_positions = [], _HP=1, _color="white", _marker=".", _extra_markers= [], _description="", _layer=1, _direction="down"):
         self.name = _name
         self.id = _id if _id else new_id()
         self.color = _color
+        self.layer = _layer
         if not isinstance(_marker, list):
             _marker = [_marker]
         if not _extra_markers:
-            _extra_markers = [_marker[0] for _ in _extra_position]
+            _extra_markers = [_marker[0] for _ in _extra_positions]
         self._marker = _marker + _extra_markers
         self.direction_markers = {"up":self._marker, "down":self._marker, "left":self._marker, "right":self._marker}
 
         self._direction = _direction
         self.counters = {}
+
+        self.extra_positions = _extra_positions
+        self.last_positions = []
         if _location and not _position:
-            _position = _location.free_position(_layer, _extra_position)
+            _position = _location.free_position(self)
         self._position = _position
-        self.extra_position = _extra_position
-        self.last_positions = list(self.positions)
-        self._location = None
+        
         self.location = _location
+        self.change_location(_position, _location)
 
         self.HP = characteristic.Characteristic(self, "hit points", "HP", _HP, _min = 0, _max=9999)
 
@@ -40,19 +43,20 @@ class Entity(object):
             return
         self.last_positions = list(self.positions)
         self._position = value
-        self.location.update_content(self)
+        if self.location:
+            self.location.update_content(self)
     @property
     def positions(self):
         x, y, z = self.position
         #don't transform coordinates if facing down.
         if self.direction == "down":
-            _extra_positions = [(x, y, z) for x, y, z in self.extra_position]
+            _extra_positions = [(x, y, z) for x, y, z in self.extra_positions]
         elif self.direction == "up":
-            _extra_positions = [(-x, -y, z) for x, y, z in self.extra_position]
+            _extra_positions = [(-x, -y, z) for x, y, z in self.extra_positions]
         elif self.direction == "right":
-            _extra_positions = [(-y, x, z) for x, y, z in self.extra_position]
+            _extra_positions = [(-y, x, z) for x, y, z in self.extra_positions]
         elif self.direction == "left":
-            _extra_positions = [(y, -x, z) for x, y, z in self.extra_position]
+            _extra_positions = [(y, -x, z) for x, y, z in self.extra_positions]
         return [(x+xp, y+yp, z+zp) for xp, yp, zp in [(0,0,0)] + _extra_positions]
 
     @property
@@ -113,23 +117,19 @@ class Entity(object):
     def status(self):
         _status = [("top", f"{self.name:12s} {type(self).__name__}")]
         return _status
-    
-    @property
-    def location(self):
-        return self._location
-
-    @location.setter
-    def location(self, _location):
-        if self._location == _location:
-            return
-        if self._location:
-            self._location.unregister(self)
-        self._location = _location
-        self._location.register(self)
 
     @property
     def is_dead(self):
         return "death" in self.counters
+
+    def change_location(self, _target_position, _target_location):
+        if _target_location:
+            if self.location:
+                self.location.unregister(self)
+            self.last_positions = []
+            self.position = _target_position
+            self.location = _target_location
+            self.location.register(self)
 
     def destroy(self):
         """Destroy body"""
@@ -169,14 +169,13 @@ class Portal(Entity):
 
     def teleport(self, target):
         if self.partner and "portal" not in target.counters and self.partner.location.is_empty(self.partner.above):
-            target.position = self.partner.above
-            target.location = self.partner.location
+            target.change_location(self.partner.above, self.partner.location)
             counter.PortalCounter(target)  
 
 
 class Wall(Entity):
     def __init__(self, _HP, **kwargs):
-        super().__init__(_name="wall", _extra_position=[(0,0,1), (0,0,2)], _HP=_HP, **kwargs)
+        super().__init__(_name="wall", _extra_positions=[(0,0,1), (0,0,2)], _HP=_HP, **kwargs)
 
 class HardWall(Wall):
     def __init__(self, _HP=math.inf, **kwargs):
@@ -200,6 +199,7 @@ class ThinWall(Wall):
         _status = [("top", f"Wall {h}{self.HP.value}")]
         return _status
 
+# ⌌⌍⌎⌏┄┈┆┊
     # @property
     # def marker(self):
     #     if self.HP.value > 50:
