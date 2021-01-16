@@ -22,6 +22,9 @@ def buckler(_location=None):
 def rovaisThorn(_location=None):
     return item.Sword(_name="Rovai\'s Thorn", _location=_location, _bonus={"STR":4, "INT": 6}, _description="Robbosi si nasce", _dmg=(2, 8), _rarity="unique")
 
+def woodenHelm(_location=None):
+    return item.Helm(_name="Wooden Helm", _location=_location, _description="A light and stinky helmet", _rarity="common")
+
 
 def healingPotion(_location=None):
     return item.Potion(_name="HP Potion", _location=_location, _effect={"HP":4}, _description="Heal 4 hit points", _rarity="common")

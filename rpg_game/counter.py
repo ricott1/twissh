@@ -132,7 +132,7 @@ class DeathCounter(Counter):
 class PortalCounter(Counter):
     """docstring for BuffCounter"""
     def __init__(self, _entity):
-        super().__init__(_name="portal", _entity=_entity, _value=MED_RECOIL)
+        super().__init__(_name="portal", _entity=_entity, _value=SHORT_RECOIL)
 
     def on_update(self, _deltatime):
         portal = self.entity.location.get(self.entity.floor)

@@ -7,8 +7,8 @@ from rpg_game.world_map import *
 class World(object):
     def __init__(self):
         self.locations = {
-            "ground-zero" : quick_room(self, "Ground Zero", world_map),
-            "floor-0" : quick_room(self, "Ground Floor", floor_0, _common_loot_prob=1, _monster_prob=0),
+            "base" : quick_room(self, "Base", base, _common_loot_prob=1, _monster_prob=0),
+            "floor-0" : quick_room(self, "Ground Floor", floor_0),
             "floor-1" : quick_room(self, "First Floor", floor_1, _uncommon_loot_prob=0.5, _rare_loot_prob=0.25),
             "floor-2" : quick_room(self, "Top Floor", floor_2, _unique_loot_prob=1)
         }
@@ -19,7 +19,7 @@ class World(object):
             loc.on_update(_deltatime)
 
     def starting_location(self):
-        return self.locations["floor-0"]
+        return self.locations["base"]
 
     def link_portals(self):
         _portals = [ent for l in self.locations for ent in self.locations[l].all  if isinstance(ent, entity.Portal)]

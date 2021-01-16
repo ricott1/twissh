@@ -211,7 +211,7 @@ class Drop(Action):
     def requisites(cls, user, obj):
         """Defines action legality"""
         x, y, z = user.position
-        return super().requisites(user) and user.location.is_empty((x, y, 0)) and isinstance(obj, item.Item)
+        return super().requisites(user) and user.location.is_empty((x, y, 0)) and isinstance(obj, item.Item) and obj.id in user.inventory.entities
 
     @classmethod
     def use(cls, user, obj=None):
@@ -221,6 +221,10 @@ class Drop(Action):
             user.drop_inventory(obj)
             user.recoil += cls.recoil_cost
             counter.TextCounter(user, f"Dropped: {obj.name}")
+        else:
+            x, y, z = user.position
+            if not user.location.is_empty((x, y, 0)):
+                counter.TextCounter(user, f"Can\'t drop here")
 
 class Attack(Action):
     name = "attack"

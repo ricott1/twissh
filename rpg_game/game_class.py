@@ -42,7 +42,7 @@ class Dwarf(GameClass):
         self.name = "dwarf"
         self.class_actions = {"parry" : action.Parry, "demolish": action.Demolish}
         self.bonus = {"HP": 6, "STR":1, "CON":1}
-        self.initial_inventory = [inventory.warHammer, inventory.healingPotion]
+        self.initial_inventory = [inventory.warHammer, inventory.longSword, inventory.woodenHelm]
 
 class Thief(GameClass):
     def __init__(self):

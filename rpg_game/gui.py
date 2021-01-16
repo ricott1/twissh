@@ -2,7 +2,6 @@
 
 import urwid
 import time, os, copy
-from collections import OrderedDict
 from rpg_game.utils import log, mod, distance
 from rpg_game.constants import *
 from urwid import raw_display
@@ -130,15 +129,15 @@ class GUI(UiFrame):
 class IntroFrame(UiFrame):
     def __init__(self, parent, mind):
         line = [urwid.Text("Choose your class")]            
-        btn = create_button("Warrior", self.select_class, user_args=["Warrior"])
+        btn = attr_button("Warrior", self.select_class, user_args=["Warrior"])
         line.append(btn)
-        btn = create_button("Dwarf", self.select_class, user_args=["Dwarf"])
+        btn = attr_button("Dwarf", self.select_class, user_args=["Dwarf"])
         line.append(btn)
-        btn = create_button("Novice", self.select_class, user_args=["Novice"])
+        btn = attr_button("Novice", self.select_class, user_args=["Novice"])
         line.append(btn)
-        btn = create_button("Thief", self.select_class, user_args=["Thief"])
+        btn = attr_button("Thief", self.select_class, user_args=["Thief"])
         line.append(btn)
-        btn = create_button("Bard", self.select_class, user_args=["Bard"])
+        btn = attr_button("Bard", self.select_class, user_args=["Bard"])
         line.append(btn)
         listbox = SelectableListBox(urwid.SimpleListWalker(line))
         self.listbox = listbox.body
@@ -183,7 +182,8 @@ class GameFrame(UiFrame):
     def menu_view(self, value):
         self._menu_view = value
         if self.menu_view:
-            self.contents["body"] = (urwid.LineBox(self.menu, title=self.active_body), None)
+            _title = next((t for t in self.bodies if self.active_body is self.bodies[t]), "")
+            self.contents["body"] = (urwid.LineBox(self.menu, title=_title), None)
         else:
             self.contents["body"] = (self.map, None)
 
@@ -260,89 +260,135 @@ class MapFrame(UiFrame):
 class InventoryFrame(UiFrame):    
     def __init__(self, parent, mind):
         self.mind = mind
-        drop = urwid.Text(("disabled", " Drop "))
-        use = urwid.Text(("disabled", " Use "))
-        self.unselected_item_action = SelectableColumns([(6, drop), (5, use)], dividechars=0)
-        self.item_action = self.unselected_item_action
-        self.inventory_box = SelectableListBox(urwid.SimpleListWalker(self.item_action))
-        self.equipment_box = self.build_equipment_box()
-        super().__init__(parent, mind, SelectableColumns([(20, self.inventory_box), (45, self.equipment_box)]))
-        self.selection = None
-        
-    def build_equipment_box(self):
-        def equip_item(typ, button):
-            if self.selection:
-                i = self.player.inventory.entities[self.selection]
-                if i.is_equipment and not i.is_equipped:
-                    self.player.equip(i, typ)
-                self.selection = None
-            else:
-                self.player.unequip(typ)
-                
-            if self.player.equipment[typ]:
-                eqp = self.player.equipment[typ]
-                button.set_label((f"{eqp.color}", eqp.name))
-            else:
-                name = " ".join(typ.split("_"))
-                name = name[0].upper() + name[1:]
-                button.set_label(("white", name))
+        self._selection = None
 
+        self.drop_btn = create_button("Drop", borders=False, disabled=True)
+        self.use_btn = create_button("Use", borders=False, disabled=True)
+        urwid.connect_signal(self.drop_btn, "click", self.drop_item)
+        urwid.connect_signal(self.use_btn, "click", self.consume_item)
+        self.item_action = SelectableColumns([(7, urwid.AttrMap(self.drop_btn, "disabled")), (7, urwid.AttrMap(self.use_btn, "disabled"))], dividechars=0)
+        
+        self.eqp_btns = {k: self.eqp_button(k) for k in self.player.equipment}
+        self.inventory_box = SelectableListBox(urwid.SimpleListWalker(self.item_action))
+        self.equipment_box = SelectableListBox(urwid.SimpleListWalker([urwid.Text("")]))
+        self.update_equipment_box()
+        super().__init__(parent, mind, SelectableColumns([(20, self.inventory_box), (45, self.equipment_box)]))
+    
+    @property
+    def selection_data(self):
+        if not self.selection:
+            return urwid.Text("")
+        item = self.player.inventory.entities[self.selection.id]
+        return urwid.Text((item.color, item.name))
+
+    @property
+    def selection(self):
+        if self._selection and self._selection.id not in self.player.inventory.entities:
+            self.selection = None
+        return self._selection
+
+    @selection.setter
+    def selection(self, value):
+        # if self._selection == value:
+        #     return
+        self._selection = value
+        if not self._selection:
+            self.use_btn.disabled = True
+            use = urwid.AttrMap(self.use_btn, "disabled")
+            self.drop_btn.disabled = True
+            drop = urwid.AttrMap(self.drop_btn, "disabled")
+        else:
+            self.drop_btn.disabled = False
+            drop = urwid.AttrMap(self.drop_btn, None, "line")
+            if self.selection.is_consumable:
+                self.use_btn.disabled = False
+                use = urwid.AttrMap(self.use_btn, None, "line")
+            else:
+                self.use_btn.disabled = True
+                use = urwid.AttrMap(self.use_btn, "disabled")
+
+        self.item_action = SelectableColumns([(7, drop), (7, use)], dividechars=0)
+        self.eqp_btns = {k: self.eqp_button(k) for k in self.player.equipment}
+        self.update_equipment_box()
+
+    def drop_item(self, button):
+        self.player.actions["drop"].use(self.player, obj=self.selection)
+        self.selection = None
+
+    def consume_item(self, button):
+        self.player.actions["consume"].use(self.player, obj=self.selection)
+        self.selection = None
+
+    def equip_item(self, typ, button):
+        print("EQPBTN", self.selection, typ, self.player.equipment[typ])
+        if self.selection and self.selection.is_equipment and typ in self.selection.type:
+            self.player.equip(self.selection, typ)
+            self.selection = None
+        elif not self.selection and self.player.equipment[typ]:
+            self.player.unequip(typ)
+            print("HERE", self.selection, typ, self.player.equipment[typ])
+            #self.eqp_btns[typ] = self.eqp_button(typ) 
+            self.selection = None
+            
+    def eqp_button(self, typ):
+        name = " ".join(typ.split("_"))
+        name = name[0].upper() + name[1:]
+        btn = create_button(name, disabled=False)
+        urwid.connect_signal(btn, "click", self.equip_item, user_args=[typ]) 
+        if self.player.equipment[typ]:
+            eqp = self.player.equipment[typ]
+            btn.set_label(eqp.name)
+
+        if self.selection and (not self.selection.is_equipment or typ not in self.selection.type):
+            btn.disabled = True
+            return urwid.AttrMap(btn, "disabled")
+        
+        
+        if self.player.equipment[typ]:
+            return urwid.AttrMap(btn, f"{eqp.color}", f"{eqp.color}_line")
+        
+        return urwid.AttrMap(btn, None, "line")
+
+        
+
+    def update_equipment_box(self):
         _eqp_size = 45
         _btn_size = 13
         _side_size = 15
         _equipment = []
 
         _line = [(_side_size, urwid.Text(" "*_side_size)), 
-                (_btn_size, create_button("Helm", equip_item, user_args=["helm"])), 
+                (_btn_size, self.eqp_btns["helm"]), 
                 (_side_size, urwid.Text(" "*_side_size))]
-        column = SelectableColumns(_line, dividechars=0, _min=1, _max=self.player.inventory.horizontal_size)
+        column = SelectableColumns(_line, dividechars=0)
         _equipment.append(column)
 
-        _line = [(_btn_size, create_button("Main hand", equip_item, user_args=["main_hand"])),
-                (_btn_size, create_button("Body", equip_item, user_args=["body"])),
-                (_btn_size, create_button("Off hand", equip_item, user_args=["off_hand"]))]
-        column = SelectableColumns(_line, dividechars=2, _min=1, _max=self.player.inventory.horizontal_size)
+        _line = [(_btn_size, self.eqp_btns["main_hand"]),
+                (_btn_size, self.eqp_btns["body"]),
+                (_btn_size, self.eqp_btns["off_hand"])]
+        column = SelectableColumns(_line, dividechars=2)
         _equipment.append(column)
 
-        _line = [(_btn_size, create_button("Ring", equip_item, user_args=["ring"])),
-                (_btn_size, create_button("Belt", equip_item, user_args=["belt"])), 
-                (_btn_size, create_button("Gloves", equip_item, user_args=["gloves"]))]
-        column = SelectableColumns(_line, dividechars=2, _min=1, _max=self.player.inventory.horizontal_size)
+        _line = [(_btn_size, self.eqp_btns["ring"]),
+                (_btn_size, self.eqp_btns["belt"]), 
+                (_btn_size, self.eqp_btns["gloves"])]
+        column = SelectableColumns(_line, dividechars=2)
         _equipment.append(column)
 
         _line = [(_side_size, urwid.Text(" "*_side_size)), 
-                (_btn_size, create_button("Boots", equip_item, user_args=["boots"])), 
+                (_btn_size, self.eqp_btns["boots"]), 
                 (_side_size, urwid.Text(" "*_side_size))]
-        column = SelectableColumns(_line, dividechars=0, _min=1, _max=self.player.inventory.horizontal_size)
+        column = SelectableColumns(_line, dividechars=0)
         _equipment.append(column)
 
-        return SelectableListBox(urwid.SimpleListWalker(_equipment))
+        self.equipment_box.body[:] = _equipment
         
-    def on_update(self):
+    def update_inventory_box(self):
         
         def select_item(item, button):
-            if item:
-                self.selection = item.id
-                drop = create_button("Drop", drop_item, user_args = [item], borders=False)
-                if item.is_consumable:
-                    use = create_button("Use", consume_item, user_args = [item], borders=False)  
-                else:
-                    use = urwid.Text(("disabled", " Use "))
-                self.item_action = SelectableColumns([(6, drop), (5, use)], dividechars=0) 
-                
-            else:
-                self.selection = None
-                self.item_action = self.unselected_item_action
-                
-
-        def drop_item(item, button):
-            self.player.actions["drop"].use(self.player, obj=item)
-
-        def consume_item(item, button):
-            self.player.actions["consume"].use(self.player, obj=item)
+            self.selection = item
 
         side = urwid.Text("║")
-
         _inventory = [urwid.Text("╔" +"═"*self.player.inventory.horizontal_size+"╗")]
         for x, line in enumerate(self.player.inventory.map):
             _line = [(1, side)]
@@ -350,16 +396,15 @@ class InventoryFrame(UiFrame):
                 i = self.player.inventory.get((x, y, 0))
                 if i and isinstance(l, tuple):
                     color, mark = l
-                    if self.selection==i.id:
+                    if self.selection is i:
                         color = color + "_line"
                 else:
                     mark = l
                     color = "white"
 
-                _line.append((1, create_button(mark, select_item, user_args=[i],attr=color, focus_map = "line", borders=False)))
+                _line.append((1, attr_button(mark, select_item, user_args=[i],attr_map=color, focus_map = "line", borders=False)))
             _line += [(1, side)]  
-            # column = SelectableColumns([(1, side)] + [(1, create_button(l, show_item, user_args=[l], borders=False)) for l in line]+[(1, side)], dividechars=0, _min=1, _max=self.player.inventory.horizontal_size)
-            column = SelectableColumns(_line, dividechars=0, _min=1, _max=self.player.inventory.horizontal_size)
+            column = SelectableColumns(_line, dividechars=0)
             try:
                 index = self.inventory_box.focus_position
                 column.focus_position = self.inventory_box.body[:][index].focus_position
@@ -370,10 +415,22 @@ class InventoryFrame(UiFrame):
 
         _inventory.append(urwid.Text("╚" +"═"*self.player.inventory.horizontal_size+"╝"))
         
-        self.inventory_box.body[:] = _inventory + [self.item_action]
+        self.inventory_box.body[:] = _inventory + [self.item_action] + [self.selection_data]
 
-    def handle_input(self, _input):
-        self.player.handle_input(_input)
+    def on_update(self):
+        self.update_inventory_box()
+        #self.update_equipment_box()
+        
+        # index = self.body.focus_position
+        
+        # print("FOCUS", index, self.body.contents[index], self.body.contents[index][0].focus_position, self.body.contents, self.body.contents)
+        # try:
+        #     self.body.focus_position = self.body.contents[index][0].focus_position
+        # except:
+        #     pass
+        
+        # self.contents["body"] = (SelectableColumns([(20, self.inventory_box), (45, self.equipment_box)]), None)
+
 
 
 class StatusFrame(UiFrame):    
@@ -401,12 +458,15 @@ class StatusFrame(UiFrame):
         _right = []
         base = player.STR.mod
         weapon = player.equipment["main_hand"]
+
         if not weapon:
             min_dmg, max_dmg = (1, 4)
         else:
-            min_dmg, max_dmg = weapon.dmg
+            number, value = weapon.dmg
+            min_dmg, max_dmg = (number * 1, number * value)
         min_dmg = max(1, base + min_dmg)
         max_dmg = max(1, base + max_dmg)
+        print("WEAPON", weapon, min_dmg, max_dmg)
         _right.append(f"╭──────────────────╮\n")
         _right.append(f"│ Attack {min_dmg:>3d}-{max_dmg:<3d}   │\n")
         _right.append(f"╰──────────────────╯\n")
@@ -447,21 +507,18 @@ class SelectableListBox(urwid.ListBox):
              
 
 class SelectableColumns(urwid.Columns):
-    def __init__(self, widget_list, dividechars=0, _min=None, _max=None):
-        super(SelectableColumns, self).__init__(widget_list, dividechars)
+    def __init__(self, widget_list, focus_column=None, dividechars=0):
+        super().__init__(widget_list, dividechars, focus_column)
 
     def focus_next(self):
         try: 
-            self.focus_position += 1 
-            if _max and self.focus_position > _max:
-                self.focus_position = _max
+            print("SELECTING", self, self.focus_position)
+            self.focus_position += 1
         except:
             pass
     def focus_previous(self):
         try: 
             self.focus_position -= 1
-            if _min and self.focus_position < _min:
-                self.focus_position = _min
         except:
             pass
 
@@ -495,7 +552,7 @@ class ButtonLabel(urwid.SelectableIcon):
         self._cursor_position = len(label) + 1
 
 
-class NoCursorButton(urwid.Button):
+class MyButton(urwid.Button):
     '''
     - override __init__ to use our ButtonLabel instead of urwid.SelectableIcon
 
@@ -507,7 +564,7 @@ class NoCursorButton(urwid.Button):
     button_left = "["
     button_right = "]"
 
-    def __init__(self, label, on_press=None, user_data=None, borders=True):
+    def __init__(self, label, on_press=None, user_data=None, borders=True, disabled=False):
         self._label = ButtonLabel("")
         if borders:
             cols = urwid.Columns([
@@ -521,18 +578,41 @@ class NoCursorButton(urwid.Button):
 
         super(urwid.Button, self).__init__(cols)
 
+        self.disabled = disabled
         if on_press:
             urwid.connect_signal(self, 'click', on_press, user_data)
 
         self.set_label(label)
+        self.lllavel = label
 
-def create_button(label, cmd, attr=None, focus_map = "line", align = "center", user_args = None, borders=True):
-    btn = NoCursorButton(label, borders=borders)
+    # @property
+    # def disabled(self):
+    #     return self._disabled
+    # @disabled.setter
+    # def disabled(self, value):
+    #     if self._disabled == value:
+    #         return
+    #     if self.disabled:
+    #         urwid.AttrMap(self, "disabled")
+    #     else:
+    #         urwid.AttrMap(self, None, "line")
+
+    def selectable(self):
+        return not self.disabled
+
+def attr_button(label, cmd=None, attr_map=None, focus_map = "line", align = "center", user_args = None, borders=True, disabled=False):
+    btn = create_button(label, cmd=cmd, align = align, user_args = user_args, borders=borders, disabled=disabled)
+    return urwid.AttrMap(btn, attr_map, focus_map=focus_map)
+
+
+def create_button(label, cmd=None, align = "center", user_args = None, borders=True, disabled=False):
+    btn = MyButton(label, borders=borders, disabled=disabled)
     btn._label.align = align
-    if user_args:
-        urwid.connect_signal(btn, "click", cmd, user_args = user_args)
-    else:
-        urwid.connect_signal(btn, "click", cmd)
-    if attr or focus_map:
-        return urwid.AttrMap(btn, attr, focus_map=focus_map)
+    if cmd:
+        if user_args:
+            urwid.connect_signal(btn, "click", cmd, user_args = user_args)
+        else:
+            urwid.connect_signal(btn, "click", cmd)
     return btn
+
+    

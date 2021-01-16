@@ -82,50 +82,46 @@ class Armor(Equipment):
 
 class Helm(Equipment):
     def __init__(self, _marker="h", **kwargs):
-        super().__init__(_marker=_marker, **kwargs)
+        super().__init__(_marker=_marker, _in_inventory_marker="/", _extra_inventory_markers= ["\\", "|", "|"], _inventory_extra_positions=[(0,1,0),(1,0,0),(1,1,0)], **kwargs)
         self.type = ["helm"]
-        self.description = description
         
 class Boots(Equipment):
     def __init__(self, _marker="b", **kwargs):
         super().__init__(_marker=_marker, **kwargs)
         self.type = ["boots"]
-        self.description = description
         
 class Gloves(Equipment):
     def __init__(self, _marker="g", **kwargs):
         super().__init__(_marker=_marker, **kwargs)
         self.type = ["gloves"]
-        self.description = description
 
 class Belt(Equipment):
     def __init__(self, _marker="l", **kwargs):
         super().__init__(_marker=_marker, **kwargs)
         self.type = ["belt"]
-        self.description = description
     
 class Weapon(Equipment):
-    def __init__(self, _dmg=(1,4), _marker="w", **kwargs):
+    def __init__(self, _dmg=(1,6), _marker="w", **kwargs):
         super().__init__(_marker=_marker, **kwargs)
         self.type = ["main_hand", "off_hand"]
         self.eq_description = f"Damage:{_dmg[0]}d{_dmg[1]}  " + self.eq_description
         self.dmg = _dmg
 
 class Sword(Weapon):
-    def __init__(self, _dmg=(1,4), _marker="w", **kwargs):
-        super().__init__(_marker=_marker, **kwargs)
+    def __init__(self, _dmg=(1,6), _marker="w", **kwargs):
+        super().__init__(_dmg=_dmg, _marker=_marker, _in_inventory_marker="<", _extra_inventory_markers= ["=", "⫤", "-"], _inventory_extra_positions=[(0,1,0),(0,2,0),(0,3,0)], **kwargs)
         self.type = ["main_hand", "off_hand"]
         self.eq_description = f"Melee:{_dmg[0]}d{_dmg[1]}  " + self.eq_description
 
 class Hammer(Weapon):
-    def __init__(self, _dmg=(1,4), _marker="w", **kwargs):
-        super().__init__(_marker=_marker, _in_inventory_marker="█", _extra_inventory_markers= ["=", "=", "="], _inventory_extra_positions=[(0,1,0),(0,2,0),(0,3,0)], **kwargs)
+    def __init__(self, _dmg=(1,6), _marker="w", **kwargs):
+        super().__init__(_dmg=_dmg, _marker=_marker, _in_inventory_marker="█", _extra_inventory_markers= ["=", "=", "="], _inventory_extra_positions=[(0,1,0),(0,2,0),(0,3,0)], **kwargs)
         self.type = ["main_hand", "off_hand"]
         self.eq_description = f"Melee:{_dmg[0]}d{_dmg[1]}  " + self.eq_description
 
 class Bow(Weapon):
     def __init__(self, _dmg=(1,6), _marker="b", **kwargs):
-        super().__init__(_marker=_marker, **kwargs)
+        super().__init__(_dmg=_dmg, _marker=_marker, **kwargs)
         self.type = ["main_hand"]
         self.eq_description = f"Range:{_dmg[0]}d{_dmg[1]}"
 
