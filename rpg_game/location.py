@@ -106,10 +106,10 @@ class Location(object):
         return _free
 
 class Inventory(Location):
-    def __init__(self, size=6, *args, **kwargs):
+    def __init__(self, vsize=5, hsize=8,*args, **kwargs):
         super().__init__( *args, **kwargs, _height=1)
-        self.vertical_size = size
-        self.horizontal_size = 2*size
+        self.vertical_size = vsize
+        self.horizontal_size = hsize
         self.container = [[" " for _ in range(self.horizontal_size)] for _ in range(self.vertical_size)]
         self.map = self.map_from_entities()
 

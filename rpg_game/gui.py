@@ -128,34 +128,47 @@ class GUI(UiFrame):
   
 class IntroFrame(UiFrame):
     def __init__(self, parent, mind):
-        line = [urwid.Text("Choose your class")]            
-        btn = attr_button("Warrior", self.select_class, user_args=["Warrior"])
-        line.append(btn)
-        btn = attr_button("Dwarf", self.select_class, user_args=["Dwarf"])
-        line.append(btn)
-        btn = attr_button("Novice", self.select_class, user_args=["Novice"])
-        line.append(btn)
-        btn = attr_button("Thief", self.select_class, user_args=["Thief"])
-        line.append(btn)
-        btn = attr_button("Bard", self.select_class, user_args=["Bard"])
-        line.append(btn)
-        listbox = SelectableListBox(urwid.SimpleListWalker(line))
-        self.listbox = listbox.body
-        head = urwid.ListBox(urwid.SimpleFocusListWalker([
-            urwid.Padding(
-                urwid.BigText(('banner', "Hack\'n\'SSH"), urwid.HalfBlock5x4Font()),
-                width='clip')
-        ]))
-        super().__init__(parent, mind, listbox)
+        # urwid.Padding(urwid.BigText(('top', "Hack\'n\'SSH"), urwid.HalfBlock5x4Font())),
+        self.choices = ("Warrior", "Dwarf", "Wizard", "Thief", "Bard")
+        self.descriptions = {"Warrior": "The mighty warrior\n\nStrength +1, Hit points +4\nCharge and parry", 
+                             "Dwarf": "The short dwarf\n\nStrength +1, Constitution +1, Hit points +6\nDemolish and parry",
+                             "Wizard": "The opportune wizard\n\nIntelligence +1\n Fireball, teleport and ice wall",
+                             "Thief": "The sneaky thief\n\nDexterity +1, Intelligence +1, Hit points +2\nSneak attack, hide and trap",
+                             "Bard": "The noisy bard\n\nCharisma +1, Dexterity +1, Intelligence +1, Hit points +2\nSing"}
+        line = []
+        for c in self.choices:            
+            btn = attr_button(c, self.select_class)
+            line.append(btn)
+        # btn = attr_button("Dwarf", self.select_class, user_args=["Dwarf"])
+        # line.append(btn)
+        # btn = attr_button("Novice", self.select_class, user_args=["Novice"])
+        # line.append(btn)
+        # btn = attr_button("Thief", self.select_class, user_args=["Thief"])
+        # line.append(btn)
+        # btn = attr_button("Bard", self.select_class, user_args=["Bard"])
+        # line.append(btn)
+        walker = urwid.SimpleFocusListWalker(line)
+        urwid.connect_signal(walker, "modified", self.update_description)
+        self.listbox = SelectableListBox(walker)
+        header = urwid.LineBox(urwid.BoxAdapter(self.listbox, len(self.choices)+1))
 
-    def select_class(self, _class, button):
-        self.mind.master.new_player(self.mind.avatar.uuid, _class)
+        super().__init__(parent, mind, urwid.ListBox(urwid.SimpleListWalker([urwid.Text(self.descriptions["Warrior"])])), header=header, focus_part="header")
+
+    def select_class(self, button):
+        index = min(self.listbox.focus_position, len(self.choices)-1)
+        choice = self.choices[index]
+        self.mind.master.new_player(self.mind.avatar.uuid, choice)
         self.parent.start_game_frame()
+
+    def update_description(self):
+        index = min(self.listbox.focus_position, len(self.choices)-1)
+        choice = self.choices[index]
+        self.contents["body"] = (urwid.ListBox(urwid.SimpleListWalker([urwid.Text(self.descriptions[choice])])), None)
         
 
 class GameFrame(UiFrame):
     def __init__(self, parent, mind):
-        header = SelectableListBox(urwid.SimpleListWalker([urwid.Text("")]))
+        header = SelectableListBox(urwid.SimpleFocusListWalker([urwid.Text("")]))
         _frames = ("Status", "Inventory", "Help")
         self.bodies = {b : globals()[f"{b}Frame"](self, mind) for b in _frames}
         idx = 2
@@ -266,11 +279,12 @@ class InventoryFrame(UiFrame):
         self.use_btn = create_button("Use", borders=False, disabled=True)
         urwid.connect_signal(self.drop_btn, "click", self.drop_item)
         urwid.connect_signal(self.use_btn, "click", self.consume_item)
-        self.item_action = SelectableColumns([(7, urwid.AttrMap(self.drop_btn, "disabled")), (7, urwid.AttrMap(self.use_btn, "disabled"))], dividechars=0)
+        _item_btn_size = self.player.inventory.horizontal_size //2 +1
+        self.item_action = SelectableColumns([(_item_btn_size, urwid.AttrMap(self.drop_btn, "disabled")), (_item_btn_size, urwid.AttrMap(self.use_btn, "disabled"))], dividechars=0)
         
         self.eqp_btns = {k: self.eqp_button(k) for k in self.player.equipment}
-        self.inventory_box = SelectableListBox(urwid.SimpleListWalker(self.item_action))
-        self.equipment_box = SelectableListBox(urwid.SimpleListWalker([urwid.Text("")]))
+        self.inventory_box = SelectableListBox(urwid.SimpleFocusListWalker(self.item_action))
+        self.equipment_box = SelectableListBox(urwid.SimpleFocusListWalker([urwid.Text("")]))
         self.update_equipment_box()
         super().__init__(parent, mind, SelectableColumns([(20, self.inventory_box), (45, self.equipment_box)]))
     
@@ -292,7 +306,7 @@ class InventoryFrame(UiFrame):
         # if self._selection == value:
         #     return
         self._selection = value
-        if not self._selection:
+        if not self.selection:
             self.use_btn.disabled = True
             use = urwid.AttrMap(self.use_btn, "disabled")
             self.drop_btn.disabled = True
@@ -320,19 +334,17 @@ class InventoryFrame(UiFrame):
         self.selection = None
 
     def equip_item(self, typ, button):
-        print("EQPBTN", self.selection, typ, self.player.equipment[typ])
         if self.selection and self.selection.is_equipment and typ in self.selection.type:
             self.player.equip(self.selection, typ)
             self.selection = None
         elif not self.selection and self.player.equipment[typ]:
             self.player.unequip(typ)
-            print("HERE", self.selection, typ, self.player.equipment[typ])
             #self.eqp_btns[typ] = self.eqp_button(typ) 
             self.selection = None
             
     def eqp_button(self, typ):
         name = " ".join(typ.split("_"))
-        name = name[0].upper() + name[1:]
+        name = "No " + name[0].upper() + name[1:]
         btn = create_button(name, disabled=False)
         urwid.connect_signal(btn, "click", self.equip_item, user_args=[typ]) 
         if self.player.equipment[typ]:

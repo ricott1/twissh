@@ -22,10 +22,10 @@ class Monster(GameClass):
         self.name = "monster"
 
 
-class Novice(GameClass):
+class Wizard(GameClass):
     def __init__(self):
         super().__init__()
-        self.name = "novice"
+        self.name = "wizard"
         self.class_actions = {"fireball" : action.FireBall, "teleport" : action.Teleport, "icewall" : action.IceWall}
         self.bonus = {"INT": 1}
 
@@ -35,19 +35,22 @@ class Warrior(GameClass):
         self.name = "warrior"
         self.class_actions = {"parry" : action.Parry, "charge": action.Charge}
         self.bonus = {"HP": 4, "STR":1}
+        self.initial_inventory = [inventory.longSword, inventory.woodenHelm]
 
 class Dwarf(GameClass):
     def __init__(self):
         super().__init__()
         self.name = "dwarf"
-        self.class_actions = {"parry" : action.Parry, "demolish": action.Demolish}
+        self.base_actions["attack"] = action.Demolish
+        self.class_actions = {"parry" : action.Parry}
         self.bonus = {"HP": 6, "STR":1, "CON":1}
-        self.initial_inventory = [inventory.warHammer, inventory.longSword, inventory.woodenHelm]
+        self.initial_inventory = [inventory.warHammer, inventory.woodenHelm]
 
 class Thief(GameClass):
     def __init__(self):
         super().__init__()
         self.name = "thief"
+        self.base_actions["attack"] = action.SneakAttack
         self.class_actions = {"hide" : action.Hide, "trap" : action.Trap}
         self.bonus = {"HP": 2, "DEX": 1, "INT": 1}
 

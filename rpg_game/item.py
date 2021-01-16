@@ -95,14 +95,14 @@ class Potion(Consumable):
 
 class Armor(Equipment):
     def __init__(self, _dmg_reduction=0, _marker="a", **kwargs):
-        super().__init__(_marker=_marker, _in_inventory_marker="◜", _extra_inventory_markers= ["◝", "║", "║", "=", "="], _in_inventory_extra_positions=[(0,1,0),(1,0,0),(1,1,0),(0,-1,0),(0,2,0)], **kwargs)
+        super().__init__(_marker=_marker, _in_inventory_marker="◜", _extra_inventory_markers= ["◝", "║", "║", "=", "=","\\","/"], _in_inventory_extra_positions=[(0,1,0),(1,0,0),(1,1,0),(0,-1,0),(0,2,0), (-1,0,0), (-1,1,0)], **kwargs)
         self.type = ["body"]
         self.dmg_reduction = _dmg_reduction
         self.eq_description = f"Reduction {_dmg_reduction}"
 
 class Helm(Equipment):
     def __init__(self, _marker="h", **kwargs):
-        super().__init__(_marker=_marker, _in_inventory_marker="⨪", _extra_inventory_markers= ["⨪", "║", "║"], _in_inventory_extra_positions=[(0,1,0),(1,0,0),(1,1,0)], **kwargs)
+        super().__init__(_marker=_marker, _in_inventory_marker="_", _extra_inventory_markers= ["_", "ᒋ", "ᒉ"], _in_inventory_extra_positions=[(0,1,0),(1,0,0),(1,1,0)], **kwargs)
         self.type = ["helm"]
         
 class Boots(Equipment):

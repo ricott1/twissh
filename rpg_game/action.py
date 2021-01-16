@@ -68,6 +68,22 @@ class Move(Action):
         if not cls.requisites(user):
             return
         if user.direction != cls.direction:
+            
+            #don't transform coordinates if facing down.
+            if cls.direction == "down":
+                _extra_positions = [(x, y, z) for x, y, z in user.extra_positions]
+            elif cls.direction == "up":
+                _extra_positions = [(-x, -y, z) for x, y, z in user.extra_positions]
+            elif cls.direction == "right":
+                _extra_positions = [(-y, x, z) for x, y, z in user.extra_positions]
+            elif cls.direction == "left":
+                _extra_positions = [(y, -x, z) for x, y, z in user.extra_positions]
+
+            x, y, z = user.position
+            for xp, yp, zp in _extra_positions:
+                t = user.location.get((x+xp, y+yp, zp))
+                if t not in (None, user):
+                    return
             user.direction = cls.direction
         else:
             delta_x = int(user.direction=="down") - int(user.direction=="up")
@@ -172,7 +188,11 @@ class PickUp(Action):
     def use(cls, user):
         if cls.requisites(user):
             target = cls.target(user)
-            user.add_inventory(target)
+            free = user.inventory.free_position(target)
+            if not free:
+                counter.TextCounter(user, f"Inventory full")
+                return
+            user.add_inventory(target, free)
             user.recoil += cls.recoil_cost
             counter.TextCounter(user, f"Picked up: {target.name}")
 
@@ -217,12 +237,12 @@ class Drop(Action):
     def use(cls, user, obj=None):
         if not obj:
             return
+        x, y, z = user.position
         if cls.requisites(user, obj):
-            user.drop_inventory(obj)
+            user.drop_inventory(obj, (x, y, 0))
             user.recoil += cls.recoil_cost
             counter.TextCounter(user, f"Dropped: {obj.name}")
         else:
-            x, y, z = user.position
             if not user.location.is_empty((x, y, 0)):
                 counter.TextCounter(user, f"Can\'t drop here")
 
@@ -250,7 +270,7 @@ class Attack(Action):
             dmg = max(1, roll(num, dice) + roll(num, dice) + base)
             target.hit(dmg)
             if target.is_dead:
-                user.exp += 200
+                user.exp += EXP_PER_KILL
             counter.TextCounter(user, f"Attack {target.name}: critical! {dmg} damage{'s'*int(dmg>1)}!")
         elif "parry" in target.counters and target.direction == cls.action_direction(user):
             counter.TextCounter(user, f"Attack {target.name}: blocked!")
@@ -261,7 +281,7 @@ class Attack(Action):
             dmg = max(1, roll(num, dice) + base)
             target.hit(dmg)
             if target.is_dead:
-                user.exp += 200
+                user.exp += EXP_PER_KILL
             counter.TextCounter(user, f"Attack {target.name}: {dmg} damage{'s'*int(dmg>1)}!")
         else:
             counter.TextCounter(user, f"Attack {target.name}: misses!")
@@ -281,6 +301,47 @@ class Attack(Action):
             if cls.requisites(user):
                 target = cls.target(user)
                 cls.hit(user, target)
+
+class SneakAttack(Action):
+    name = "sneak_attack"
+    recoil_cost = LONG_RECOIL
+    description = "Sneak attack"
+
+    @classmethod
+    def hit(cls, user, target):
+        if target.is_dead:
+            counter.TextCounter(user, f"Attack {target.name}: it's already dead!")
+            return
+        user.recoil += cls.recoil_cost
+        base = user.STR.mod
+        weapon = user.equipment["main_hand"]
+        num, dice = weapon.dmg
+
+        
+        counter.MarkerCounter(user, {k:[v for _ in user.positions] for k, v in zip(("up", "down", "left", "right"), ("⩓", "⩔", "⪡", "⪢"))}, SHORT_RECOIL)
+        
+        dmg = max(1, user.level * roll(num, dice) + base)
+        target.hit(dmg)
+        if target.is_dead:
+            user.exp += EXP_PER_KILL
+        counter.TextCounter(user, f"Sneak Attack {target.name}: {dmg} damage{'s'*int(dmg>1)}!")
+
+
+    @classmethod
+    def requisites(cls, user):
+        """Defines action legality"""
+        target = cls.target(user)
+        return user.recoil == 0 and target
+
+    @classmethod
+    def use(cls, user):
+        if cls.requisites(user):
+            target = cls.target(user)
+            weapon = user.equipment["main_hand"]
+            if target.direction == user.direction and isinstance(weapon, item.Sword):
+                cls.hit(user, target)
+            else:
+                Attack.hit(user, target)
 
 class Demolish(Action):
     name = "demolish"
@@ -309,14 +370,17 @@ class Demolish(Action):
     def requisites(cls, user):
         """Defines action legality"""
         target = cls.target(user)
-        weapon = user.equipment["main_hand"]
-        return user.recoil == 0 and target and isinstance(target, entity.Wall) and isinstance(weapon, item.Hammer)
+        return user.recoil == 0 and target
 
     @classmethod
     def use(cls, user):
         if cls.requisites(user):
             target = cls.target(user)
-            cls.hit(user, target)               
+            weapon = user.equipment["main_hand"]
+            if isinstance(weapon, item.Hammer) and isinstance(target, entity.Wall):
+                cls.hit(user, target)
+            else:
+                Attack.hit(user, target)               
 
 class Parry(Action):
     name = "parry"
@@ -360,7 +424,7 @@ class Arrow(Action):
             dmg = max(1, roll(num, dice) + roll(num, dice) + base)
             target.hit(dmg)
             if target.is_dead:
-                user.exp += 200
+                user.exp += EXP_PER_KILL
             counter.TextCounter(proj.spawner, f"Attack {target.name}: critical! {dmg} damage{'s'*int(dmg>1)}!")
         elif "parry" in target.counters and target.direction == cls.action_direction(proj):
             counter.TextCounter(proj.spawner, f"Attack {target.name}: blocked!")
@@ -370,7 +434,7 @@ class Arrow(Action):
             dmg = max(1, roll(num, dice) + base)
             target.hit(dmg)
             if target.is_dead:
-                user.exp += 200
+                user.exp += EXP_PER_KILL
             counter.TextCounter(proj.spawner, f"Attack {target.name}: {dmg} damage{'s'*int(dmg>1)}!")
         else:
             counter.TextCounter(proj.spawner, f"Attack {target.name}: misses!")
@@ -400,7 +464,7 @@ class FireBall(Action):
             dmg = max(1, roll(num, dice) + base)
             target.hit(dmg)
             if target.is_dead:
-                user.exp += 200
+                user.exp += EXP_PER_KILL
             counter.TextCounter(proj.spawner, f"FIREBALL in {target.name}\'s face: {dmg} damage{'s'*int(dmg>1)}!")
         
         if proj.fragment > 1:
@@ -449,7 +513,7 @@ class Teleport(Action):
     def use(cls, user):
         if cls.requisites(user):
             x, y, z = user.position
-            new_pos = user.location.free_position(_layer=z)
+            new_pos = user.location.free_position(user)
             if new_pos:
                 user.position = new_pos
                 user.recoil += cls.recoil_cost
@@ -503,7 +567,7 @@ class Trap(Action):
         dmg = max(1, roll(num, dice) + base)
         target.hit(dmg)
         if target.is_dead:
-            user.exp += 200
+            user.exp += EXP_PER_KILL
         counter.TextCounter(target, f"{target.name} triggered a trap: {dmg} damage{'s'*int(dmg>1)}!")
         
 

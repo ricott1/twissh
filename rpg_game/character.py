@@ -14,7 +14,7 @@ class Character(entity.ActingEntity):
         super().__init__(_layer=1, _HP=_stats["HP"], **kwargs)
         self.direction_markers = {"up":["▲"], "down":["▼"], "left":["◀"], "right":["▶"]}
 
-        self._level = 1
+        self.level = 1
         self._exp = 0
         
         self.inventory = location.Inventory()
@@ -50,7 +50,10 @@ class Character(entity.ActingEntity):
         self.actions = self.game_class.actions
         self.class_actions = self.game_class.class_actions
         for obj in self.game_class.initial_inventory:
-            self.add_inventory(obj(self.location))
+            i = obj(self.location)
+            free = self.inventory.free_position(i)
+            if free:
+                self.add_inventory(i, free)
 
     @property
     def invulnerable(self):
@@ -61,21 +64,9 @@ class Character(entity.ActingEntity):
         return self._exp
     @exp.setter
     def exp(self, value):
-        self._exp += value
-        while self.exp>= self.level**2*EXP_PER_LEVEL:
-            self.level += 1
-
-    @property
-    def level(self):
-        return self._level
-    @level.setter
-    def level(self, value):
-        self._level += 1
-        for b in self.game_class.bonus:
-            self.game_class.bonus[b] += 1
-        self.movement_speed += 0.25
-        self.HP._value += max(1, 2 + self.CON.mod)
-        self.restore() 
+        self._exp = value
+        while self.exp>= (self.level**2)*EXP_PER_LEVEL:
+            self.increase_level()
     
     @property
     def is_controllable(self):
@@ -117,6 +108,13 @@ class Character(entity.ActingEntity):
         self.inventory.on_update(_deltatime)
         self.inventory.redraw = False
 
+    def increase_level(self):
+        for b in self.game_class.bonus:
+            self.game_class.bonus[b] += 1
+        self.movement_speed += 0.25
+        self.HP._value += max(1, 2 + self.CON.mod)
+        self.restore()
+
     def hit(self, dmg):
         if self.invulnerable:
             return
@@ -129,22 +127,16 @@ class Character(entity.ActingEntity):
     def restore(self):
         self.HP.dmg = 0
             
-    def add_inventory(self, obj):
-        free = self.inventory.free_position(obj)
-        if not free:
-            print("Inventory full")
-            return
-        obj.change_location(free, self.inventory)
+    def add_inventory(self, obj, pos):
+        obj.change_location(pos, self.inventory)
         
-    def drop_inventory(self, obj):
+    def drop_inventory(self, obj, pos):
         if obj.is_equipment and obj.is_equipped:
             for _type in obj.type:
                 if self.equipment[_type] == obj:
                     self.unequip(_type)
                     break
-
-        x, y, z = self.position
-        obj.change_location((x, y, 0), self.location)
+        obj.change_location(pos, self.location)
             
     def equip(self, obj, _type):
         if _type not in obj.type:
