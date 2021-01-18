@@ -7,10 +7,10 @@ from rpg_game.world_map import *
 class World(object):
     def __init__(self):
         self.locations = {
-            "base" : quick_room(self, "Base", base, _common_loot_prob=1, _monster_prob=0),
-            "floor-0" : quick_room(self, "Ground Floor", floor_0),
-            "floor-1" : quick_room(self, "First Floor", floor_1, _uncommon_loot_prob=0.5, _rare_loot_prob=0.25),
-            "floor-2" : quick_room(self, "Top Floor", floor_2, _unique_loot_prob=1)
+            "base" : quick_room(self, "Base", base, {"common":1, "uncommon":0.01, "rare":0, "unique":0}, _monster_prob=0),
+            "floor-0" : quick_room(self, "Ground Floor", floor_0, {"common":0.5, "uncommon":0.25, "rare":0.1, "unique":0.025}),
+            "floor-1" : quick_room(self, "First Floor", floor_1, {"common":0.35, "uncommon":0.65, "rare":0.25, "unique":0.025}),
+            "floor-2" : quick_room(self, "Top Floor", floor_2, {"common":0, "uncommon":0, "rare":0.5, "unique":1})
         }
         self.link_portals()
 
@@ -30,34 +30,22 @@ class World(object):
                     q.partner = p
 
 
-def quick_room(world, name, _map, _common_loot_prob=0.5, _uncommon_loot_prob=0.25, _rare_loot_prob=0.1, _unique_loot_prob=0.003, _monster_prob=0.9): 
+def quick_room(world, name, _map, loot_prob, _monster_prob=0.9): 
     r = location.Room(name, world, _map)
-    if random.random()< _common_loot_prob:
-        inventory.longSword(_location=r)
-    if random.random()< _common_loot_prob:
-        inventory.warHammer(_location=r)
-    if random.random()< _common_loot_prob:
-        inventory.chainArmor(_location=r)
-    if random.random()< _common_loot_prob:
-        inventory.buckler(_location=r)
-    if random.random()< _common_loot_prob:
-        inventory.healingPotion(_location=r)
 
-    if random.random()< _uncommon_loot_prob:
-        inventory.longBow(_location=r)
+    for rarity, item_list in inventory.inventory_list().items():
+        for i in item_list:
+            if random.random()< loot_prob[rarity]:
+                i(_location=r) 
 
-    if random.random()< _rare_loot_prob:
-        inventory.rovaisThorn(_location=r)
-    
-    if random.random()< _unique_loot_prob:
-        inventory.chiappilArmor(_location=r)
+    print("MONSTER", _monster_prob, name)
     
     if random.random()< _monster_prob:
-        bestiary.Goblin(_name="Gulluk", _stats=random_stats(), _location = r)
+        bestiary.goblin(_name="Gulluk", _stats=random_stats(), _location = r)
     if random.random()< _monster_prob:
-        bestiary.Goblin(_name="Gallog", _stats=random_stats(), _location = r)
+        bestiary.goblin(_name="Gallog", _stats=random_stats(), _location = r)
     if random.random()< _monster_prob:
-        bestiary.Goblin(_name="Gellac", _stats=random_stats(), _location = r)
+        bestiary.goblin(_name="Gellac", _stats=random_stats(), _location = r)
     #ogre = bestiary.Ogre(_stats=random_stats(), _location = r)
     #bestiary.Dragon(_name="Paco", _stats=random_stats(), _location = r)
     

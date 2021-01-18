@@ -1,9 +1,8 @@
 import random,os, math, time
-import action, location, item, entity, strategy
+import action, location, item, entity, strategy, game_class, counter
 from rpg_game.utils import log, mod, roll, random_name, random_stats
 from rpg_game.constants import *
 from rpg_game.characteristic import Characteristic
-import game_class
 
 
              
@@ -118,7 +117,9 @@ class Character(entity.ActingEntity):
     def hit(self, dmg):
         if self.invulnerable:
             return
-        self.HP.dmg += max(1, dmg - self.dmg_reduction)
+        dmg = max(1, dmg - self.dmg_reduction)
+        self.HP.dmg += max(0, dmg)
+        counter.ColorCounter(self, f"white", SHORT_RECOIL)
         self.location.redraw = True
     
     def kill(self):
@@ -138,31 +139,37 @@ class Character(entity.ActingEntity):
                     break
         obj.change_location(pos, self.location)
             
-    def equip(self, obj, _type):
-        if _type not in obj.type:
-            return
+    def equip(self, obj):
         if not obj.is_equipment:
             return
-        #if already equipped somwehere, then unequip it from there
-        for t in self.equipment:
-            if self.equipment[t] is obj:
-                self.unequip(t)
-        self.unequip(_type)
-        self.equipment[_type] = obj
+        #if already equipped somwehere, then return
+        if obj in [self.equipment[t] for t in self.equipment]:
+            return
+        
+        for t in obj.type:
+            self.unequip(t)
+            self.equipment[t] = obj
+            
         obj.on_equip()
         
     def unequip(self, _type):
         if self.equipment[_type]:
-            self.equipment[_type].on_unequip()
-        self.equipment[_type] = None
+            if self.equipment[_type].type == "two_hands":
+                self.equipment["main_hand"].on_unequip()
+                self.equipment["off_hand"].on_unequip()
+                self.equipment["main_hand"] = None
+                self.equipment["off_hand"] = None
+            else:
+                self.equipment[_type].on_unequip()
+                self.equipment[_type] = None
             
 
-class Villain(Character):
+class Monster(Character):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.game_class = game_class.Monster()
-        self.strategy = strategy.MonsterStrategy(self)
-        self.color = "red"
+        self.strategy = strategy.MonsterStrategy(self, Player)
+        self._color = "red"
 
     @property
     def status(self):
@@ -181,7 +188,7 @@ class Villain(Character):
 class Player(Character): 
     def __init__(self, _game_class, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.color = self.id
+        self._color = self.id
         self.game_class = getattr(globals()[f"game_class"], _game_class)()
         self.chat_sent_log = []
         self.chat_received_log = []
@@ -197,7 +204,7 @@ class Player(Character):
             "q": "pick_up",
             "a": "attack"}
 
-        extra_keys = ["s", "d", "w"]
+        extra_keys = ["s", "d", "w", "e"]
         for i, act in enumerate(self.class_actions):
             self.input_map[extra_keys[i]] = act
 

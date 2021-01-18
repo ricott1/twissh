@@ -86,6 +86,15 @@ class MarkerCounter(Counter):
     def on_set(self):
         self.entity.location.redraw = True
 
+class ColorCounter(Counter):
+    """docstring for BuffCounter"""
+    def __init__(self, _entity, _color, _value):
+        self.color = _color
+        super().__init__(_name=f"color", _entity=_entity, _value=_value)
+
+    def on_set(self):
+        self.entity.location.redraw = True
+
 class TextCounter(Counter):
     """docstring for BuffCounter"""
     def __init__(self, _entity, _text, _value=MAX_RECOIL):

@@ -1,6 +1,6 @@
 from rpg_game.utils import roll1d20, roll1d4, roll
 from rpg_game.constants import *
-import counter, item, character, entity
+import counter, item, character, entity, bestiary
 
 class Action(object):
     """implements rigid body properties"""
@@ -252,22 +252,43 @@ class Attack(Action):
     description = "Attack"
 
     @classmethod
+    def target(cls, user):
+        """Get action target square"""
+        weapon = user.equipment["main_hand"]
+        if weapon:
+            _range = weapon.range
+        else:
+            _range = 1
+        for s in range(1, _range+1):
+            t = user.location.get(user.forward_by(s))
+            
+            if t:
+                return t
+        return None
+
+    @classmethod
     def hit(cls, user, target):
         if target.is_dead:
             counter.TextCounter(user, f"Attack {target.name}: it's already dead!")
             return
-        user.recoil += cls.recoil_cost
+        
         base = user.STR.mod
         weapon = user.equipment["main_hand"]
         if weapon:
             num, dice = weapon.dmg
+            val, multi = weapon.critical
+            speed = weapon.speed
         else:
             num, dice = (1, 4)
+            val, multi = (20, 2)
+            speed = 0.75
+
+        user.recoil += cls.recoil_cost * speed
 
         r = roll1d20()
         counter.MarkerCounter(user, {k:[v for _ in user.positions] for k, v in zip(("up", "down", "left", "right"), ("⩓", "⩔", "⪡", "⪢"))}, SHORT_RECOIL)
-        if r == 20:
-            dmg = max(1, roll(num, dice) + roll(num, dice) + base)
+        if r >= val:
+            dmg = max(1, multi*roll(num, dice) + base)
             target.hit(dmg)
             if target.is_dead:
                 user.exp += EXP_PER_KILL
@@ -295,12 +316,12 @@ class Attack(Action):
     @classmethod
     def use(cls, user):
         weapon = user.equipment["main_hand"]
+        target = cls.target(user)
         if isinstance(weapon, item.Bow):
             Arrow.use(user)
-        else:
-            if cls.requisites(user):
-                target = cls.target(user)
-                cls.hit(user, target)
+        elif cls.requisites(user):
+            target = cls.target(user)
+            cls.hit(user, target)
 
 class SneakAttack(Action):
     name = "sneak_attack"
@@ -312,33 +333,47 @@ class SneakAttack(Action):
         if target.is_dead:
             counter.TextCounter(user, f"Attack {target.name}: it's already dead!")
             return
-        user.recoil += cls.recoil_cost
+        
         base = user.STR.mod
         weapon = user.equipment["main_hand"]
         num, dice = weapon.dmg
+        val, multi = weapon.critical
+        speed = weapon.speed
+        user.recoil += cls.recoil_cost * weapon.speed
+
+        if r >= val:
+            dmg = max(1, multi*user.level * roll(num, dice) + base)
+            target.hit(dmg)
+            if target.is_dead:
+                user.exp += EXP_PER_KILL
+            counter.TextCounter(user, f"Critical Sneak {target.name}: {dmg} damage{'s'*int(dmg>1)}!")
+        else:
+            dmg = max(1, user.level * roll(num, dice) + base)
+            target.hit(dmg)
+            if target.is_dead:
+                user.exp += EXP_PER_KILL
+            counter.TextCounter(user, f"Sneak Attack {target.name}: {dmg} damage{'s'*int(dmg>1)}!")
 
         
         counter.MarkerCounter(user, {k:[v for _ in user.positions] for k, v in zip(("up", "down", "left", "right"), ("⩓", "⩔", "⪡", "⪢"))}, SHORT_RECOIL)
         
-        dmg = max(1, user.level * roll(num, dice) + base)
-        target.hit(dmg)
-        if target.is_dead:
-            user.exp += EXP_PER_KILL
-        counter.TextCounter(user, f"Sneak Attack {target.name}: {dmg} damage{'s'*int(dmg>1)}!")
+        
 
+    @classmethod
+    def target(cls, user):
+        return Attack.target(user)
 
     @classmethod
     def requisites(cls, user):
         """Defines action legality"""
-        target = cls.target(user)
-        return user.recoil == 0 and target
+        return Attack.requisites(user)
 
     @classmethod
     def use(cls, user):
         if cls.requisites(user):
             target = cls.target(user)
             weapon = user.equipment["main_hand"]
-            if target.direction == user.direction and isinstance(weapon, item.Sword):
+            if target.direction == user.direction and isinstance(weapon, item.Sword) and isinstance(target, character.Character):
                 cls.hit(user, target)
             else:
                 Attack.hit(user, target)
@@ -350,14 +385,16 @@ class Demolish(Action):
 
     @classmethod
     def hit(cls, user, target):
-        user.recoil += cls.recoil_cost
         base = user.STR.mod
         weapon = user.equipment["main_hand"]
         num, dice = weapon.dmg
+        val, multi = weapon.critical
+        speed = weapon.speed
+        user.recoil += cls.recoil_cost * weapon.speed
 
         r = roll1d20()
         counter.MarkerCounter(user, {k:[v for _ in user.positions] for k, v in zip(("up", "down", "left", "right"), ("⩓", "⩔", "⪡", "⪢"))}, SHORT_RECOIL)
-        if r == 20:
+        if r >= val:
             dmg = target.HP.max
             target.hit(dmg)
             counter.TextCounter(user, f"Demolish {target.name}: demolished!")
@@ -367,17 +404,20 @@ class Demolish(Action):
             counter.TextCounter(user, f"Demolish {target.name}: {dmg} damage{'s'*int(dmg>1)}!")
 
     @classmethod
+    def target(cls, user):
+        return Attack.target(user)
+
+    @classmethod
     def requisites(cls, user):
         """Defines action legality"""
-        target = cls.target(user)
-        return user.recoil == 0 and target
+        return Attack.requisites(user)
 
     @classmethod
     def use(cls, user):
         if cls.requisites(user):
             target = cls.target(user)
             weapon = user.equipment["main_hand"]
-            if isinstance(weapon, item.Hammer) and isinstance(target, entity.Wall):
+            if isinstance(weapon, item.Hammer) and isinstance(target, entity.ThinWall):
                 cls.hit(user, target)
             else:
                 Attack.hit(user, target)               
@@ -411,8 +451,6 @@ class Arrow(Action):
 
     @classmethod
     def hit(cls, proj):
-        num, dice = (1, 4)
-        base = proj.spawner.DEX.mod
         target = proj.location.get(proj.forward)
         if not target:
             return
@@ -420,8 +458,8 @@ class Arrow(Action):
             counter.TextCounter(user, f"Attack {target.name}: it's already dead!")
             return
         r = roll1d20()
-        if r == 20:
-            dmg = max(1, roll(num, dice) + roll(num, dice) + base)
+        if r >= proj.crit_range:
+            dmg = proj.crit_dmg
             target.hit(dmg)
             if target.is_dead:
                 user.exp += EXP_PER_KILL
@@ -431,7 +469,7 @@ class Arrow(Action):
             counter.TextCounter(target, f"Parry {proj.spawner.name}\'s arrow!")
             target.counters["parry"].on_end()
         elif r !=1:
-            dmg = max(1, roll(num, dice) + base)
+            dmg = proj.dmg
             target.hit(dmg)
             if target.is_dead:
                 user.exp += EXP_PER_KILL
@@ -442,8 +480,17 @@ class Arrow(Action):
     @classmethod
     def use(cls, user):
         if cls.requisites(user):
-            proj = entity.Arrow(_spawner = user, _on_hit=cls.hit)
-            user.recoil += cls.recoil_cost
+            weapon = user.equipment["main_hand"]
+            base = proj.spawner.DEX.mod
+            num, dice = (1, 4)
+            val, multi = weapon.critical
+            speed = weapon.speed
+            user.recoil += cls.recoil_cost * weapon.speed
+            
+            dmg = max(1, roll(num, dice) + base)
+            crit = (val, max(1, multi*roll(num, dice) + base))
+            proj = entity.Arrow(_spawner = user, _max_range=weapon.range, _on_hit=cls.hit, _dmg=dmg, _crit=crit)
+
 
 class FireBall(Action):
     name = "fire"
@@ -616,3 +663,29 @@ class Charge(Action):
             dash = {"right":DashRight, "left":DashLeft, "up":DashUp, "down":DashDown}[user.direction].use
             attack = Attack.hit
             counter.ChargeCounter(user, MAX_RECOIL, dash, attack)
+
+class Summon(Action):
+    name = "summon"
+    recoil_cost = LONG_RECOIL
+    description = "Summon monster"
+
+    @classmethod
+    def requisites(cls, user):
+        """Defines action legality"""
+        x, y, z = user.position
+        return super().requisites(user) and user.location.is_empty((x, y, 0))
+
+    @classmethod
+    def summon(cls, user):
+        if user.CHA.mod >= 3:
+            return bestiary.goblin
+        else:
+            return bestiary.goblin
+
+    @classmethod
+    def use(cls, user):
+        if cls.requisites(user):
+            user.recoil += cls.recoil_cost
+            counter.TextCounter(user, f"Starts a summon ritual")
+            x, y, z = user.position
+            entity.SummonPortal(_spawner=user, _summon=cls.summon(user), _location=user.location, _position=(x, y, 0))

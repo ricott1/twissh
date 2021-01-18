@@ -9,16 +9,18 @@ class Strategy(object):
 		self.attack = 1
 		self.defense = 0.5
 		self.support = 0
+		self.target_type = None
 
 class MonsterStrategy(Strategy):
-	def __init__(self, _entity):
+	def __init__(self, _entity, _target_type):
 		super().__init__(_entity)
 		self.vision = 8
 		self.sprint_range = 5
+		self.target_type = _target_type
 
 	@property
 	def target(self):
-		closest = sorted([ent for ent in self.entity.location.characters if ent is not self.entity and isinstance(ent, character.Player) and distance(self.entity.position, ent.position) < self.vision], key=lambda ent: distance(self.entity.position, ent.position))
+		closest = sorted([ent for ent in self.entity.location.characters if ent is not self.entity and isinstance(ent, self.target_type) and distance(self.entity.position, ent.position) < self.vision], key=lambda ent: distance(self.entity.position, ent.position))
 		if closest:
 			return closest[0]
 		return None
@@ -33,7 +35,7 @@ class MonsterStrategy(Strategy):
 		actions = self.available_actions
 		if "attack" in actions:
 			target = actions["attack"].target(self.entity)
-			if isinstance(target, character.Player):
+			if isinstance(target, self.target_type):
 				return "attack"
 		xt, yt, zt = self.target.position
 		x, y, z = self.entity.position

@@ -1,18 +1,26 @@
 access to race and job screens, access monster status
 
 
-attacco furtivo
-stop time
+slow time
 costruire muri usando risorse
-enchant weapons
+enchant weapons al nano
 
 use markers central file and constants
-wall dmg markers
-dwarf, extra dmg to walls
 add build house, enabling saving
 in house, no updates
 
-select equipment in inventory disable all places where it doesn go
+
+##Bugs
+cant shift up/down (maybe only on mac)
+maybe run automatically (also better ux)?
+
+
+
+
+
+
+
+
 
 https://www.compart.com/en/unicode/category/So
 

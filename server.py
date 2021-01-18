@@ -77,6 +77,7 @@ class UnhandledKeyHandler(object):
         self.mind = mind
 
     def push(self, key):
+        print("PREINPUT", key)
         if isinstance(key, tuple):
             pass
         else:
@@ -114,7 +115,10 @@ class UrwidMind(Adapter):
         if self.avatar.uuid in self.master.players:
             return self.master.players[self.avatar.uuid]
         return None
-    
+
+    @property
+    def screen_size(self):
+        return self.ui.screen.get_cols_rows()
 
     def set_terminalProtocol(self, terminalProtocol):
         self.terminalProtocol = terminalProtocol
@@ -398,7 +402,7 @@ class UrwidTerminalSession(TerminalSession):
         self.chained_protocol.terminalProtocol.terminalSize(h, w)
 
     def eofReceived(self):
-        self.mind.disconnect()
+        IUrwidMind(self.original).disconnect()
 
 class UrwidRealm(TerminalRealm):
     """Custom terminal realm class-configured to use our custom Terminal User

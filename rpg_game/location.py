@@ -38,16 +38,16 @@ class Location(object):
             for m, p in zip(ent.marker, ent.positions):
                 x, y, z = p
                 max_z = max([z for z in self.content[x][y]], default=-1)
-                if z == max_z:
+                if z == max_z and self.content[x][y][z] is ent:
                     _map[x][y] = (ent.color, m)
         return _map
 
-    def content_from_entities(self):
-        _content = nested_dict()
-        for k, ent in self.entities.items():
-            for x, y, z in ent.positions:
-                _content[x][y][z] = ent
-        return _content
+    # def content_from_entities(self):
+    #     _content = nested_dict()
+    #     for k, ent in self.entities.items():
+    #         for x, y, z in ent.positions:
+    #             _content[x][y][z] = ent
+    #     return _content
 
     def register(self, _entity):
         """register content"""
@@ -85,11 +85,13 @@ class Location(object):
             return self.content[x][y][z]
         return None
 
+    def out_of_bounds(self, position):
+        x, y, z = position
+        return x < 0 or x >= len(self.container) or y < 0 or y >= len(self.container[x]) or z < 0 or z >= self.height
+
     def is_empty(self, position):
         x, y, z = position
-        out_of_bounds = x < 0 or x >= len(self.container) or y < 0 or y >= len(self.container[x]) or z < 0 or z >= self.height
-        # print(f"BOUNDS {out_of_bounds}, {x}, {y}, {z}, {len(self.container)}, {len(self.container[x])} {self.height}")
-        if out_of_bounds:
+        if self.out_of_bounds(position):
             return False
         return not bool(self.get(position))
 

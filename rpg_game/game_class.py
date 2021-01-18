@@ -45,6 +45,7 @@ class Dwarf(GameClass):
         self.class_actions = {"parry" : action.Parry}
         self.bonus = {"HP": 6, "STR":1, "CON":1}
         self.initial_inventory = [inventory.warHammer, inventory.woodenHelm]
+        self.inventory_size_bonus = 2
 
 class Thief(GameClass):
     def __init__(self):
@@ -58,7 +59,7 @@ class Bard(GameClass):
     def __init__(self):
         super().__init__()
         self.name = "bard"
-        self.class_actions = {"sing" : action.Sing}
+        self.class_actions = {"sing" : action.Sing, "summon" : action.Summon}
         self.bonus = {"HP": 2, "CHA": 1, "INT": 1, "DEX": 1}
 
 
