@@ -77,7 +77,6 @@ class UnhandledKeyHandler(object):
         self.mind = mind
 
     def push(self, key):
-        print("PREINPUT", key)
         if isinstance(key, tuple):
             pass
         else:
@@ -472,7 +471,6 @@ class GameServer(TCPServer):
     
     def add_user(self, avatar):
         username = avatar.uuid
-        print(username)
         self.factory.portal.checkers.add_user(username, "")
         
 
@@ -484,7 +482,6 @@ def create_server_factory():
     rlm = UrwidRealm()
     ptl = Portal(rlm, cred_checkers)
     factory = ConchFactory(ptl)
-    print("FACTORY", factory.portal.checkers)
     factory.publicKeys[b'ssh-rsa'] = Key.fromFile('keys/test_rsa.pub')
     factory.privateKeys[b'ssh-rsa'] = Key.fromFile('keys/test_rsa')
     return factory

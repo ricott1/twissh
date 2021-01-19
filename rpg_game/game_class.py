@@ -35,7 +35,7 @@ class Warrior(GameClass):
         self.name = "warrior"
         self.class_actions = {"parry" : action.Parry, "charge": action.Charge}
         self.bonus = {"HP": 4, "STR":1}
-        self.initial_inventory = [inventory.longSword, inventory.woodenHelm]
+        self.initial_inventory = [inventory.longSword, inventory.longBow]
 
 class Dwarf(GameClass):
     def __init__(self):
@@ -54,6 +54,7 @@ class Thief(GameClass):
         self.base_actions["attack"] = action.SneakAttack
         self.class_actions = {"hide" : action.Hide, "trap" : action.Trap}
         self.bonus = {"HP": 2, "DEX": 1, "INT": 1}
+        self.initial_inventory = [inventory.dagger]
 
 class Bard(GameClass):
     def __init__(self):

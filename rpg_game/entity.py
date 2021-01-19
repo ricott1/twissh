@@ -331,7 +331,7 @@ class SummonPortal(Entity):
     EXP_BONUS = 100
 
     def __init__(self, _spawner=None, _summon=None, **kwargs):
-        super().__init__(_layer=0, _color="cyan", _marker="𐌈", **kwargs)
+        super().__init__(_layer=0, _color="cyan", _marker="❂", **kwargs)#✬✡❂
         self.spawner = _spawner
         self.summon = _summon
         self.vanish = 0
@@ -436,8 +436,8 @@ class Projectile(ActingEntity):
             self.destroy()
 
 class Arrow(Projectile):
-    def __init__(self, _spawner, _on_hit, _dmg, _crit, **kwargs):
-        super().__init__(_spawner=_spawner, _on_hit=_on_hit, _movement_speed=6, _max_range=1, _direction=_spawner.direction, _position=_spawner.forward, _location=_spawner.location, **kwargs)
+    def __init__(self, _spawner, _on_hit, _dmg, _crit, _max_range=1,  **kwargs):
+        super().__init__(_spawner=_spawner, _on_hit=_on_hit, _movement_speed=6, _max_range=_max_range, _direction=_spawner.direction, _position=_spawner.forward, _location=_spawner.location, **kwargs)
         self.movement_recoil = SHORT_RECOIL * (1 - MOD_WEIGHT * _spawner.DEX.mod)
         self.max_range = _max_range
         self.movement_speed = 5 + 0.5 * _spawner.DEX.mod

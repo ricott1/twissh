@@ -154,7 +154,7 @@ class Character(entity.ActingEntity):
         
     def unequip(self, _type):
         if self.equipment[_type]:
-            if self.equipment[_type].type == "two_hands":
+            if self.equipment[_type].is_two_handed:
                 self.equipment["main_hand"].on_unequip()
                 self.equipment["off_hand"].on_unequip()
                 self.equipment["main_hand"] = None

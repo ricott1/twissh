@@ -317,7 +317,9 @@ class Attack(Action):
     def use(cls, user):
         weapon = user.equipment["main_hand"]
         target = cls.target(user)
+        print("WEAPON", weapon)
         if isinstance(weapon, item.Bow):
+            print("ARROOOWWW", weapon)
             Arrow.use(user)
         elif cls.requisites(user):
             target = cls.target(user)
@@ -481,7 +483,7 @@ class Arrow(Action):
     def use(cls, user):
         if cls.requisites(user):
             weapon = user.equipment["main_hand"]
-            base = proj.spawner.DEX.mod
+            base = user.DEX.mod
             num, dice = (1, 4)
             val, multi = weapon.critical
             speed = weapon.speed
@@ -634,7 +636,7 @@ class Sing(Action):
         base = song.spawner.CHA.mod
         target = song.location.get(song.below)
         counter.TextCounter(target, f"{song.spawner.name}\'s song! STR +{base}")
-        counter.BuffCounter(target, self.SONG_LENGTH + song.spawner.CHA.mod, "STR", max(1, song.spawner.CHA.mod))
+        counter.BuffCounter(target, song.spawner.SONG_LENGTH + song.spawner.CHA.mod, "STR", max(1, song.spawner.CHA.mod))
 
     @classmethod
     def use(cls, user):

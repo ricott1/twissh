@@ -4,6 +4,9 @@ import item
 def longSword(_location=None):
     return item.Sword(_name="Long Sword", _location=_location, _description="The crawler\"s best friend", _dmg=(1, 8), _rarity="common")
 
+def dagger(_location=None):
+    return item.Sword(_name="Dagger", _location=_location, _speed=0.5, _description="So easy to lose", _dmg=(1, 4), _rarity="common")
+
 def warHammer(_location=None):
     return item.Hammer(_name="War Hammer", _range=2, _location=_location, _description="Ready to tear down", _dmg=(2, 4), _rarity="rare")
 
@@ -14,7 +17,7 @@ def longBow(_location=None):
     return item.Bow(_name="Long Bow", _range=8, _location=_location, _description="The crawler\"s long friend", _dmg=(1, 6), _rarity="uncommon")
 
 def sniperBow(_location=None):
-    return item.Bow(_name="Sniper Bow", _range=10, _location=_location, _description="Long range bow", _dmg=(1, 8), _rarity="rare")
+    return item.Bow(_name="Sniper Bow", _range=10, _speed=2, _location=_location, _description="Long range bow", _dmg=(1, 8), _rarity="rare")
 
 def chainArmor(_location=None):
     return item.Armor(_name="Chain Armor", _location=_location, _bonus={"DEX":-2}, _dmg_reduction=1, _description="Tough and heavy, but it\'s groovy", _rarity="common")

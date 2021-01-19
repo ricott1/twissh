@@ -108,7 +108,7 @@ class Location(object):
         return _free
 
 class Inventory(Location):
-    def __init__(self, vsize=5, hsize=8,*args, **kwargs):
+    def __init__(self, vsize=5, hsize=10,*args, **kwargs):
         super().__init__( *args, **kwargs, _height=1)
         self.vertical_size = vsize
         self.horizontal_size = hsize
@@ -147,10 +147,13 @@ class Room(Location):
                     #or thin vs thick walls
                     if _marker == "░":
                         entity.Portal(_location=self, _position=(x, y, 0), _marker=_marker)
-                    elif _marker in ("┘", "┐", "┌", "└", "┤", "┴", "┬", "├", "─", "│", "┼"):
+                    elif _marker in "┘┐┌└┤┴┬├─│┼".split():
                         entity.ThinWall(_location=self, _position=(x, y, 0), _marker=_marker)
+                    #elif _marker in "═║╒╓╔╕╖╗╘╙╚╛╜╝╞╟╠╡╢╣╤╥╦╧╨╩╪╫╬●".split():
                     else:
                         entity.HardWall(_location=self, _position=(x, y, 0), _marker=_marker)
+                    # else:
+                    #     just a drawing
 
     def free_position(self, _entity):
         _layer = _entity.layer
