@@ -200,20 +200,12 @@ class SingCounter(Counter):
         super().__init__(_name="sing", _entity=_entity, _value=_value)
         self.on_song_hit = _on_song_hit
 
-    def on_set(self):
-        super().on_set()
-        TextCounter(self.entity, f"{self.entity.name} is dead")
-
     def on_update(self, _deltatime):
         super().on_update(_deltatime)
         self.entity.recoil += _deltatime * (1 + MED_RECOIL)
         if self.entity.slow_recovery:
             self.on_end()
         self.spawn_songs()
-
-    def on_end(self):
-        super().on_end()
-        self.entity.destroy()
 
     def spawn_songs(self):
         x, y, z = self.entity.position

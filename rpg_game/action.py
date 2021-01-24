@@ -188,13 +188,18 @@ class PickUp(Action):
     def use(cls, user):
         if cls.requisites(user):
             target = cls.target(user)
-            free = user.inventory.free_position(target)
-            if not free:
+            if not user.inventory.has_free_spot():
                 counter.TextCounter(user, f"Inventory full")
                 return
-            user.add_inventory(target, free)
+            if EXTRA_ENCUMBRANCE_MULTI*user.encumbrance < target.encumbrance + user.inventory.encumbrance:
+                counter.TextCounter(user, f"Over encumbrance limit")
+                return
+            user.add_inventory(target)
             user.recoil += cls.recoil_cost
-            counter.TextCounter(user, f"Picked up: {target.name}")
+            if user.encumbrance < target.encumbrance + user.inventory.encumbrance:
+                counter.TextCounter(user, f"Picked up: {target.name}; encumbered")
+            else:
+                counter.TextCounter(user, f"Picked up: {target.name}")
 
 class Consume(Action):
     name = "consume"
@@ -209,6 +214,7 @@ class Consume(Action):
 
     @classmethod
     def use(cls, user, obj=None):
+        obj = obj or user.inventory.selection
         if not obj:
             return
         if cls.requisites(user, obj):
@@ -235,16 +241,58 @@ class Drop(Action):
 
     @classmethod
     def use(cls, user, obj=None):
+        obj = obj or user.inventory.selection
         if not obj:
             return
         x, y, z = user.position
         if cls.requisites(user, obj):
-            user.drop_inventory(obj, (x, y, 0))
+            user.drop_inventory(obj)
             user.recoil += cls.recoil_cost
             counter.TextCounter(user, f"Dropped: {obj.name}")
-        else:
-            if not user.location.is_empty((x, y, 0)):
+        elif not user.location.is_empty((x, y, 0)):
                 counter.TextCounter(user, f"Can\'t drop here")
+
+class Equip(Action):
+    name = "equip"
+    recoil_cost = SHORT_RECOIL
+    description = "Equip item"
+
+    @classmethod
+    def requisites(cls, user, obj):
+        """Defines action legality"""
+        x, y, z = user.position
+        return super().requisites(user) and isinstance(obj, item.Item) and obj.is_equipment and obj.id in user.inventory.entities
+
+    @classmethod
+    def use(cls, user, obj=None):
+        obj = obj or user.inventory.selection
+        if not obj:
+            return
+        x, y, z = user.position
+        if cls.requisites(user, obj):
+            user.equip(obj)
+            user.recoil += cls.recoil_cost
+
+class Unequip(Action):
+    name = "unequip"
+    recoil_cost = SHORT_RECOIL
+    description = "Unequip item"
+
+    @classmethod
+    def requisites(cls, user, obj):
+        """Defines action legality"""
+        x, y, z = user.position
+        return super().requisites(user) and isinstance(obj, item.Item) and obj.is_equipment and obj.is_equipped
+
+    @classmethod
+    def use(cls, user, obj=None):
+        obj = obj or user.inventory.selection
+        if not obj:
+            return
+        x, y, z = user.position
+        if cls.requisites(user, obj):
+            user.unequip(obj)
+            user.recoil += cls.recoil_cost
 
 class Attack(Action):
     name = "attack"
@@ -317,9 +365,7 @@ class Attack(Action):
     def use(cls, user):
         weapon = user.equipment["main_hand"]
         target = cls.target(user)
-        print("WEAPON", weapon)
         if isinstance(weapon, item.Bow):
-            print("ARROOOWWW", weapon)
             Arrow.use(user)
         elif cls.requisites(user):
             target = cls.target(user)
@@ -372,9 +418,11 @@ class SneakAttack(Action):
 
     @classmethod
     def use(cls, user):
-        if cls.requisites(user):
-            target = cls.target(user)
-            weapon = user.equipment["main_hand"]
+        weapon = user.equipment["main_hand"]
+        target = cls.target(user)
+        if isinstance(weapon, item.Bow):
+            Arrow.use(user)
+        elif cls.requisites(user):
             if target.direction == user.direction and isinstance(weapon, item.Sword) and isinstance(target, character.Character):
                 cls.hit(user, target)
             else:
@@ -416,9 +464,11 @@ class Demolish(Action):
 
     @classmethod
     def use(cls, user):
-        if cls.requisites(user):
-            target = cls.target(user)
-            weapon = user.equipment["main_hand"]
+        weapon = user.equipment["main_hand"]
+        target = cls.target(user)
+        if isinstance(weapon, item.Bow):
+            Arrow.use(user)
+        elif cls.requisites(user):
             if isinstance(weapon, item.Hammer) and isinstance(target, entity.ThinWall):
                 cls.hit(user, target)
             else:
@@ -457,24 +507,29 @@ class Arrow(Action):
         if not target:
             return
         if target.is_dead:
-            counter.TextCounter(user, f"Attack {target.name}: it's already dead!")
+            counter.TextCounter(proj.spawner, f"Attack {target.name}: it's already dead!")
             return
         r = roll1d20()
         if r >= proj.crit_range:
             dmg = proj.crit_dmg
             target.hit(dmg)
             if target.is_dead:
-                user.exp += EXP_PER_KILL
+                proj.spawner.exp += EXP_PER_KILL
             counter.TextCounter(proj.spawner, f"Attack {target.name}: critical! {dmg} damage{'s'*int(dmg>1)}!")
         elif "parry" in target.counters and target.direction == cls.action_direction(proj):
-            counter.TextCounter(proj.spawner, f"Attack {target.name}: blocked!")
-            counter.TextCounter(target, f"Parry {proj.spawner.name}\'s arrow!")
+            if target.DEX.mod >= 2:
+                counter.TextCounter(proj.spawner, f"Attack {target.name}: blocked!")
+                counter.TextCounter(target, f"Bounces {proj.spawner.name}\'s arrow back!")
+                entity.Arrow(_spawner=target, _max_range=proj.max_range, _on_hit=proj.on_hit, _dmg=proj.dmg, _crit=proj.crit)
+            else:
+                counter.TextCounter(proj.spawner, f"Attack {target.name}: blocked!")
+                counter.TextCounter(target, f"Parry {proj.spawner.name}\'s arrow")
             target.counters["parry"].on_end()
         elif r !=1:
             dmg = proj.dmg
             target.hit(dmg)
             if target.is_dead:
-                user.exp += EXP_PER_KILL
+                proj.spawner.exp += EXP_PER_KILL
             counter.TextCounter(proj.spawner, f"Attack {target.name}: {dmg} damage{'s'*int(dmg>1)}!")
         else:
             counter.TextCounter(proj.spawner, f"Attack {target.name}: misses!")
@@ -491,7 +546,7 @@ class Arrow(Action):
             
             dmg = max(1, roll(num, dice) + base)
             crit = (val, max(1, multi*roll(num, dice) + base))
-            proj = entity.Arrow(_spawner = user, _max_range=weapon.range, _on_hit=cls.hit, _dmg=dmg, _crit=crit)
+            entity.Arrow(_spawner = user, _max_range=weapon.range, _on_hit=cls.hit, _dmg=dmg, _crit=crit)
 
 
 class FireBall(Action):
@@ -626,10 +681,10 @@ class Sing(Action):
     description = "Sing2Buff"
     SONG_LENGTH = 10
 
-    @classmethod
-    def requisites(cls, user):
-        """Defines action legality"""
-        return super().requisites(user) and "sing" not in user.counters
+    # @classmethod
+    # def requisites(cls, user):
+    #     """Defines action legality"""
+    #     return super().requisites(user) and "sing" not in user.counters
 
     @classmethod
     def hit(cls, song):
@@ -665,6 +720,7 @@ class Charge(Action):
             dash = {"right":DashRight, "left":DashLeft, "up":DashUp, "down":DashDown}[user.direction].use
             attack = Attack.hit
             counter.ChargeCounter(user, MAX_RECOIL, dash, attack)
+            counter.TextCounter(user, f"CHAAAAARGE!")
 
 class Summon(Action):
     name = "summon"

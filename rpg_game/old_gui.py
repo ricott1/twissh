@@ -10,9 +10,9 @@ from urwid import raw_display
 SIZE = lambda scr=raw_display.Screen(): scr.get_cols_rows()
 
 
-MIN_HEADER_HEIGHT = 3
-MAX_MENU_WIDTH = 48
-FOOTER_HEIGHT = 4
+MIN_HEADER_HEIGHT = 4
+
+FOOTER_HEIGHT = 5
 
 PALETTE = [
             ("line", 'black', 'white', "standout"),
@@ -167,44 +167,25 @@ class IntroFrame(UiFrame):
 
 class GameFrame(UiFrame):
     def __init__(self, parent, mind):
-        self.mind = mind
+        header = SelectableListBox(urwid.SimpleFocusListWalker([urwid.Text("")]))
+        _frames = ("Status", "Inventory", "Help")
+        self.bodies = {b : globals()[f"{b}Frame"](self, mind) for b in _frames}
+        idx = 2
+        _title = _frames[idx]
 
-        _header = urwid.LineBox(urwid.BoxAdapter(SelectableListBox(urwid.SimpleFocusListWalker([urwid.Text("")])), self.header_height))
+        screen_btns = [urwid.LineBox(urwid.AttrMap(urwid.Text("{:^10}".format(s), align="center"), None, focus_map="line")) for s in self.bodies]
+        _footer = FrameColumns(self, screen_btns, dividechars=1)
+        _footer.focus_position = idx
+        self.header_height = max(MIN_HEADER_HEIGHT, mind.screen_size[1]//4)
+        _header = urwid.LineBox(urwid.BoxAdapter(header, self.header_height))
         
-        self._menu_view = True
+        self.active_body = self.bodies[_title]
         self.map = MapFrame(self, mind)
-        self.menu = MenuFrame(self, mind)
-        
-        super().__init__(parent, mind, urwid.Columns([(self.map_width, self.map), (self.menu_width, self.menu)], focus_column=0), header=_header, footer=None, focus_part="body")
-        
-        self.menu_view = True
-        self.update_footer()
+        self.menu = UiFrame(parent, mind, self.bodies[_title], footer=_footer, focus_part="footer")
+        self._menu_view = True
+        super().__init__(parent, mind, urwid.LineBox(self.menu, title=_title), header=_header, focus_part="body")
+
         self.header_widget = self.header.original_widget.box_widget
-        self.footer_content_size = 0
-
-    @property
-    def header_height(self):
-        return max(MIN_HEADER_HEIGHT, self.mind.screen_size[1]//5)
-    
-    @property
-    def menu_width(self):
-        if self.menu_view:
-            return min(MAX_MENU_WIDTH, (3*self.mind.screen_size[0])//7)
-        return 0
-
-    @property
-    def map_width(self):
-        if self.menu_view:
-            return self.mind.screen_size[0] - self.menu_width
-        return self.mind.screen_size[0]
-
-    @property
-    def body_width(self):
-        return self.mind.screen_size[0]
-
-    @property
-    def body_height(self):
-        return self.mind.screen_size[1] - self.header_height - FOOTER_HEIGHT
 
     @property
     def menu_view(self):
@@ -212,86 +193,58 @@ class GameFrame(UiFrame):
     @menu_view.setter
     def menu_view(self, value):
         self._menu_view = value
-        _columns = [(self.map_width, self.map), (self.menu_width, self.menu)]
-        self.contents["body"] = (urwid.Columns(_columns, focus_column=0), None)
-        
+        if self.menu_view:
+            _title = next((t for t in self.bodies if self.active_body is self.bodies[t]), "")
+            self.contents["body"] = (urwid.LineBox(self.menu, title=_title), None)
+        else:
+            self.contents["body"] = (self.map, None)
+
     @property
     def header_list(self):
         return sorted([ent for k, ent in self.player.location.entities.items() if distance(self.player.position, ent.position) <= 3 and ent.status], key=lambda ent: distance(self.player.position, ent.position))
 
-    def update_footer(self):
-        _size = 0
-        inv_btns = []
-        for i, obj in self.player.inventory.content.items(): 
-            if obj:
-                _size += 1
-                if obj.is_equipment and obj.is_equipped:
-                    _marker = ["[", (obj.color, f"{obj.marker[0]}"), "]"]
-                elif obj.is_equipment and not obj.is_equipped:
-                    _marker = ["]", (obj.color, f"{obj.marker[0]}"), "["]
-                elif obj.is_consumable:
-                    _marker = ["(", (obj.color, f"{obj.marker[0]}"), ")"]
-                else:
-                    _marker = [f" {obj.marker[0]} "]
-            else:
-                _marker = [f"  "]
-            if i < 9:
-                _num = f"\n {i+1} "
-            elif i == 9:
-                _num = "\n 0 "
-            elif i == 10:
-                _num = "\n - "
-            elif i == 11:
-                _num = "\n = "
-            if obj and obj is self.player.inventory.selection:
-               _marker += [("line", _num)]
-            else:
-                _marker += [("top", _num)]
-            btn = urwid.Text(_marker, align="center") 
-            inv_btns.append((5, urwid.LineBox(btn)))
-
-        self.contents["footer"] = (SelectableColumns(inv_btns, dividechars=0), None)
-        self.footer_content_size = _size
+    def update_body(self, _title):
+        if self.menu_view:
+            self.active_body = self.bodies[_title]
+            self.menu.contents["body"] = (self.active_body, None)
+            self.contents["body"] = (urwid.LineBox(self.menu, title=_title), None)
 
     def on_update(self):
         self.update_header()
-        if self.footer_content_size != len(self.player.inventory.all):
-            self.update_footer()
-        self.map.on_update() 
+        
         if self.menu_view:
-            self.menu.on_update()
+            self.active_body.on_update()    
+        else:
+            self.map.on_update() 
     
     def handle_input(self, _input):
         if _input == "tab":
             self.menu_view = not self.menu_view
-        elif _input == "enter" and self.player.inventory.selection:
-            self.player.use_quick_item(self.player.inventory.selection)
-            self.update_footer()
-        elif _input == "Q" and self.player.inventory.selection: 
-            self.player.actions["drop"].use(self.player, obj=self.player.inventory.selection)
-            self.update_footer()
-        elif _input.isnumeric() or _input in ("-", "="):
-            self.select_item(_input)
-            self.update_footer()
-        elif _input == self.mind.key_map["status-menu"] and self.menu_view:
-                self.menu.update_body("Status")
-        elif _input == self.mind.key_map["help-menu"] and self.menu_view:
-                self.menu.update_body("Help")
-        elif _input == self.mind.key_map["inventory-menu"] and self.menu_view:
-                self.menu.update_body("Inventory")
-        self.map.handle_input(_input)
-
-    def select_item(self, _input):
-        if _input.isnumeric() and int(_input) > 0:
-            _input = int(_input)-1
-        elif _input == "0":
-            s_input = 9
-        elif _input == "-":
-            _input = 10
-        elif _input == "=":
-            _input = 11
-        self.player.inventory.selection = self.player.inventory.get(_input)
-        print("SELECTION", _input, self.player.inventory.selection)
+            if self.menu_view:
+                self.menu.focus_position = "footer"
+        elif self.menu_view:
+            if _input == "d":
+                self.menu.focus_position = "footer"
+                self.menu.footer.focus_next() 
+            elif _input == "a":
+                self.menu.focus_position = "footer"
+                self.menu.footer.focus_previous() 
+            elif _input == "s":
+                self.menu.focus_position = "footer"
+                self.menu.footer.focus_position = 0
+                self.update_body("Status")
+            elif _input == "i":
+                self.menu.focus_position = "footer"
+                self.menu.footer.focus_position = 1
+                self.update_body("Inventory")
+            elif _input == "h":
+                self.menu.focus_position = "footer"
+                self.menu.footer.focus_position = 2
+                self.update_body("Help")
+            else:
+                self.menu.focus_position = "body"
+        elif not self.menu_view:
+            self.map.handle_input(_input)
        
     def update_header(self):
         widgets = []
@@ -309,111 +262,279 @@ class MapFrame(UiFrame):
     def __init__(self, parent, mind):
         map_box = urwid.ListBox(urwid.SimpleListWalker([urwid.Text("")]))
         self.map_box = map_box.body
-        self.layer_view = -1
+        self.layer_view = "full"
         self.debug_view = False
         super().__init__(parent, mind, map_box)
-        self.on_update()
 
     @property
     def visible_range(self):
         header_height = self.parent.header_height + 2
         tot_rows = self.mind.screen_size[1]
-        return (tot_rows - header_height - FOOTER_HEIGHT)
+        return (tot_rows - header_height)
 
         
     def on_update(self):
-        if self.layer_view == -1:
+        if self.layer_view == "full":
             _map = copy.deepcopy(self.player.location.map)
         else:
             _map = self.player.location.layer_from_entities(self.layer_view, self.debug_view)
-
         x, y, z = self.player.position
-        w = max(0, y - self.parent.body_width//3)
-        visible_map = [line[w:w+self.parent.body_width] for line in _map]
-        h = max(0, x - self.parent.body_height//2)
-        visible_map = visible_map[h:h+self.parent.body_height]
-
+        if x > self.visible_range//2:
+            visible_map = [line for j, line in enumerate(_map) if abs(x-j)<self.visible_range//2]
+        else:
+            visible_map = [line for j, line in enumerate(_map) if j<self.visible_range]
         map_with_attr = [urwid.AttrMap(urwid.AttrMap(urwid.Text(line, wrap="clip"), {self.player.id:"player"}), {p.id:"other" for i, p in self.mind.master.players.items()}) for line in visible_map]
         self.map_box[:] = map_with_attr
 
     def handle_input(self, _input):
-        if _input == "ctrl d":
-            self.debug_view = not self.debug_view
-        elif _input == "ctrl v":
-            self.layer_view = self.layer_view + 1
-            if self.layer_view > 2:
-                self.layer_view = -1 
+        if _input == "0":
+            self.layer_view = 0
+            self.debug_view = False
+        elif _input == "1":
+            self.layer_view = 1
+            self.debug_view = False
+        elif _input == "2":
+            self.layer_view = 2
+            self.debug_view = False
+        if _input == "4":
+            self.layer_view = 0
+            self.debug_view = True
+        elif _input == "5":
+            self.layer_view = 1
+            self.debug_view = True
+        elif _input == "6":
+            self.layer_view = 2
+            self.debug_view = True
         else:
-            self.player.handle_input(_input)
+            self.layer_view = "full"
+        self.player.handle_input(_input)
 
-class MenuFrame(UiFrame):
-    def __init__(self, parent, mind):
-        _frames = ("Inventory", "Status", "Help")
-        self.bodies = {b : globals()[f"{b}Frame"](self, mind) for b in _frames}
-        idx = -1
-        _title = _frames[idx]
-        self.active_body = self.bodies[_title]
-        super().__init__(parent, mind, urwid.LineBox(self.active_body, title=_title))
-
-    def on_update(self):
-        self.active_body.on_update()
-
-    def selectable(self):
-        return False
-
-    def update_body(self, _title):
-        self.active_body = self.bodies[_title]
-        self.contents["body"] = (urwid.LineBox(self.active_body, title=_title), None)
 
 class InventoryFrame(UiFrame):    
     def __init__(self, parent, mind):
-        columns = urwid.Columns([urwid.Text("")]) 
-        box = urwid.ListBox(urwid.SimpleListWalker([columns]))
-        self.box = box.body
-        self.default_header = urwid.Text("0/9-= to select\nEnter:use/equip\nQ:drop")
-        super().__init__(parent, mind, box, header=self.default_header)
-        #self.update_inventory_box()
+        self.mind = mind
+        self._selection = None
+        self.last_selected_btn = None
+        self._highlight = None
+
+        self.drop_btn = create_button("Drop", borders=False, disabled=True)
+        self.use_btn = create_button("Use", borders=False, disabled=True)
+        urwid.connect_signal(self.drop_btn, "click", self.drop_item)
+        urwid.connect_signal(self.use_btn, "click", self.consume_item)
+        _item_btn_size = (self.player.inventory.horizontal_size//2) +1
+        self.item_action = SelectableColumns([(_item_btn_size, urwid.AttrMap(self.drop_btn, "disabled")), (_item_btn_size, urwid.AttrMap(self.use_btn, "disabled"))], dividechars=0)
+        
+        self.eqp_btns = {k: self.eqp_button(k) for k in self.player.equipment}
+        self.inventory_box = SelectableListBox(urwid.SimpleFocusListWalker(self.item_action))    
+
+        self.equipment_box = SelectableListBox(urwid.SimpleFocusListWalker(self.data_columns))
+        self.update_equipment_box()
+        super().__init__(parent, mind, SelectableColumns([(20, self.inventory_box), (55, self.equipment_box)]))
+        self.body.focus_position = 1
     
     @property
     def selection_data(self):
-        if not self.player.inventory.selection:
+        if not self.selection:
             return urwid.Text("")
-        item = self.player.inventory.selection
-        _text = [f"{item.description}\n"]
+        item = self.player.inventory.entities[self.selection.id]
+        _text = [(item.color, f"{item.name}\n"), f"{item.description}\n"]
         if item.is_equipment:
             _text += [item.eq_description]
             if not item.requisites(self.player):
-                _text += [("red", "\nNot equippable")]
-            elif not item.is_equipped:
-                _text += [("green", "\nEnter:equip")]
-            elif item.is_equipped:
-                _text += [("green", "\nEnter:unequip")]
-        if item.is_consumable:
-            _text += [item.cons_description]
-            _text += [("green", "\nEnter:use")]
-        _text += [("yellow", "\nQ:drop")]
+                _text += [("red", "not equippable")]
         return urwid.Text(_text)
+    @property
+    def highlight_data(self):
+        if not self.highlight:
+            return urwid.Text("")
+        item = self.highlight
+        _text = [(item.color, f"{item.name}\n"), f"{item.description}\n"]
+        if item.is_equipment:
+            _text += [item.eq_description]
+            if not item.requisites(self.player):
+                _text += [("red", "not equippable")]
+        return urwid.Text(_text)
+    @property
+    def data_columns(self):
+        return urwid.Columns([(25, self.highlight_data), (25, self.selection_data)])
 
-    def update_header(self):
-        if not self.player.inventory.selection:
-            self.contents["header"] = (self.default_header, None)
+    @property
+    def highlight(self):
+        return self._highlight
+
+    @highlight.setter
+    def highlight(self, value):
+        #if reselect, deselect
+        if self._highlight == value:
+            return
+
+        self._highlight = value
+        _equipment = self.equipment_box.body[:]
+        _equipment[-1] = self.data_columns
+        self.equipment_box.body[:] = _equipment
+    
+
+    @property
+    def selection(self):
+        if self._selection and self._selection.id not in self.player.inventory.entities:
+            self.selection = None
+        return self._selection
+
+    @selection.setter
+    def selection(self, value):
+        #if reselect, deselect
+        if self._selection == value:
+            self._selection = None
         else:
-            self.contents["header"] = (urwid.Text((self.player.inventory.selection.color, f"{self.player.inventory.selection.name}\n\n"), align="center"), None)
+            self._selection = value
+        if not self.selection:
+            self.use_btn.disabled = True
+            use = urwid.AttrMap(self.use_btn, "disabled")
+            self.drop_btn.disabled = True
+            drop = urwid.AttrMap(self.drop_btn, "disabled")
+            self.last_selection_position = None
+        else:
+            self.drop_btn.disabled = False
+            drop = urwid.AttrMap(self.drop_btn, None, "line")
+            if self.selection.is_consumable:
+                self.use_btn.disabled = False
+                use = urwid.AttrMap(self.use_btn, None, "line")
+            else:
+                self.use_btn.disabled = True
+                use = urwid.AttrMap(self.use_btn, "disabled")
 
-    def update_inventory_box(self): 
+        _item_btn_size = (self.player.inventory.horizontal_size//2) +1
+        self.item_action = SelectableColumns([(_item_btn_size, drop), (_item_btn_size, use)], dividechars=0)
+        self.eqp_btns = {k: self.eqp_button(k) for k in self.player.equipment}
+        self.update_equipment_box()
+
+    def update_description(self):
+        print("item")
+
+    def drop_item(self, button):
+        self.player.actions["drop"].use(self.player, obj=self.selection)
+        self.selection = None
+
+    def consume_item(self, button):
+        self.player.actions["consume"].use(self.player, obj=self.selection)
+        self.selection = None
+
+    def equip_item(self, typ, button):
+        if self.selection and self.selection.is_equipment and typ in self.selection.type:
+            self.player.equip(self.selection)
+            self.selection = None
+        elif not self.selection and self.player.equipment[typ]:
+            for t in self.player.equipment[typ].type:
+                self.player.unequip(t)
+            #self.eqp_btns[typ] = self.eqp_button(typ) 
+            self.selection = None
+            
+    def eqp_button(self, typ):
+        name = " ".join(typ.split("_"))
+        name = "No " + name[0].upper() + name[1:]
+        btn = create_button(name, disabled=False)
+        urwid.connect_signal(btn, "click", self.equip_item, user_args=[typ]) 
+        if self.player.equipment[typ]:
+            eqp = self.player.equipment[typ]
+            btn.set_label(eqp.name)
+
+        if self.selection and (not self.selection.is_equipment or typ not in self.selection.type):
+            btn.disabled = True
+            return urwid.AttrMap(btn, "disabled")
+        
+        if self.player.equipment[typ]:
+            return urwid.AttrMap(btn, f"{eqp.color}", f"{eqp.color}_line")
+        
+        return urwid.AttrMap(btn, None, "line")
+
+    def update_equipment_box(self):
+        _eqp_size = 45
+        _btn_size = 25
+        _side_size = 15
+        _equipment = []
+
+        _line = [(_btn_size, self.eqp_btns["helm"]),
+                (_btn_size, self.eqp_btns["body"])]
+        column = SelectableColumns(_line, dividechars=0)
+        _equipment.append(column)
+
+        _line = [(_btn_size, self.eqp_btns["main_hand"]),
+                (_btn_size, self.eqp_btns["off_hand"])]
+        column = SelectableColumns(_line, dividechars=0)
+        _equipment.append(column)
+
+        _line = [(_btn_size, self.eqp_btns["ring"]), 
+                (_btn_size, self.eqp_btns["gloves"])]
+        column = SelectableColumns(_line, dividechars=0)
+        _equipment.append(column)
+
+        _line = [(_btn_size, self.eqp_btns["belt"]), 
+                (_btn_size, self.eqp_btns["boots"])]
+        column = SelectableColumns(_line, dividechars=0)
+        _equipment.append(column)
+
+        self.equipment_box.body[:] = _equipment + [self.data_columns]
+        
+    def update_inventory_box(self):
+        
+        def select_item(item, button):
+            '''item can be None, for an empty square'''
+            #move item to button position if item=None or item is self.selection
+            if self.last_selected_btn is button:
+                self.selection = None
+                self.last_selected_btn = None
+            elif self.selection and (not item or item is self.selection):
+                bx, by = button.position
+                lx, ly = self.last_selected_btn.position
+                delta_x, delta_y = (bx-lx, by-ly)
+                extra_pos = [(0,0,0)] + self.selection.in_inventory_extra_positions
+                x, y, z = self.selection.position
+                if all([self.selection.location.get((x+xp+delta_x, y+yp+delta_y, z+zp)) in (None, self.selection) and not self.selection.location.out_of_bounds((x+xp+delta_x, y+yp+delta_y, z+zp)) for xp, yp, zp in extra_pos]):
+                    self.selection.position = (x+delta_x, y+delta_y, z)
+                    self.selection = None
+                    self.last_selected_btn = None
+            else:
+                self.selection = item
+                self.last_selected_btn = button
+
         side = urwid.Text("║")
-        width = 8
-        height = 6
-        _marker_box = ["╔" +"═"*width+"╗\n"]
-        for x in range(height):
-            _marker_box += ["║"] + ["." for y in range(width)] + ["║\n"]
-        _marker_box += ["╚" +"═"*width+"╝"]
-        self.box[:] = [urwid.Columns([(width+2, urwid.Text(_marker_box)), self.selection_data], dividechars=1)]
+        _inventory = [urwid.Text("╔" +"═"*self.player.inventory.horizontal_size+"╗")]
+        for x, line in enumerate(self.player.inventory.map):
+            _line = [(1, side)]
+            for y, l in enumerate(line):
+                i = self.player.inventory.get((x, y, 0))
+                if i and isinstance(l, tuple):
+                    color, mark = l
+                    if self.selection is i:
+                        color = color + "_line"
+                else:
+                    mark = "."
+                    color = "disabled"
+
+                btn = create_button(mark, select_item, user_args=[i], borders=False)
+                btn.position = (x, y)
+                _line.append((1, urwid.AttrMap(btn, color, focus_map="line")))
+            _line += [(1, side)]  
+            column = SelectableColumns(_line, dividechars=0)
+
+            try:
+                index = self.inventory_box.focus_position
+                column.focus_position = self.inventory_box.body[:][index].focus_position
+                active_btn = self.inventory_box.body[:][index][column.focus_position]
+                x, y = active_btn.position
+                self.highlight = self.player.inventory.get((x, y, 0))
+            except:
+                pass
+            finally:
+                _inventory.append(column)
+
+        _inventory.append(urwid.Text("╚" +"═"*self.player.inventory.horizontal_size+"╝"))
+        
+        self.inventory_box.body[:] = _inventory + [self.item_action]
 
     def on_update(self):
-        self.update_header()
         self.update_inventory_box()
-
+        #self.update_equipment_box()
 
 class StatusFrame(UiFrame):    
     def __init__(self, parent, mind):
@@ -428,21 +549,14 @@ class StatusFrame(UiFrame):
         _top = f" {player.name:<14s} {player.game_class.name:>12s} Lev:{player.level:<2d} Exp:{player.exp:<6d} {player.location.name}@{player.position}\n"
 
         _left = []
+        _left.append(f"╭──────────────────────╮\n")
 
         for s in ["STR", "INT", "WIS", "CON", "DEX", "CHA"]:
             c = getattr(player, s)
             state = ["normal", "positive", "negative"][-int(c.bonus < 0) + int(c.bonus > 0)]
-            if self.parent.parent.menu_width > 40:
-                _name = c.name[0].upper() + c.name[1:]
-                _left += [f"{_name:<12} ", (state, f"{c.value:>2d}"), f" ({c.mod:<+2d})\n"]
-            elif self.parent.parent.menu_width > 30:
-                _name = c.name[0].upper() + c.name[1:6]
-                _left += [f"{_name:<6} ", (state, f"{c.value:>2d}"), f" ({c.mod:<+2d})\n"]
-            else:
-                _left += [f"{s:<3} ", (state, f"{c.value:>2d}"), f" ({c.mod:<+2d})\n"]
-            
-
+            _left += [f"│ {c.name:<12} ", (state, f"{c.value:>2d}"), f" ({c.mod:<+2d}) │\n"]
         
+        _left.append(f"╰──────────────────────╯\n")
         
         _right = []
         base = player.STR.mod
@@ -455,17 +569,11 @@ class StatusFrame(UiFrame):
             min_dmg, max_dmg = (number * 1, number * value)
         min_dmg = max(1, base + min_dmg)
         max_dmg = max(1, base + max_dmg)
-        _right.append(f"Damage {min_dmg:>3d}-{max_dmg:<3d}\n")
-        _right.append(f"Reduction {player.dmg_reduction:<3d}\n")
-        _right.append(f"Encumbrance ")
-        if player.inventory.encumbrance == EXTRA_ENCUMBRANCE_MULTI*player.encumbrance:
-            _right.append(("red", f"{player.inventory.encumbrance:<2d}"))
-        elif player.inventory.encumbrance > player.encumbrance:
-            _right.append(("yellow", f"{player.inventory.encumbrance:<2d}"))
-        else:
-            _right.append(("white", f"{player.inventory.encumbrance:<2d}"))
-
-        _right.append(f"/{player.encumbrance:<2d}\n")
+        _right.append(f"╭────────────────╮\n")
+        _right.append(f"│ Damage {min_dmg:>3d}-{max_dmg:<3d} │\n")
+        _right.append(f"│ Reduction {player.dmg_reduction:<3d}  │\n")
+        _right.append(f"│ Encumbrance {player.encumbrance:<2d} │\n")
+        _right.append(f"╰────────────────╯\n")
         
 
         self.box[:] = [urwid.Text(_top), urwid.Columns([urwid.Text(_left), urwid.Text(_right)], dividechars = 1) ]
@@ -474,12 +582,12 @@ class StatusFrame(UiFrame):
 class HelpFrame(UiFrame):    
     def __init__(self, parent, mind):
         self.mind = mind
-        map_commands = ["Map commands\n\n",  f"←→↑↓:move\n", f"shift+←→↑↓:dash\n", f"a:attack\n", f"q:pickup\n"]
+        map_commands = ["Map commands\n\n", f"tab: open menu\n", f"←→↑↓: move\n", f"shift + ←→↑↓: dash\n", f"a: attack\n", f"q: pickup item\n"]
         for k, act in self.player.input_map.items():
             if act in self.player.class_actions:
-                map_commands.append(f"{k}:{self.player.class_actions[act].description.lower()}\n")
-        menu_commands = ["Menu commands\n\n", f"tab:open/close\n",f"0-9:quick item\n", f"ctrl+p:respawn\n", f"ctrl+a:inventory\n", f"ctrl+s:status\n", f"ctrl+d:help\n"]
-        columns = urwid.Columns([urwid.Text(map_commands, wrap="clip"), urwid.Text(menu_commands, wrap="clip")], dividechars = 1)
+                map_commands.append(f"{k}: {self.player.class_actions[act].description.lower()}\n")
+        menu_commands = ["Menu commands\n\n", f"tab: close menu\n", f"←→↑↓: navigate menu\n", f"a/d: change menu\n", f"enter: select\n", f"ctrl+p: respawn\n", f"s: status menu\n", f"i: inventory menu\n", f"h: help menu\n"]
+        columns = urwid.Columns([urwid.Text(map_commands), urwid.Text(menu_commands)], dividechars = 4)
         super().__init__(parent, mind, urwid.ListBox(urwid.SimpleListWalker([columns])))
 
                     

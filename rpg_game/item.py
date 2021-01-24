@@ -2,11 +2,12 @@ from rpg_game.utils import new_id
 import entity, game_class, counter, location
      
 class Item(entity.Entity):
-    def __init__(self, _marker="i", _rarity="common", _in_inventory_marker="i", _extra_inventory_markers= [], _in_inventory_extra_positions=[], **kwargs):
+    def __init__(self, _marker="i", _rarity="common", _encumbrance=1, _in_inventory_marker="i", _extra_inventory_markers= [], _in_inventory_extra_positions=[], **kwargs):
         super().__init__(_marker=_marker, _layer=0, **kwargs)
-        self.type = []
+        self.type = None
         self.rarity = _rarity #common, uncommon, rare, unique, set
         self._color = self.rarity
+        self.encumbrance = _encumbrance
 
         if not isinstance(_in_inventory_marker, list):
             _in_inventory_marker = [_in_inventory_marker]
@@ -24,15 +25,15 @@ class Item(entity.Entity):
 
     @property
     def status(self):
-        return [(self.rarity, f"{self.name:12s} {type(self).__name__} {self.rarity}")]
+        return [(self.rarity, f"{self.name:16s}: {type(self).__name__} {self.description}")]
 
     @property
     def positions(self):
         x, y, z = self.position
-        if isinstance(self.location, location.Inventory):
-            _extra_positions = self.in_inventory_extra_positions
-        else:
-            _extra_positions = self.extra_positions
+        # if isinstance(self.location, location.Inventory):
+        #     _extra_positions = self.in_inventory_extra_positions
+        # else:
+        _extra_positions = self.extra_positions
 
         #don't transform coordinates if facing down.
         if self.direction == "down":
@@ -47,10 +48,7 @@ class Item(entity.Entity):
 
     @property
     def marker(self):
-        if isinstance(self.location, location.Inventory):
-            return self.in_inventory_marker
-        else:
-            return self.direction_markers[self.direction]
+        return self.direction_markers[self.direction]
     
     
 class Equipment(Item):
@@ -61,6 +59,10 @@ class Equipment(Item):
         for k, b in self.bonus.items():
             self.eq_description += f"{k}:{b}  "
         self.is_equipped = False
+
+    @property
+    def status(self):
+        return [(self.rarity, f"{self.name:16s}: {type(self).__name__} {self.eq_description}")]
 
     def on_equip(self, *args):
         self.is_equipped = True
@@ -77,6 +79,7 @@ class Equipment(Item):
 class Consumable(Item):
     def __init__(self, _marker="c", **kwargs):
         super().__init__(_marker=_marker, _in_inventory_marker="U", **kwargs)#⩌🝅
+        self.cons_description = ""
 
     def on_use(self, *args):
         self.destroy()
@@ -85,6 +88,7 @@ class Potion(Consumable):
     def __init__(self, _effect, **kwargs):
         super().__init__(_marker="U", **kwargs)
         self.effect = _effect
+        self.cons_description = f"{self.effect}"
 
     def on_use(self, user):
         for eff in self.effect:
@@ -94,9 +98,19 @@ class Potion(Consumable):
 
 
 class Armor(Equipment):
-    def __init__(self, _dmg_reduction=0, _marker="a", **kwargs):
-        super().__init__(_marker=_marker, _in_inventory_marker="◜", _extra_inventory_markers= ["◝", "║", "║","\\","/"], _in_inventory_extra_positions=[(0,1,0),(1,0,0),(1,1,0),(-1,0,0),(-1,1,0)], **kwargs)
-        self.type = ["body"]
+    def __init__(self, _dmg_reduction=0, _marker="⌂", _encumbrance=4, **kwargs):
+        super().__init__(_marker=_marker, _encumbrance=_encumbrance, _in_inventory_marker="◾", _extra_inventory_markers= ["◡", "◡", "◾","║","◜","◝","║"], _in_inventory_extra_positions=[(0,1,0),(0,2,0),(0,3,0),(1,0,0),(1,1,0),(1,2,0),(1,3,0)], **kwargs)
+        '''
+        ◜◝
+        ᒋᒉ
+       ◾◡◡◾
+       ║◜◝║
+       ☰◎☰
+       ║║║║
+       ,  ,
+       ᑯ  ᑲ
+        '''
+        self.type = "body"
         self.dmg_reduction = _dmg_reduction
         self.eq_description = f"Reduction {_dmg_reduction}"
 
@@ -104,73 +118,102 @@ class Armor(Equipment):
         return user.game_class.name not in ("wizard",)
 
 class Helm(Equipment):
-    def __init__(self, _marker="h", **kwargs):
-        super().__init__(_marker=_marker, _in_inventory_marker="_", _extra_inventory_markers= ["_", "ᒋ", "ᒉ"], _in_inventory_extra_positions=[(0,1,0),(1,0,0),(1,1,0)], **kwargs)
-        self.type = ["helm"]
+    def __init__(self, _marker="⌓", _encumbrance=2, **kwargs):
+        super().__init__(_marker=_marker, _encumbrance=_encumbrance, _in_inventory_marker="◜", _extra_inventory_markers= ["◝", "ᒋ", "ᒉ"], _in_inventory_extra_positions=[(0,1,0),(1,0,0),(1,1,0)], **kwargs)
+        '''
+       ◜◝
+       ᒋᒉ
+        '''
+        self.type = "helm"
         
 class Boots(Equipment):
-    def __init__(self, _marker="t", _in_inventory_marker=",", _extra_inventory_markers= [",", "ᑯ", "ᑲ"], _in_inventory_extra_positions=[(0,1,0),(1,0,0),(1,1,0)], **kwargs):
-        super().__init__(_marker=_marker, **kwargs)
-        self.type = ["boots"]       
+    def __init__(self, _marker="b", _encumbrance=2, **kwargs):
+        '''
+        ,,
+        ᑯᑲ
+
+        '''
+        super().__init__(_marker=_marker, _encumbrance=2, _in_inventory_marker=",", _extra_inventory_markers= [",", "ᑯ", "ᑲ"], _in_inventory_extra_positions=[(0,1,0),(1,0,0),(1,1,0)], **kwargs)
+        self.type = "boots"       
         
 class Ring(Equipment):
-    def __init__(self, _marker="O", _in_inventory_marker="O", **kwargs):
-        super().__init__(_marker=_marker, **kwargs)
-        self.type = ["ring"] 
+    def __init__(self, _marker="O", _encumbrance=1, **kwargs):
+        super().__init__(_marker=_marker, _encumbrance=_encumbrance, _in_inventory_marker="O", **kwargs)
+        self.type = "ring" 
         
-class Gloves(Equipment):
-    def __init__(self, _marker="g", **kwargs):
-        super().__init__(_marker=_marker, **kwargs)
-        self.type = ["gloves"]
+# class Gloves(Equipment):
+#     def __init__(self, _marker="g", **kwargs):
+#         '''
+#         }▬{
+#         '''
+#         super().__init__(_marker=_marker, _in_inventory_marker="}", _extra_inventory_markers= ["▬", "{"], _in_inventory_extra_positions=[(0,1,0),(0,2,0)], **kwargs)
+#         self.type = "gloves"
 
 class Belt(Equipment):
-    def __init__(self, _marker="l", _in_inventory_marker="=", _extra_inventory_markers= ["0", "="], _in_inventory_extra_positions=[(0,1,0),(0,2,0)], **kwargs):
-        super().__init__(_marker=_marker, **kwargs)
-        self.type = ["belt"]
+    def __init__(self, _marker="⑄", _encumbrance=2, **kwargs):
+        '''
+        ☰◎☰
+        '''
+        super().__init__(_marker=_marker, _encumbrance=_encumbrance, _in_inventory_marker="☰", _extra_inventory_markers= ["◎", "☰"], _in_inventory_extra_positions=[(0,1,0),(0,2,0)], **kwargs)
+        self.type = "belt"
     
 class Weapon(Equipment):
-    def __init__(self, _dmg=(1,6), _speed=1, _critical=(20, 2), _range=1, _marker="w", **kwargs):
+    def __init__(self, _dmg=(1,6), _speed=1, _critical=(20, 2), _range=1, _marker="x", **kwargs):
         super().__init__(_marker=_marker, **kwargs)
-        self.type = ["main_hand"]
+        self.type = "main_hand"
         self.eq_description = f"Damage:{_dmg[0]}d{_dmg[1]}  " + self.eq_description
         self.dmg = _dmg
         self.range = _range
         self.critical = _critical
         self.speed = _speed
 
-    @property
-    def is_two_handed(self):
-        return "off_hand" in self.type and "main_hand" in self.type
-    
-
 class Sword(Weapon):
-    def __init__(self, _dmg=(1,6), _speed=1, _critical=(19, 2), _range=1, _marker="w", **kwargs):
-        super().__init__(_dmg=_dmg, _speed=_speed, _critical=_critical, _range=_range, _marker=_marker, _in_inventory_marker="<", _extra_inventory_markers= ["=", "⫤", "-"], _in_inventory_extra_positions=[(0,1,0),(0,2,0),(0,3,0)], **kwargs)
-        self.type = ["main_hand"]
-        self.eq_description = f"Melee:{_dmg[0]}d{_dmg[1]}  " + self.eq_description
+    def __init__(self, _dmg=(1,6), _speed=1, _critical=(19, 2), _range=1, _marker="x", _encumbrance=3, **kwargs):
+        super().__init__(_dmg=_dmg, _encumbrance=_encumbrance, _speed=_speed, _critical=_critical, _range=_range, _marker=_marker, _in_inventory_marker="<", _extra_inventory_markers= ["=", "⫤", "-"], _in_inventory_extra_positions=[(0,1,0),(0,2,0),(0,3,0)], **kwargs)
+        '''
+        <==⫤-
+        '''
+        self.type = "main_hand"
+        self.eq_description = f"Melee:{_dmg[0]}d{_dmg[1]}  "
 
 class Hammer(Weapon):
-    def __init__(self, _dmg=(1,6), _speed=1, _critical=(20, 2), _range=1, _marker="w", **kwargs):
-        super().__init__(_dmg=_dmg, _speed=1.5, _critical=_critical, _range=_range, _marker=_marker, _in_inventory_marker="█", _extra_inventory_markers= ["=", "=", "="], _in_inventory_extra_positions=[(0,1,0),(0,2,0),(0,3,0)], **kwargs)
-        self.type = ["main_hand", "off_hand"]
-        self.eq_description = f"Melee:{_dmg[0]}d{_dmg[1]}  " + self.eq_description
+    def __init__(self, _dmg=(1,6), _speed=1, _critical=(20, 2), _range=1, _marker="x", _encumbrance=3, **kwargs):
+        super().__init__(_dmg=_dmg, _encumbrance=_encumbrance, _speed=1.5, _critical=_critical, _range=_range, _marker=_marker, _in_inventory_marker="█", _extra_inventory_markers= ["=", "=", "="], _in_inventory_extra_positions=[(0,1,0),(0,2,0),(0,3,0)], **kwargs)
+        '''
+        █▰▰▰▰
+        '''
+        self.type = "two_hands"
+        self.eq_description = f"Melee:{_dmg[0]}d{_dmg[1]}  "
 
 class Axe(Weapon):
-    def __init__(self, _dmg=(1,6), _speed=1, _critical=(20, 3), _range=1, _marker="w", **kwargs):
-        super().__init__(_dmg=_dmg, _speed=_speed, _critical=_critical, _range=_range, _marker=_marker, _in_inventory_marker="⌂", _extra_inventory_markers= ["═", "=", "="], _in_inventory_extra_positions=[(0,1,0),(0,2,0),(0,3,0)], **kwargs)
-        self.type = ["main_hand", "off_hand"]
-        self.eq_description = f"Melee:{_dmg[0]}d{_dmg[1]}  " + self.eq_description
+    def __init__(self, _dmg=(1,6), _speed=1, _critical=(20, 3), _range=1, _marker="x", _encumbrance=3, **kwargs):
+        super().__init__(_dmg=_dmg, _encumbrance=_encumbrance, _speed=_speed, _critical=_critical, _range=_range, _marker=_marker, _in_inventory_marker="⌂", _extra_inventory_markers= ["═", "=", "="], _in_inventory_extra_positions=[(0,1,0),(0,2,0),(0,3,0)], **kwargs)
+        '''
+        ⌂⊨▰▰▰
+        '''
+        self.type = "two_hands"
+        self.eq_description = f"Melee:{_dmg[0]}d{_dmg[1]}  "
 
 class Bow(Weapon):
-    def __init__(self, _dmg=(1,6), _speed=1, _critical=(20, 2), _range=6, _marker="b", **kwargs):
-        super().__init__(_dmg=_dmg, _speed=_speed, _critical=_critical, _range=_range, _marker=_marker, **kwargs)
-        self.type = ["main_hand", "off_hand"]
+    def __init__(self, _dmg=(1,6), _speed=1, _critical=(20, 2), _range=6, _marker="→", _encumbrance=3, **kwargs):
+        super().__init__(_dmg=_dmg, _encumbrance=_encumbrance, _speed=_speed, _critical=_critical, _range=_range, _marker=_marker, _in_inventory_marker=" ", _extra_inventory_markers= ["/", "(", "|"," ","\\"], _in_inventory_extra_positions=[(0,1,0),(1,0,0),(1,1,0),(2,0,0),(2,1,0)], **kwargs)
+        '''
+         / 
+        (|
+         \ 
+        '''
+        self.type = "two_hands"
         self.eq_description = f"Range {self.range}:{_dmg[0]}d{_dmg[1]}"
         
 class Shield(Equipment):
-    def __init__(self, _marker="s", **kwargs):
-        super().__init__(_marker=_marker, **kwargs)
-        self.type = ["off_hand"]
+    def __init__(self, _marker="Ø", _encumbrance=3, **kwargs):
+        super().__init__(_marker=_marker, _encumbrance=_encumbrance, _in_inventory_marker="□", _extra_inventory_markers= ["□", "◹", "◸"], _in_inventory_extra_positions=[(0,1,0),(1,0,0),(1,1,0)], **kwargs)
+        '''
+        ■□
+        ◹◤
+        ⩌⨷⨁
+        '''
+        self.type = "off_hand"
         self.eq_description = f"Action: Parry"
 
     def requisites(self, user):

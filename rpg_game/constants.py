@@ -24,3 +24,16 @@ EXP_PER_KILL = 100
 BASE_MOVEMENT_SPEED = 2.75
 
 HEALTH_BARS_LENGTH = RECOIL_BARS_LENGTH = 15
+
+INVENTORY_SIZE = 12
+EXTRA_ENCUMBRANCE_MULTI = 2
+
+
+
+
+###DEFAULT KEY MAP
+KEY_MAP = {
+	"inventory-menu" : "ctrl a", 
+	"status-menu" : "ctrl s",
+	"help-menu" : "ctrl d"
+}

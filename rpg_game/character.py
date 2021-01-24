@@ -50,13 +50,28 @@ class Character(entity.ActingEntity):
         self.class_actions = self.game_class.class_actions
         for obj in self.game_class.initial_inventory:
             i = obj(self.location)
-            free = self.inventory.free_position(i)
-            if free:
-                self.add_inventory(i, free)
+            self.add_inventory(i)
 
     @property
     def invulnerable(self):
         return "charge" in self.counters
+
+    @property
+    def encumbrance(self):
+        _bonus = 0
+        if "encumbrance" in self.game_class.bonus:
+            _bonus += self.game_class.bonus["encumbrance"]
+        return self.STR.value + _bonus
+
+    @property
+    def slow_recovery(self):
+        if self.encumbrance < self.inventory.encumbrance:
+            return True
+        return self._slow_recovery
+    @slow_recovery.setter
+    def slow_recovery(self, value):
+        self._slow_recovery = value
+    
 
     @property
     def exp(self):
@@ -127,17 +142,28 @@ class Character(entity.ActingEntity):
 
     def restore(self):
         self.HP.dmg = 0
+
+    def use_quick_item(self, obj):
+        if obj and obj.is_equipment and not obj.is_equipped:
+            self.actions["equip"].use(self, obj)
+        elif obj and obj.is_equipment and obj.is_equipped:
+            self.actions["unequip"].use(self, obj)
+        elif obj and obj.is_consumable:
+            self.actions["consume"].use(self, obj)
             
-    def add_inventory(self, obj, pos):
-        obj.change_location(pos, self.inventory)
-        
-    def drop_inventory(self, obj, pos):
-        if obj.is_equipment and obj.is_equipped:
-            for _type in obj.type:
-                if self.equipment[_type] == obj:
-                    self.unequip(_type)
-                    break
-        obj.change_location(pos, self.location)
+    def add_inventory(self, obj):
+        if self.inventory.has_free_spot() and EXTRA_ENCUMBRANCE_MULTI*self.encumbrance >= self.inventory.encumbrance + obj.encumbrance:
+            self.inventory.add(obj)
+            
+    def drop_inventory(self, obj):
+        free = self.location.is_empty(self.floor)
+        if free:
+            if obj.is_equipment and obj.is_equipped:
+                for _type in obj.type:
+                    if self.equipment[_type] == obj:
+                        self.unequip(_type)
+                        break
+            obj.change_location(free, self.location)
             
     def equip(self, obj):
         if not obj.is_equipment:
@@ -146,22 +172,25 @@ class Character(entity.ActingEntity):
         if obj in [self.equipment[t] for t in self.equipment]:
             return
         
-        for t in obj.type:
-            self.unequip(t)
-            self.equipment[t] = obj
+        
+        if obj.type == "two_hands":
+            self.unequip(self.equipment["main_hand"])
+            self.unequip(self.equipment["off_hand"])
+        else:
+            self.unequip(self.equipment[obj.type])
+        self.equipment[obj.type] = obj
             
         obj.on_equip()
         
-    def unequip(self, _type):
-        if self.equipment[_type]:
-            if self.equipment[_type].is_two_handed:
-                self.equipment["main_hand"].on_unequip()
-                self.equipment["off_hand"].on_unequip()
-                self.equipment["main_hand"] = None
-                self.equipment["off_hand"] = None
-            else:
-                self.equipment[_type].on_unequip()
-                self.equipment[_type] = None
+    def unequip(self, obj):
+        if not obj or not obj.is_equipped:
+            return
+        obj.on_unequip()
+        if obj.type == "two_hands":
+            self.equipment["main_hand"] = None
+            self.equipment["off_hand"] = None
+        else:
+            self.equipment[obj.type] = None
             
 
 class Monster(Character):

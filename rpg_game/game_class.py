@@ -1,9 +1,9 @@
-import action, inventory
+import action, armory
 
 class GameClass(object):
     def __init__(self):
         self.name = None
-        self.base_actions = {"attack" : action.Attack, "move_up": action.MoveUp, "move_down": action.MoveDown, "move_left": action.MoveLeft, "move_right": action.MoveRight, "dash_up": action.DashUp, "dash_down": action.DashDown, "dash_left": action.DashLeft, "dash_right": action.DashRight, "consume" : action.Consume, "pick_up": action.PickUp, "drop": action.Drop}
+        self.base_actions = {"attack" : action.Attack, "move_up": action.MoveUp, "move_down": action.MoveDown, "move_left": action.MoveLeft, "move_right": action.MoveRight, "dash_up": action.DashUp, "dash_down": action.DashDown, "dash_left": action.DashLeft, "dash_right": action.DashRight, "consume" : action.Consume, "pick_up": action.PickUp, "drop": action.Drop, "equip": action.Equip, "unequip": action.Unequip}
         self.class_actions = {}
         self.bonus = {}
         self.initial_inventory = []
@@ -35,7 +35,7 @@ class Warrior(GameClass):
         self.name = "warrior"
         self.class_actions = {"parry" : action.Parry, "charge": action.Charge}
         self.bonus = {"HP": 4, "STR":1}
-        self.initial_inventory = [inventory.longSword, inventory.longBow]
+        self.initial_inventory = [armory.longSword, armory.longBow, armory.buckler]
 
 class Dwarf(GameClass):
     def __init__(self):
@@ -44,7 +44,7 @@ class Dwarf(GameClass):
         self.base_actions["attack"] = action.Demolish
         self.class_actions = {"parry" : action.Parry}
         self.bonus = {"HP": 6, "STR":1, "CON":1}
-        self.initial_inventory = [inventory.warHammer, inventory.woodenHelm]
+        self.initial_inventory = [armory.warHammer, armory.woodenHelm]
         self.inventory_size_bonus = 2
 
 class Thief(GameClass):
@@ -54,13 +54,14 @@ class Thief(GameClass):
         self.base_actions["attack"] = action.SneakAttack
         self.class_actions = {"hide" : action.Hide, "trap" : action.Trap}
         self.bonus = {"HP": 2, "DEX": 1, "INT": 1}
-        self.initial_inventory = [inventory.dagger]
+        self.initial_inventory = [armory.dagger, armory.sniperBow]
 
 class Bard(GameClass):
     def __init__(self):
         super().__init__()
         self.name = "bard"
         self.class_actions = {"sing" : action.Sing, "summon" : action.Summon}
+        self.initial_inventory = [armory.dagger]
         self.bonus = {"HP": 2, "CHA": 1, "INT": 1, "DEX": 1}
 
 

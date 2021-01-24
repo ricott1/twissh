@@ -22,7 +22,7 @@ from datetime import datetime
 from rpg_game.gui import GUI
 from rpg_game.gui import PALETTE
 from rpg_game.master import Master 
-from rpg_game.constants import UPDATE_TIMESTEP 
+from rpg_game.constants import * 
 
 
 
@@ -104,6 +104,7 @@ class UrwidMind(Adapter):
         super().__init__(original)
         self.master = master
         self.ui = None
+        self.key_map = KEY_MAP
 
     @property
     def avatar(self):
@@ -402,6 +403,11 @@ class UrwidTerminalSession(TerminalSession):
 
     def eofReceived(self):
         IUrwidMind(self.original).disconnect()
+
+    def execCommand(self, proto, cmd):
+        print("Error: Cannot execute commands", proto, cmd)
+        self.openShell(proto)
+        #raise econch.ConchError("Cannot execute commands")
 
 class UrwidRealm(TerminalRealm):
     """Custom terminal realm class-configured to use our custom Terminal User
