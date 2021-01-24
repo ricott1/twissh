@@ -159,10 +159,11 @@ class Character(entity.ActingEntity):
         free = self.location.is_empty(self.floor)
         if free:
             if obj.is_equipment and obj.is_equipped:
-                for _type in obj.type:
-                    if self.equipment[_type] == obj:
-                        self.unequip(_type)
-                        break
+                if obj.type == "two_hands":
+                    self.unequip(self.equipment["main_hand"])
+                    self.unequip(self.equipment["off_hand"])
+                else:
+                    self.unequip(self.equipment[obj.type])
             obj.change_location(free, self.location)
             
     def equip(self, obj):
