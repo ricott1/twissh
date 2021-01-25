@@ -7,12 +7,15 @@ from rpg_game.world_map import *
 class World(object):
     def __init__(self):
         self.locations = {
-            "base" : quick_room(self, "Base", base, {"common":1, "uncommon":1, "rare":1, "unique":0}, _monster_prob=0),
-            "floor-0" : quick_room(self, "Ground Floor", floor_0, {"common":0.5, "uncommon":0.25, "rare":0.1, "unique":0.025}),
-            "floor-1" : quick_room(self, "First Floor", floor_1, {"common":0.35, "uncommon":0.65, "rare":0.25, "unique":0.025}),
-            "floor-2" : quick_room(self, "Top Floor", floor_2, {"common":0, "uncommon":0, "rare":0.5, "unique":1})
+            "base" : quick_room(self, "Base", base, {"common":1, "uncommon":0.01, "rare":0}, _monster_prob=0),
+            "floor-0" : quick_room(self, "Ground Floor", floor_0, {"common":0.5, "uncommon":0.25, "rare":0.1}),
+            "floor-1" : quick_room(self, "First Floor", floor_1, {"common":0.35, "uncommon":0.65, "rare":0.25}),
+            "floor-2" : quick_room(self, "Top Floor", floor_2, {"common":0, "uncommon":0, "rare":0.5})
         }
         self.link_portals()
+        
+        for i in armory.unique_inventory():
+            i(_location=self.starting_location()) 
 
     def on_update(self, _deltatime):
         for l, loc in self.locations.items():

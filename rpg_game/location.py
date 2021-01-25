@@ -30,7 +30,10 @@ class Location(object):
 
     def on_update(self, _deltatime):
         for _id, ent in self.entities.copy().items():
-            ent.on_update(_deltatime)    
+            ent.on_update(_deltatime) 
+
+    def update_content(self, _entity):
+        pass   
 
 
 class Inventory(Location):
@@ -79,7 +82,6 @@ class Inventory(Location):
         _spot = next((x for x in self.content if not self.content[x]), -1)
         if _spot > -1:
             obj.change_location((_spot, 0, 0), self)
-        print("ADDING", obj, _spot, self.content)
 
     def remove(self, obj):
         self.unregister(obj)
@@ -162,7 +164,6 @@ class Room(Location):
         for x in range(len(self.container)):
             for y in range(len(self.container[x])):
                 _marker = raw_map[x][y]
-                # print(x, y, _marker)
                 if _marker != " ":
                     #here it could be possible to add special characters for montesrs, items, etc...
                     #or thin vs thick walls

@@ -95,7 +95,7 @@ class Move(Action):
             x, y, z = user.position
             user.position = (x + delta_x, y + delta_y, z)
             user.recoil += MIN_RECOIL
-            user.movement_recoil += SHORTER_RECOIL
+            user.movement_recoil += SHORTER_RECOIL/(user.movement_speed)
 
 
 class MoveUp(Move):
@@ -143,7 +143,7 @@ class Dash(Action):
         x, y, z = user.position
         user.position = (x + delta_x, y + delta_y, z)
         user.recoil += SHORTER_RECOIL
-        user.movement_recoil += SHORTER_RECOIL/user.movement_speed
+        user.movement_recoil += SHORTER_RECOIL/(DASH_SPEED_MULTI*user.movement_speed)
 
 
 class DashUp(Dash):
@@ -208,7 +208,7 @@ class Consume(Action):
 
 
     @classmethod
-    def requisites(cls, user, obj):
+    def requisites(cls, user, obj=None):
         """Defines action legality"""
         return super().requisites(user) and isinstance(obj, item.Consumable)
 
@@ -234,7 +234,7 @@ class Drop(Action):
         return (x, y, 0)
 
     @classmethod
-    def requisites(cls, user, obj):
+    def requisites(cls, user, obj=None):
         """Defines action legality"""
         x, y, z = user.position
         return super().requisites(user) and user.location.is_empty((x, y, 0)) and isinstance(obj, item.Item) and obj.id in user.inventory.entities
@@ -258,7 +258,7 @@ class Equip(Action):
     description = "Equip item"
 
     @classmethod
-    def requisites(cls, user, obj):
+    def requisites(cls, user, obj=None):
         """Defines action legality"""
         x, y, z = user.position
         return super().requisites(user) and isinstance(obj, item.Item) and obj.is_equipment and obj.id in user.inventory.entities
@@ -279,7 +279,7 @@ class Unequip(Action):
     description = "Unequip item"
 
     @classmethod
-    def requisites(cls, user, obj):
+    def requisites(cls, user, obj=None):
         """Defines action legality"""
         x, y, z = user.position
         return super().requisites(user) and isinstance(obj, item.Item) and obj.is_equipment and obj.is_equipped
@@ -568,7 +568,7 @@ class FireBall(Action):
             dmg = max(1, roll(num, dice) + base)
             target.hit(dmg)
             if target.is_dead:
-                user.exp += EXP_PER_KILL
+                proj.spawner.exp += EXP_PER_KILL
             counter.TextCounter(proj.spawner, f"FIREBALL in {target.name}\'s face: {dmg} damage{'s'*int(dmg>1)}!")
         
         if proj.fragment > 1:

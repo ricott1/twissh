@@ -10,24 +10,28 @@ add build house, enabling saving
 in house, no updates
 
 use markers central file and constants
-use mind.key_map for key constants handled inputs,easily modified
+modify mind.key_map from settings
 
 
-world map topology using squares and connectors
-
-inventory: only 10 quick items (pu them in gameframe footer), capped by ingombro. number to select, then enter to use/equp, shift to drop
-inventory is also view
-
+world map topology using squares and connectors, topology frame
 
 add suggested min screen size
 
 
+
+come fare incantesimi? mana?
 world map give also data, like connections and loot probabilities
+
+
 
 MOVE TO TELNET!!!!
 
+ADD TESTS without connecting server, just empty room with ogs
 
 
+##BUGs
+
+If arrow button is KEPT PRESSED, maps does not update (redraw is not triggered), hence player icon cannot be followed
 
 
 

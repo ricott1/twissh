@@ -24,9 +24,8 @@ class Entity(object):
         self.last_positions = []
         if _location and not _position:
             _position = _location.free_position(self)
-        self._position = _position
-        
-        self.location = _location
+        self._position = (0,0,0)
+        self.location = None
         self.change_location(_position, _location)
 
         self.HP = characteristic.Characteristic(self, "hit points", "HP", _HP, _min = 0, _max=9999)
@@ -139,8 +138,8 @@ class Entity(object):
             if self.location:
                 self.location.unregister(self)
             self.last_positions = []
-            self.position = _target_position
             self.location = _target_location
+            self.position = _target_position
             self.location.register(self)
 
     def destroy(self):
@@ -194,8 +193,8 @@ class Portal(Entity):
 
 
 class Wall(Entity):
-    def __init__(self, _HP, **kwargs):
-        super().__init__(_name="wall", _extra_positions=[(0,0,1), (0,0,2)], _HP=_HP, **kwargs)
+    def __init__(self, _HP, _name="wall", **kwargs):
+        super().__init__(_name=_name, _extra_positions=[(0,0,1), (0,0,2)], _HP=_HP, **kwargs)
 
 class HardWall(Wall):
     def __init__(self, _HP=math.inf, **kwargs):
@@ -235,22 +234,34 @@ class IceWall(Wall):
     VANISH_COEFF = 1.5
     VANISH_SPAWNER_COEFF = 0.15
 
-    def __init__(self, _spawner=None, **kwargs):
+    def __init__(self, _spawner=None, _marker = "▓", **kwargs):
         self.spawner = _spawner
         _HP = 1 + 10 * (3 + self.spawner.INT.mod)
-        super().__init__(_name="ice wall", _HP=_HP, **kwargs)
-        self._color = "cyan"
+        super().__init__(_name="ice wall", _HP=_HP, _marker=_marker, _color = "cyan", **kwargs)
         self.vanish = 0
         self.vanish_coeff = self.VANISH_COEFF * (1 - self.VANISH_SPAWNER_COEFF * self.spawner.INT.mod)
+        self.med_damaged_marker = ["▒" for _ in self._marker]
+        self.high_damaged_marker = ["░" for _ in self._marker]
 
     @property
     def marker(self):
         if self.HP.value > 0.75 * self.HP.max:
-            return ["▓"]
+            return self._marker
         elif self.HP.value > 0.25 * self.HP.max:
-            return ["▒"]
+            return self.med_damaged_marker
         else:
-            return ["░"]
+            return self.high_damaged_marker
+
+    @property
+    def status(self):
+        if self.HP.value > 0.75 * self.HP.max:
+            h = self._marker[0]
+        elif self.HP.value > 0.25 * self.HP.max:
+            h = self.med_damaged_marker[0]
+        else:
+            h = self.high_damaged_marker[0]
+        _status = [("top", f"Ice Wall {h}{self.HP.value}")]
+        return _status
 
     def on_update(self, _deltatime):
         super().on_update(_deltatime)
@@ -371,14 +382,18 @@ class SummonPortal(Entity):
         monster.strategy.target_type = character.Monster
         
 class ActingEntity(Entity):
-    def __init__(self, _movement_speed=1, **kwargs):
+    def __init__(self, _movement_speed=BASE_MOVEMENT_SPEED, **kwargs):
         super().__init__(**kwargs)
         
-        self.movement_speed = _movement_speed
+        self._movement_speed = _movement_speed
         self.movement_recoil = 0
         self.recoil = 0
         self.slow_recovery = False
         self.actions = {}
+
+    @property
+    def movement_speed(self):
+        return self._movement_speed
 
     @property
     def slow_recovery(self):
@@ -451,21 +466,19 @@ class Arrow(Projectile):
     def __init__(self, _spawner, _on_hit, _dmg, _crit, _max_range=1,  **kwargs):
         self.movement_recoil = SHORT_RECOIL * (1 - MOD_WEIGHT * _spawner.DEX.mod)
         self.max_range = _max_range
-        self.movement_speed = 5 + 0.5 * _spawner.DEX.mod
         self.dmg = _dmg
         self.crit_range, self.crit_dmg = _crit
-        super().__init__(_spawner=_spawner, _on_hit=_on_hit, _movement_speed=self.movement_speed, _max_range=_max_range, _direction=_spawner.direction, _position=_spawner.forward, _location=_spawner.location, **kwargs)
+        super().__init__(_spawner=_spawner, _on_hit=_on_hit, _movement_speed=5 + 0.5 * _spawner.DEX.mod, _max_range=_max_range, _direction=_spawner.direction, _position=_spawner.forward, _location=_spawner.location, **kwargs)
         
 
 class FireBall(Projectile):
     def __init__(self, _spawner, _on_hit, _direction, _position, _fragment, _location=None, **kwargs):
         if not _location:
             _location = _spawner.location
-        super().__init__(_spawner=_spawner, _on_hit=_on_hit, _movement_speed=4, _direction=_direction, _position=_position, _location=_location, **kwargs)
+        super().__init__(_spawner=_spawner, _on_hit=_on_hit, _movement_speed=1.5 + 0.25 * _spawner.INT.mod, _direction=_direction, _position=_position, _location=_location, **kwargs)
         self._color = "red"
         self.movement_recoil = SHORTER_RECOIL * (1 - MOD_WEIGHT * _spawner.INT.mod)
         self.max_range = 6 + _spawner.INT.mod
-        self.movement_speed = 1.5 + 0.25 * _spawner.INT.mod
         self.fragment = _fragment
 
     def on_update(self, _deltatime):

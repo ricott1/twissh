@@ -28,16 +28,31 @@ class Character(entity.ActingEntity):
         self.INT = Characteristic(self, "intelligence", "INT", _stats["INT"])
         self.WIS = Characteristic(self, "wisdom", "WIS", _stats["WIS"])
 
-        self.movement_speed = BASE_MOVEMENT_SPEED
-        
-
+    
+    @property
+    def equipment_set(self):
+        return set(eqp for part, eqp in self.equipment.items() if eqp)
+    
     @property
     def dmg_reduction(self):
-        tot = 0
-        for part, eqp in self.equipment.items():
-            if eqp and hasattr(eqp, "dmg_reduction"):
-                tot += eqp.dmg_reduction
-        return tot
+        _bonus = sum([self.full_eqp_bonus(eqp, "dmg_reduction") for eqp in self.equipment_set])
+        if "dmg_reduction" in self.game_class.bonus:
+            _bonus += self.game_class.bonus["dmg_reduction"]
+        return _bonus
+
+    @property
+    def movement_speed(self):
+        _bonus = sum([self.full_eqp_bonus(eqp, "movement_speed") for eqp in self.equipment_set])
+        if "movement_speed" in self.game_class.bonus:
+            _bonus += self.game_class.bonus["movement_speed"]
+        return self._movement_speed + _bonus
+
+    @property
+    def encumbrance(self):
+        _bonus = sum([self.full_eqp_bonus(eqp, "encumbrance") for eqp in self.equipment_set])
+        if "encumbrance" in self.game_class.bonus:
+            _bonus += self.game_class.bonus["encumbrance"]
+        return self.STR.value + _bonus
 
     @property
     def game_class(self):
@@ -51,17 +66,11 @@ class Character(entity.ActingEntity):
         for obj in self.game_class.initial_inventory:
             i = obj(self.location)
             self.add_inventory(i)
+        
 
     @property
     def invulnerable(self):
         return "charge" in self.counters
-
-    @property
-    def encumbrance(self):
-        _bonus = 0
-        if "encumbrance" in self.game_class.bonus:
-            _bonus += self.game_class.bonus["encumbrance"]
-        return self.STR.value + _bonus
 
     @property
     def slow_recovery(self):
@@ -122,6 +131,17 @@ class Character(entity.ActingEntity):
         self.inventory.on_update(_deltatime)
         self.inventory.redraw = False
 
+    def full_eqp_bonus(self, eqp, key):
+        _bonus = 0
+        if key in eqp.bonus:
+            _bonus += eqp.bonus[key]
+        if eqp.rarity == "set" and key in eqp.set_bonus:
+            set_name = eqp.set["name"]
+            size = eqp.set["size"]
+            if sum([1 if e.set["name"]==set_name else 0 for e in self.equipment_set ]) == size:
+                _bonus += eqp.set_bonus[key]
+        return _bonus
+
     def increase_level(self):
         for b in self.game_class.bonus:
             self.game_class.bonus[b] += 1
@@ -164,7 +184,7 @@ class Character(entity.ActingEntity):
                     self.unequip(self.equipment["off_hand"])
                 else:
                     self.unequip(self.equipment[obj.type])
-            obj.change_location(free, self.location)
+            obj.change_location(self.floor, self.location)
             
     def equip(self, obj):
         if not obj.is_equipment:
@@ -173,25 +193,26 @@ class Character(entity.ActingEntity):
         if obj in [self.equipment[t] for t in self.equipment]:
             return
         
-        
         if obj.type == "two_hands":
             self.unequip(self.equipment["main_hand"])
             self.unequip(self.equipment["off_hand"])
+            self.equipment["main_hand"] = obj
+            self.equipment["off_hand"] = obj
         else:
             self.unequip(self.equipment[obj.type])
-        self.equipment[obj.type] = obj
+            self.equipment[obj.type] = obj
             
         obj.on_equip()
         
     def unequip(self, obj):
         if not obj or not obj.is_equipped:
             return
-        obj.on_unequip()
         if obj.type == "two_hands":
             self.equipment["main_hand"] = None
             self.equipment["off_hand"] = None
         else:
             self.equipment[obj.type] = None
+        obj.on_unequip()
             
 
 class Monster(Character):
@@ -222,25 +243,13 @@ class Player(Character):
         self.game_class = getattr(globals()[f"game_class"], _game_class)()
         self.chat_sent_log = []
         self.chat_received_log = []
-        self.input_map = {
-            "up": "move_up",
-            "down": "move_down",
-            "left": "move_left",
-            "right": "move_right",
-            "shift up": "dash_up",
-            "shift down": "dash_down",
-            "shift left": "dash_left",
-            "shift right": "dash_right",
-            "q": "pick_up",
-            "a": "attack"}
-
-        extra_keys = ["s", "d", "w", "e"]
-        for i, act in enumerate(self.class_actions):
-            self.input_map[extra_keys[i]] = act
 
     def handle_input(self, _input):
-        if _input in self.input_map and self.is_controllable:
-            action = self.input_map[_input]
-            if action in self.actions:
-                self.actions[action].use(self)
+        if not self.is_controllable:
+            return
+        if _input in self.actions:
+            self.actions[_input].use(self)
+        elif _input in self.game_class.class_input:
+            _action = self.game_class.class_input[_input]
+            self.class_actions[_action].use(self)
 
