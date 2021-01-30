@@ -152,6 +152,8 @@ class Entity(object):
             self.counters[key].on_update(_deltatime)
             if self.counters[key].ended:
                 del self.counters[key]
+                if self.location:
+                    self.location.redraw = True
 
     def hit(self, dmg):
         self.HP.dmg += max(0, dmg)
@@ -219,7 +221,7 @@ class ThinWall(Wall):
             h = self._marker[0]
         else:
             h = self.damaged_marker[0]
-        _status = [("top", f"Wall {h}{self.HP.value}")]
+        _status = [("top", f"Wall {h} {self.HP.value}")]
         return _status
 
 
@@ -260,7 +262,7 @@ class IceWall(Wall):
             h = self.med_damaged_marker[0]
         else:
             h = self.high_damaged_marker[0]
-        _status = [("top", f"Ice Wall {h}{self.HP.value}")]
+        _status = [("top", f"Ice Wall {h} {self.HP.value}")]
         return _status
 
     def on_update(self, _deltatime):
@@ -269,8 +271,10 @@ class IceWall(Wall):
             self.destroy()
         self.vanish += self.vanish_coeff * _deltatime
         v = int(self.vanish)
-        self.HP.dmg += v
-        self.vanish -= v
+        if v:
+            self.location.redraw = True
+            self.HP.dmg += v
+            self.vanish -= v
     
 
 class Trap(Entity):
@@ -297,6 +301,10 @@ class Trap(Entity):
             self._color = "white"
             return ["⋆"]
         return [" "]
+
+    @property
+    def status(self):
+        return None
 
     def on_update(self, _deltatime):
         super().on_update(_deltatime)
@@ -331,6 +339,10 @@ class Song(Entity):
             return ["♪"]
         return ["♩"]
 
+    @property
+    def status(self):
+        return None
+
     def on_update(self, _deltatime):
         super().on_update(_deltatime)
         target = self.location.get(self.below)
@@ -340,6 +352,10 @@ class Song(Entity):
         self.vanish += _deltatime
         if self.vanish > self.durability:
             self.destroy()
+
+class RestoringWell(Entity):
+    def __init__(self):
+        pass
 
 class SummonPortal(Entity):
     RITUAL_LENGTH = 5
@@ -365,11 +381,8 @@ class SummonPortal(Entity):
         self.vanish += _deltatime
         if self.vanish > self.ritual_length:
             target = self.location.get(self.above)
-            if target:
-                self.dmg += _deltatime
-                if self.dmg >= 1:
-                    target.hit(1)
-                    self.dmg -= 1
+            if target and not "poison" in target.counters:
+                counter.PoisonCounter(target, MAX_RECOIL, 1)
             else:
                 self.summon_monster()
                 self.destroy()
@@ -449,6 +462,10 @@ class Projectile(ActingEntity):
         self.recoil = 0
         self.movement_recoil = 0
         self.on_hit = _on_hit
+
+    @property
+    def status(self):
+        return None
 
     def on_update(self, _deltatime):
         if distance(self.position, self.spawn_position) > self.max_range:

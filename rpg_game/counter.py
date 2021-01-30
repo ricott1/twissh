@@ -38,7 +38,7 @@ class BuffCounter(Counter):
     def __init__(self, _entity, _value, _char, _buff_value=0):
         self.char = _char
         self.buff_value = _buff_value
-        super().__init__(_name=f"{char}_buff", _entity=_entity, _value=_value)
+        super().__init__(_name=f"{self.char}_buff", _entity=_entity, _value=_value)
 
     def on_set(self):
         super().on_set()
@@ -51,6 +51,21 @@ class BuffCounter(Counter):
         if hasattr(self.entity, self.char):
             c = getattr(self.entity, self.char)
             c.temp_bonus -= self.buff_value
+
+class PoisonCounter(Counter):
+    """docstring for PoisonCounter"""
+    def __init__(self, _entity, _value, _intensity=1):
+        super().__init__(_name=f"poison", _entity=_entity, _value=_value)
+        self.dmg = 0
+        self.intensity = _intensity
+
+    def on_update(self, _deltatime):
+        super().on_update(_deltatime)
+        self.dmg += self.intensity * _deltatime
+        v = int(self.dmg)
+        if v:
+            self.entity.hit(v)
+            self.dmg -= v
 
 class ChargeBuffCounter(Counter):
     """docstring for BuffCounter"""

@@ -15,7 +15,7 @@ class Master(object):
         pass
 
     def new_player(self, _id, _class):
-        p = character.Player(_id=_id, _name=random_name(), _stats=random_stats(), _location=self.world.starting_location(), _game_class = _class)
+        p = character.Player(_id=_id, _name=random_name(), _location=self.world.starting_location(), _game_class = _class)
         self.players[p.id] = p
     
     def disconnect(self, _id):

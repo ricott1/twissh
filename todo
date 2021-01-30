@@ -4,6 +4,7 @@ access to race and job screens, access monster status
 slow time
 costruire muri usando risorse
 enchant weapons al nano
+necromante resuscita morti
 
 item set properties
 add build house, enabling saving
@@ -21,7 +22,7 @@ add suggested min screen size
 
 come fare incantesimi? mana?
 world map give also data, like connections and loot probabilities
-
+move player recoil and life and action to footer, levae just other stuff in header
 
 
 MOVE TO TELNET!!!!

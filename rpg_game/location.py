@@ -134,8 +134,8 @@ class Room(Location):
 
     def on_update(self, _deltatime):
         super().on_update(_deltatime)
-        if self.redraw:
-            self.map = self.map_from_entities()
+        # if self.redraw:
+        self.map = self.map_from_entities()
 
     def update_content(self, _entity):
         for x, y, z in _entity.last_positions:

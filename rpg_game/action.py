@@ -329,7 +329,7 @@ class Attack(Action):
         else:
             num, dice = (1, 4)
             val, multi = (20, 2)
-            speed = 0.75
+            speed = BASE_ATTACK_SPEED
 
         user.recoil += cls.recoil_cost * speed
 
@@ -432,6 +432,7 @@ class Demolish(Action):
     name = "demolish"
     recoil_cost = MED_RECOIL
     description = "Demolish"
+    DEMOLISH_BONUS = 5
 
     @classmethod
     def hit(cls, user, target):
@@ -449,7 +450,7 @@ class Demolish(Action):
             target.hit(dmg)
             counter.TextCounter(user, f"Demolish {target.name}: demolished!")
         else:
-            dmg = max(1, 3*roll(num, dice) + base)
+            dmg = max(1, cls.DEMOLISH_BONUS*roll(num, dice) + base)
             target.hit(dmg)
             counter.TextCounter(user, f"Demolish {target.name}: {dmg} damage{'s'*int(dmg>1)}!")
 
@@ -553,6 +554,7 @@ class FireBall(Action):
     name = "fire"
     recoil_cost = MAX_RECOIL
     description = "Just cast fireball"
+    MP_cost = 2
 
     @classmethod
     def requisites(cls, user):
@@ -586,11 +588,13 @@ class FireBall(Action):
         if cls.requisites(user):
             proj = entity.FireBall(_spawner = user, _on_hit=cls.hit, _direction=user.direction, _position=user.forward, _fragment = user.INT.mod + 1)
             user.recoil += cls.recoil_cost
+            user.MP += cls.MP_cost
 
 class IceWall(Action):
     name = "ice-wall"
     recoil_cost = MAX_RECOIL
     description = "Wall of Ice"
+    MP_cost = 1
 
     @classmethod
     def use(cls, user):
@@ -607,10 +611,12 @@ class IceWall(Action):
                 if user.location.is_empty(pos):
                     w = entity.IceWall(_spawner = user, _position=pos, _location=user.location)
             user.recoil += cls.recoil_cost
+            user.MP += cls.MP_cost
 
 class Teleport(Action):
     name = "teleport"
     recoil_cost = MAX_RECOIL
+    MP_cost = 1
     description = "Teleport"
 
     @classmethod
@@ -621,6 +627,7 @@ class Teleport(Action):
             if new_pos:
                 user.position = new_pos
                 user.recoil += cls.recoil_cost
+                user.MP += cls.MP_cost
 
 class Hide(Action):
     name = "hide"
@@ -671,7 +678,7 @@ class Trap(Action):
         dmg = max(1, roll(num, dice) + base)
         target.hit(dmg)
         if target.is_dead:
-            user.exp += EXP_PER_KILL
+            trap.spawner.exp += EXP_PER_KILL
         counter.TextCounter(target, f"{target.name} triggered a trap: {dmg} damage{'s'*int(dmg>1)}!")
         
 
@@ -691,7 +698,7 @@ class Sing(Action):
         base = song.spawner.CHA.mod
         target = song.location.get(song.below)
         counter.TextCounter(target, f"{song.spawner.name}\'s song! STR +{base}")
-        counter.BuffCounter(target, song.spawner.SONG_LENGTH + song.spawner.CHA.mod, "STR", max(1, song.spawner.CHA.mod))
+        counter.BuffCounter(target, cls.SONG_LENGTH + song.spawner.CHA.mod, "STR", max(1, song.spawner.CHA.mod))
 
     @classmethod
     def use(cls, user):
@@ -726,6 +733,7 @@ class Summon(Action):
     name = "summon"
     recoil_cost = LONG_RECOIL
     description = "Summon monster"
+    MP_cost = 2
 
     @classmethod
     def requisites(cls, user):
@@ -743,7 +751,10 @@ class Summon(Action):
     @classmethod
     def use(cls, user):
         if cls.requisites(user):
-            user.recoil += cls.recoil_cost
             counter.TextCounter(user, f"Starts a summon ritual")
             x, y, z = user.position
             entity.SummonPortal(_spawner=user, _summon=cls.summon(user), _location=user.location, _position=(x, y, 0))
+            user.recoil += cls.recoil_cost
+            user.MP += cls.MP_cost
+
+

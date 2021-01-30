@@ -55,7 +55,7 @@ class Equipment(Item):
 class Consumable(Item):
     def __init__(self, _marker="c", **kwargs):
         super().__init__(_marker=_marker, _in_inventory_markers=["U"], _in_inventory_marker_positions=[(0, 0)],**kwargs)#⩌🝅
-        self.cons_description = ""
+        self.eq_description = ""
 
     def on_use(self, *args):
         self.destroy()
@@ -64,7 +64,7 @@ class Potion(Consumable):
     def __init__(self, _effect, **kwargs):
         super().__init__(_marker="U", **kwargs)
         self.effect = _effect
-        self.cons_description = f"{self.effect}"
+        self.eq_description = f"{self.effect}"
 
     def on_use(self, user):
         for eff in self.effect:

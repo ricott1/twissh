@@ -45,11 +45,11 @@ def quick_room(world, name, _map, loot_prob, _monster_prob=0.9):
                 i(_location=r) 
     
     if random.random()< _monster_prob:
-        bestiary.goblin(_name="Gulluk", _stats=random_stats(), _location = r)
+        bestiary.goblin(_name="Gulluk", _location = r)
     if random.random()< _monster_prob:
-        bestiary.goblin(_name="Gallog", _stats=random_stats(), _location = r)
+        bestiary.goblin(_name="Gallog", _location = r)
     if random.random()< _monster_prob:
-        bestiary.goblin(_name="Gellac", _stats=random_stats(), _location = r)
+        bestiary.goblin(_name="Gellac", _location = r)
     #ogre = bestiary.Ogre(_stats=random_stats(), _location = r)
     #bestiary.Dragon(_name="Paco", _stats=random_stats(), _location = r)
     

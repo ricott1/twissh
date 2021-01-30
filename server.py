@@ -52,8 +52,8 @@ class UrwidUi(object):
         self.loop = self.create_urwid_mainloop()
         
     def on_update(self):
-        self.redraw = False
         self.toplevel.on_update()
+        self.redraw = False
 
     def create_urwid_mainloop(self):
         evl = urwid.TwistedEventLoop(manage_reactor=False)
@@ -105,6 +105,7 @@ class UrwidMind(Adapter):
         self.master = master
         self.ui = None
         self.key_map = KEY_MAP
+        self.last_frame = time.time()
 
     @property
     def avatar(self):
@@ -132,14 +133,13 @@ class UrwidMind(Adapter):
         if self.ui:
             self.ui.redraw = True
             self.ui.screen.push(data)
-            # self.draw()
 
     def draw(self):
         self.ui.on_update()
         self.ui.loop.draw_screen()
 
     def on_update(self):
-        if self.ui and (self.ui.redraw or (self.player and self.player.location.redraw)):
+        if self.ui and self.ui.redraw and time.time()-self.last_frame >= FRAME_RATE:
             self.draw()
 
     def disconnect(self):
@@ -339,9 +339,11 @@ class UrwidTerminalProtocol(TerminalProtocol):
     def terminalSize(self, height, width):
         """Resize the terminal.
         """
+        #Resizing takes a lot of resources server side, could consider just returning here to avoid that
         self.width = width
         self.height = height
         self.urwid_mind.ui.loop.screen_size = None
+        return
         self.terminal.eraseDisplay()
         self.urwid_mind.draw()
 
@@ -432,6 +434,8 @@ class UrwidRealm(TerminalRealm):
         
         # #then update each mind, that updates each ui if necessary
         for k, mind in self.minds.items():
+            if mind.player and mind.player.location.redraw: 
+                mind.ui.redraw = True
             mind.on_update()
 
         for k, loc in self.master.world.locations.items():

@@ -1,16 +1,18 @@
-import random,os, math, time
+import os, math, time
 import action, location, item, entity, strategy, game_class, counter
-from rpg_game.utils import log, mod, roll, random_name, random_stats
+from rpg_game.utils import log, mod, roll, random_name, random_stats, roll1d20, roll1d4
 from rpg_game.constants import *
 from rpg_game.characteristic import Characteristic
 
 
              
 class Character(entity.ActingEntity):
-    def __init__(self, _direction="right", _stats=None, **kwargs):
+    def __init__(self, _game_class, _direction="right", _stats=None, **kwargs):
+        _game_class = getattr(globals()[f"game_class"], _game_class)
         if not _stats:
-            _stats = random_stats()
+            _stats = random_stats(_game_class.stats_level)
         super().__init__(_layer=1, _HP=_stats["HP"], **kwargs)
+        
         self.direction_markers = {"up":["▲"], "down":["▼"], "left":["◀"], "right":["▶"]}
 
         self.level = 1
@@ -27,6 +29,10 @@ class Character(entity.ActingEntity):
         self.CHA = Characteristic(self, "charisma", "CHA", _stats["CHA"])
         self.INT = Characteristic(self, "intelligence", "INT", _stats["INT"])
         self.WIS = Characteristic(self, "wisdom", "WIS", _stats["WIS"])
+
+        self._MP = Characteristic(self, "monster points", "MP", 0, _min = 0, _max=9999)
+        self._game_class = None
+        self.game_class = _game_class()
 
     
     @property
@@ -60,13 +66,28 @@ class Character(entity.ActingEntity):
     
     @game_class.setter
     def game_class(self, value):
+        if not self._game_class:
+            get_inventory = True
+        else:
+            get_inventory = False
         self._game_class = value
         self.actions = self.game_class.actions
         self.class_actions = self.game_class.class_actions
-        for obj in self.game_class.initial_inventory:
-            i = obj(self.location)
-            self.add_inventory(i)
+        if get_inventory:
+            for obj in self.game_class.initial_inventory:
+                i = obj(self.location)
+                self.add_inventory(i)
         
+    
+    @property
+    def MP(self):
+        return self._MP.value
+    @MP.setter
+    def MP(self, value):
+        value = min(20, value)
+        self._MP._value = value
+        if roll1d20() < self.MP:
+            self.transform()
 
     @property
     def invulnerable(self):
@@ -122,7 +143,7 @@ class Character(entity.ActingEntity):
         action_text = ""
         if "text" in self.counters:
             action_text = self.counters["text"].text
-        _status = [("name", f"{self.name:12s}"), (recoil_type, f"{recoil}"), ("top", f" {h}{self.HP.value:>3d}/{self.HP.max:<3d}"),  ("top", f" {action_text:<s}")]
+        _status = [("name", f"{self.name:12s}"), (recoil_type, f"{recoil}"), (self.color, f" {h}"), ("top", f"{self.HP.value:>3d}/{self.HP.max:<3d}"),  ("top", f" {action_text:<s}")]
 
         return _status
 
@@ -130,6 +151,10 @@ class Character(entity.ActingEntity):
         super().on_update(_deltatime)
         self.inventory.on_update(_deltatime)
         self.inventory.redraw = False
+
+    def transform(self):
+        self._color = "red"
+        self.game_class = game_class.Monster()
 
     def full_eqp_bonus(self, eqp, key):
         _bonus = 0
@@ -143,8 +168,9 @@ class Character(entity.ActingEntity):
         return _bonus
 
     def increase_level(self):
-        for b in self.game_class.bonus:
-            self.game_class.bonus[b] += 1
+        for cts, lev in self.game_class.stats_level.items():
+            if roll1d4() <= lev:
+                self.game_class.bonus[cts] += 1
         self.movement_speed += 0.25
         self.HP._value += max(1, 2 + self.CON.mod)
         self.restore()
@@ -217,8 +243,7 @@ class Character(entity.ActingEntity):
 
 class Monster(Character):
     def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-        self.game_class = game_class.Monster()
+        super().__init__("Monster", **kwargs)
         self.strategy = strategy.MonsterStrategy(self, Player)
         self._color = "red"
 
@@ -238,11 +263,8 @@ class Monster(Character):
 
 class Player(Character): 
     def __init__(self, _game_class, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+        super().__init__(_game_class, *args, **kwargs)
         self._color = self.id
-        self.game_class = getattr(globals()[f"game_class"], _game_class)()
-        self.chat_sent_log = []
-        self.chat_received_log = []
 
     def handle_input(self, _input):
         if not self.is_controllable:

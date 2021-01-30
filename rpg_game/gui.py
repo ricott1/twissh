@@ -184,7 +184,7 @@ class GameFrame(UiFrame):
 
     @property
     def header_height(self):
-        return max(MIN_HEADER_HEIGHT, self.mind.screen_size[1]//8)
+        return MIN_HEADER_HEIGHT#max(MIN_HEADER_HEIGHT, self.mind.screen_size[1]//8)
     
     @property
     def menu_width(self):
@@ -250,12 +250,17 @@ class GameFrame(UiFrame):
             btn = urwid.Text(_marker, align="center") 
             inv_btns.append((5, urwid.LineBox(btn)))
 
+        if self.mind.screen_size != (80, 24):
+            inv_btns.append(urwid.Text("\nSET TERMINAL\nTO 80X24", align="center"))
+
         self.contents["footer"] = (SelectableColumns(inv_btns, dividechars=0), None)
         self.footer_content_size = _size
 
     def on_update(self):
         self.update_header()
         if self.footer_content_size != len(self.player.inventory.all):
+            self.update_footer()
+        if self.mind.screen_size != (80, 24):
             self.update_footer()
         self.map.on_update() 
         if self.menu_view:
@@ -298,13 +303,10 @@ class GameFrame(UiFrame):
     def update_header(self):
         widgets = []
         for p in self.header_list:
-            text = urwid.Text(p.status)
-            if p is self.player:
-                widgets.append(urwid.AttrMap(text, None, {"top" : "line", "name": "green_line", "green": "green_line", "yellow": "yellow_line", "red": "red_line"}))
-            else:
-                widgets.append(urwid.AttrMap(text, None, {"top" : "line", "name": "line", "green": "green_line", "yellow": "yellow_line", "red": "red_line"}))
+            widgets.append(urwid.AttrMap(urwid.AttrMap(urwid.Text(p.status, wrap="clip"), {self.player.id:"player"}), {p.id:"other" for i, p in self.mind.master.players.items()}))
         if widgets:
             self.header_widget.body[:] = widgets
+
 
 
 class MapFrame(UiFrame):    
@@ -342,7 +344,7 @@ class MapFrame(UiFrame):
         self.map_box[:] = map_with_attr
 
     def handle_input(self, _input):
-        if _input == "ctrl d":
+        if _input == "ctrl f":
             self.debug_view = not self.debug_view
         elif _input == "ctrl v":
             self.layer_view = self.layer_view + 1
@@ -376,28 +378,17 @@ class InventoryFrame(UiFrame):
         columns = urwid.Columns([urwid.Text("")]) 
         box = urwid.ListBox(urwid.SimpleListWalker([columns]))
         self.box = box.body
-        self.default_header = urwid.Text("0/9-= to select\nEnter:use/equip\nQ:drop")
-        super().__init__(parent, mind, box, header=self.default_header)
-        #self.update_inventory_box()
+        self.default_header = urwid.Text("0/9-= to select\n\n", align="center")
+        self.default_footer = urwid.Text([("green", f"{'Enter:use/eqp':<14s}"), ("yellow", "Q:drop")], align="center")
+        super().__init__(parent, mind, box, header=self.default_header, footer=self.default_footer)
     
     @property
     def selection_data(self):
         if not self.player.inventory.selection:
             return urwid.Text("")
-        item = self.player.inventory.selection
+        i = self.player.inventory.selection
         _text = []
-        if item.is_equipment:
-            _text += [item.eq_description, f"\nEncumbrance:{item.encumbrance}"]
-            if not item.requisites(self.player):
-                _text += [("red", f"\n\n{'Cannot equip':<13s}")]
-            elif not item.is_equipped:
-                _text += [("green", f"\n\n{'Enter:equip':<13s}")]
-            elif item.is_equipped:
-                _text += [("green", f"\n\n{'Enter:unequip':<13s}")]
-        elif item.is_consumable:
-            _text += [item.cons_description, f"Encumbrance:{item.encumbrance}\n"]
-            _text += [("green", f"\n\n{'Enter:use':<13s}")]
-        _text += [("yellow", "Q:drop")]
+        _text += [i.eq_description, f"\nEncumbrance:{i.encumbrance}\n"]
         return urwid.Text(_text)
 
     def update_header(self):
@@ -407,11 +398,28 @@ class InventoryFrame(UiFrame):
             i = self.player.inventory.selection
             self.contents["header"] = (urwid.Text([(i.color, f"{i.name}\n"), f"{i.description}\n"], align="center"), None)
 
-    def update_inventory_box(self): 
+    def update_footer(self):
+        if not self.player.inventory.selection:
+            self.contents["footer"] = (self.default_footer, None)
+        else:
+            i = self.player.inventory.selection
+            _text = []
+            if not i.requisites(self.player):
+                _text += [("red", f"{'Cannot equip':<14s}")]
+            elif not i.is_equipped:
+                _text += [("green", f"{'Enter:equip':<14s}")]
+            elif i.is_equipped:
+                _text += [("green", f"{'Enter:unequip':<14s}")]
+            elif i.is_consumable:
+                _text += [("green", f"{'Enter:use':<14s}")]
+            _text += [("yellow", "Q:drop")]
+            self.contents["footer"] = (urwid.Text(_text, align="center"), None)
+
+    def update_body(self): 
         side = urwid.Text("║")
         width = 8
         height = 6
-        X_OFFSET=Y_OFFSET=2
+        
         _marker_box = ["╔" +"═"*width+"╗\n"]
         for x in range(height):
             _marker_box += ["║"]
@@ -421,6 +429,8 @@ class InventoryFrame(UiFrame):
         _marker_box += ["╚" +"═"*width+"╝"]
         if self.player.inventory.selection:
             i = self.player.inventory.selection
+            X_OFFSET = 2
+            Y_OFFSET = 4
             for m, pos in zip(i.in_inventory_markers, i.in_inventory_marker_positions):
                 x, y = pos
                 _marker_box[(x+X_OFFSET)*(width+2)+y+Y_OFFSET] = (i.color, m)
@@ -428,7 +438,8 @@ class InventoryFrame(UiFrame):
 
     def on_update(self):
         self.update_header()
-        self.update_inventory_box()
+        self.update_body()
+        self.update_footer()
 
 
 class StatusFrame(UiFrame):    
@@ -438,21 +449,19 @@ class StatusFrame(UiFrame):
         super().__init__(parent, mind, box)
 
     def on_update(self):
-        # index = self.parent.header_widget.focus_position
-        # player = self.header_list[index] #keep this in change we allow to change focus later on
         player = self.player
         x, y, z = player.position
-        _top = f"{player.name:<14s} {player.game_class.name:<10s}\nLev:{player.level:<2d} Exp:{player.exp:<4d} {player.location.name}@({x},{y})\n"
+        _top = f"{player.name:<12s} {player.game_class.name:<10s}\nLev:{player.level:<2d} Exp:{player.exp:<4d} {player.location.name}@({x},{y})\n"
 
         _left = []
 
-        for s in ["STR", "INT", "WIS", "CON", "DEX", "CHA"]:
+        for s in CHARACTERISTICS:
             c = getattr(player, s)
-            state = ["normal", "positive", "negative"][-int(c.bonus < 0) + int(c.bonus > 0)]
+            state = ["normal", "positive", "negative"][-int(c.temp_bonus < 0) + int(c.temp_bonus > 0)]
             if self.parent.parent.menu_width > 40:
                 _name = c.name[0].upper() + c.name[1:]
                 _left += [f"{_name:<12} ", (state, f"{c.value:>2d}"), f" ({c.mod:<+2d})\n"]
-            elif self.parent.parent.menu_width > 30:
+            elif self.parent.parent.menu_width > 36:
                 _name = c.name[0].upper() + c.name[1:6]
                 _left += [f"{_name:<6} ", (state, f"{c.value:>2d}"), f" ({c.mod:<+2d})\n"]
             else:
@@ -480,11 +489,8 @@ class StatusFrame(UiFrame):
             _right.append(("white", f"{player.inventory.encumbrance:>2d}"))
         _right.append(f"/{player.encumbrance:<2d}\n")
         _right.append(f"Speed {player.movement_speed}\n")
-
-        h = max(0, x - self.parent.parent.body_height//2)
-        _right.append(f"{x}, {h}, {self.parent.parent.body_height}, {len(self.player.location.map)}")
+        _right.append(f"Monsterized {player.MP:<2d}\n")
         
-
         self.box[:] = [urwid.Text(_top), urwid.Columns([urwid.Text(_left), urwid.Text(_right)], dividechars = 1) ]
 
 
@@ -534,7 +540,7 @@ class HelpFrame(UiFrame):
         for i, act in enumerate(self.player.class_actions):
             k = class_action_keys[i]
             map_commands.append(f"{k}:{self.player.class_actions[act].description.lower()}\n")
-        menu_commands = ["Menu commands\n\n", f"tab:open/close\n",f"0/9-=:select item\n", f"ctrl+p:respawn\n", f"ctrl+a:inventory\n", f"ctrl+s:status\n", f"ctrl+d:help\n"]
+        menu_commands = ["Menu commands\n\n", f"tab:open/close\n",f"0/9-=:select item\n", f"ctrl+p:respawn\n", f"ctrl+a:inventory\n", f"ctrl+s:status\n", f"ctrl+d:help\n", f"ctrl+e:equipment\n"]
         columns = urwid.Columns([urwid.Text(map_commands, wrap="clip"), urwid.Text(menu_commands, wrap="clip")], dividechars = 1)
         super().__init__(parent, mind, urwid.ListBox(urwid.SimpleListWalker([columns])))
 
