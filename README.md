@@ -4,7 +4,7 @@
 
 ## Connect
 
-`ssh rpg_game@localhost -p 6022`
+`ssh new@localhost -p 6022`
 
 
 
