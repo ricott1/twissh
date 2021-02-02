@@ -5,26 +5,28 @@ import math, random
 
 class Entity(object):
     """docstring for Entity"""
-    def __init__(self, _name="", _id=None, _location=None, _position=(), _extra_position = [], _HP=1, _color="white", _marker=".", _extra_markers= [], _description="", _layer=1, _direction="down"):
+    def __init__(self, _name="", _id=None, _location=None, _position=(), _extra_positions = [], _HP=1, _color="white", _marker=".", _extra_markers= [], _description="", _layer=1, _direction="down"):
         self.name = _name
         self.id = _id if _id else new_id()
-        self.color = _color
+        self._color = _color
+        self.layer = _layer
         if not isinstance(_marker, list):
             _marker = [_marker]
         if not _extra_markers:
-            _extra_markers = [_marker[0] for _ in _extra_position]
+            _extra_markers = [_marker[0] for _ in _extra_positions]
         self._marker = _marker + _extra_markers
         self.direction_markers = {"up":self._marker, "down":self._marker, "left":self._marker, "right":self._marker}
 
         self._direction = _direction
         self.counters = {}
+
+        self.extra_positions = _extra_positions
+        self.last_positions = []
         if _location and not _position:
-            _position = _location.free_position(_layer, _extra_position)
-        self._position = _position
-        self.extra_position = _extra_position
-        self.last_positions = list(self.positions)
-        self._location = None
-        self.location = _location
+            _position = _location.free_position(self)
+        self._position = (0,0,0)
+        self.location = None
+        self.change_location(_position, _location)
 
         self.HP = characteristic.Characteristic(self, "hit points", "HP", _HP, _min = 0, _max=9999)
 
@@ -40,19 +42,20 @@ class Entity(object):
             return
         self.last_positions = list(self.positions)
         self._position = value
-        self.location.update_content(self)
+        if self.location:
+            self.location.update_content(self)
     @property
     def positions(self):
         x, y, z = self.position
         #don't transform coordinates if facing down.
         if self.direction == "down":
-            _extra_positions = [(x, y, z) for x, y, z in self.extra_position]
+            _extra_positions = [(x, y, z) for x, y, z in self.extra_positions]
         elif self.direction == "up":
-            _extra_positions = [(-x, -y, z) for x, y, z in self.extra_position]
+            _extra_positions = [(-x, -y, z) for x, y, z in self.extra_positions]
         elif self.direction == "right":
-            _extra_positions = [(-y, x, z) for x, y, z in self.extra_position]
+            _extra_positions = [(-y, x, z) for x, y, z in self.extra_positions]
         elif self.direction == "left":
-            _extra_positions = [(y, -x, z) for x, y, z in self.extra_position]
+            _extra_positions = [(y, -x, z) for x, y, z in self.extra_positions]
         return [(x+xp, y+yp, z+zp) for xp, yp, zp in [(0,0,0)] + _extra_positions]
 
     @property
@@ -110,26 +113,34 @@ class Entity(object):
             return self.direction_markers[self.direction]
 
     @property
+    def color(self):
+        if "color" in self.counters:
+            return self.counters["color"].color
+        return self._color
+    
+    @property
     def status(self):
         _status = [("top", f"{self.name:12s} {type(self).__name__}")]
         return _status
-    
-    @property
-    def location(self):
-        return self._location
-
-    @location.setter
-    def location(self, _location):
-        if self._location == _location:
-            return
-        if self._location:
-            self._location.unregister(self)
-        self._location = _location
-        self._location.register(self)
 
     @property
     def is_dead(self):
         return "death" in self.counters
+
+    def forward_by(self, steps):
+        x, y, z = self.position
+        delta_x = int(self.direction=="down") - int(self.direction=="up")
+        delta_y = int(self.direction=="right") - int(self.direction=="left")
+        return (x + steps * delta_x, y + steps * delta_y, z)
+
+    def change_location(self, _target_position, _target_location):
+        if _target_location:
+            if self.location:
+                self.location.unregister(self)
+            self.last_positions = []
+            self.location = _target_location
+            self.position = _target_position
+            self.location.register(self)
 
     def destroy(self):
         """Destroy body"""
@@ -141,14 +152,24 @@ class Entity(object):
             self.counters[key].on_update(_deltatime)
             if self.counters[key].ended:
                 del self.counters[key]
+                if self.location:
+                    self.location.redraw = True
 
     def hit(self, dmg):
         self.HP.dmg += max(0, dmg)
+        counter.ColorCounter(self, f"white", SHORT_RECOIL)
+        self.location.redraw = True
         if self.is_dead:
             self.destroy()
 
 class Empty(Entity):
-    pass
+    def __init__(self, **kwargs):
+        super().__init__(_name="empty", **kwargs)
+
+    @property
+    def status(self):
+        return None
+
 
 class Portal(Entity):
     def __init__(self, **kwargs):
@@ -169,14 +190,13 @@ class Portal(Entity):
 
     def teleport(self, target):
         if self.partner and "portal" not in target.counters and self.partner.location.is_empty(self.partner.above):
-            target.position = self.partner.above
-            target.location = self.partner.location
+            target.change_location(self.partner.above, self.partner.location)
             counter.PortalCounter(target)  
 
 
 class Wall(Entity):
-    def __init__(self, _HP, **kwargs):
-        super().__init__(_name="wall", _extra_position=[(0,0,1), (0,0,2)], _HP=_HP, **kwargs)
+    def __init__(self, _HP, _name="wall", **kwargs):
+        super().__init__(_name=_name, _extra_positions=[(0,0,1), (0,0,2)], _HP=_HP, **kwargs)
 
 class HardWall(Wall):
     def __init__(self, _HP=math.inf, **kwargs):
@@ -190,47 +210,60 @@ class HardWall(Wall):
 class ThinWall(Wall):
     def __init__(self, _HP=30, **kwargs):
         super().__init__(_HP=_HP, **kwargs)
+        full_markers = ("┘", "┐", "┌", "└", "┤", "┴", "┬", "├", "─", "│", "┼")
+        damaged_markers = ("⌏", "⌍", "⌌", "⌎", "┤", "┴", "┬", "├", "┈", "┊", "┼")
+        index = full_markers.index(self._marker[0])
+        self.damaged_marker = [damaged_markers[index] for _ in self._marker]
 
     @property
     def status(self):
-        if self.HP.value < self.HP.max: 
-            h = u"─"
-        elif self.HP.value == self.HP.max: 
-            h = u"┈"
-        _status = [("top", f"Wall {h}{self.HP.value}")]
+        if self.HP.value > 0.75 * self.HP.max:
+            h = self._marker[0]
+        else:
+            h = self.damaged_marker[0]
+        _status = [("top", f"Wall {h} {self.HP.value}")]
         return _status
 
-    # @property
-    # def marker(self):
-    #     if self.HP.value > 50:
-    #         return [("cyan", "▓")]
-    #     elif self.HP.value > 20:
-    #         return [("cyan", "▒")]
-    #     else:
-    #         return [("cyan", "░")]
 
-            # "┄""┈"┆┊
+    @property
+    def marker(self):
+        if self.HP.value > 0.75 * self.HP.max:
+            return self._marker
+        else:
+            return self.damaged_marker
 
 class IceWall(Wall):
     VANISH_COEFF = 1.5
     VANISH_SPAWNER_COEFF = 0.15
 
-    def __init__(self, _spawner=None, **kwargs):
+    def __init__(self, _spawner=None, _marker = "▓", **kwargs):
         self.spawner = _spawner
-        _HP = 10 * (3 + self.spawner.INT.mod)
-        super().__init__(_name="ice wall", _HP=_HP, **kwargs)
-        self.color = "cyan"
+        _HP = 1 + 10 * (3 + self.spawner.INT.mod)
+        super().__init__(_name="ice wall", _HP=_HP, _marker=_marker, _color = "cyan", **kwargs)
         self.vanish = 0
         self.vanish_coeff = self.VANISH_COEFF * (1 - self.VANISH_SPAWNER_COEFF * self.spawner.INT.mod)
+        self.med_damaged_marker = ["▒" for _ in self._marker]
+        self.high_damaged_marker = ["░" for _ in self._marker]
 
     @property
     def marker(self):
-        if self.HP.value > 50:
-            return ["▓"]
-        elif self.HP.value > 20:
-            return ["▒"]
+        if self.HP.value > 0.75 * self.HP.max:
+            return self._marker
+        elif self.HP.value > 0.25 * self.HP.max:
+            return self.med_damaged_marker
         else:
-            return ["░"]
+            return self.high_damaged_marker
+
+    @property
+    def status(self):
+        if self.HP.value > 0.75 * self.HP.max:
+            h = self._marker[0]
+        elif self.HP.value > 0.25 * self.HP.max:
+            h = self.med_damaged_marker[0]
+        else:
+            h = self.high_damaged_marker[0]
+        _status = [("top", f"Ice Wall {h} {self.HP.value}")]
+        return _status
 
     def on_update(self, _deltatime):
         super().on_update(_deltatime)
@@ -238,8 +271,10 @@ class IceWall(Wall):
             self.destroy()
         self.vanish += self.vanish_coeff * _deltatime
         v = int(self.vanish)
-        self.HP.dmg += v
-        self.vanish -= v
+        if v:
+            self.location.redraw = True
+            self.HP.dmg += v
+            self.vanish -= v
     
 
 class Trap(Entity):
@@ -260,12 +295,16 @@ class Trap(Entity):
     @property
     def marker(self):
         if self.vanish > self.FINAL_DETECTION * self.durability:
-            self.color = "red"
+            self._color = "red"
             return ["⋆"]
         elif self.vanish < self.detection_interval:
-            self.color = "white"
+            self._color = "white"
             return ["⋆"]
         return [" "]
+
+    @property
+    def status(self):
+        return None
 
     def on_update(self, _deltatime):
         super().on_update(_deltatime)
@@ -300,6 +339,10 @@ class Song(Entity):
             return ["♪"]
         return ["♩"]
 
+    @property
+    def status(self):
+        return None
+
     def on_update(self, _deltatime):
         super().on_update(_deltatime)
         target = self.location.get(self.below)
@@ -309,22 +352,72 @@ class Song(Entity):
         self.vanish += _deltatime
         if self.vanish > self.durability:
             self.destroy()
-    
 
+class RestoringWell(Entity):
+    def __init__(self):
+        pass
+
+class SummonPortal(Entity):
+    RITUAL_LENGTH = 5
+    RITUAL_LENGTH_MOD = 1
+    DMG_PER_UPDATE = 0.025
+    EXP_BONUS = 100
+
+    def __init__(self, _spawner=None, _summon=None, **kwargs):
+        super().__init__(_layer=0, _color="cyan", _marker="❂", **kwargs)#✬✡❂۞
+        self.spawner = _spawner
+        self.summon = _summon
+        self.vanish = 0
+        self.ritual_length = self.RITUAL_LENGTH - self.RITUAL_LENGTH_MOD*(self.spawner.CHA.mod)
+        self.dmg = 0
+
+    @property
+    def status(self):
+        _status = [("top", f"{self.name:12s} {type(self.summon).__name__} {int(self.ritual_length-self.vanish)}")]
+        return _status
+
+    def on_update(self, _deltatime):
+        super().on_update(_deltatime)
+        self.vanish += _deltatime
+        if self.vanish > self.ritual_length:
+            target = self.location.get(self.above)
+            if target and not "poison" in target.counters:
+                counter.PoisonCounter(target, MAX_RECOIL, 1)
+            else:
+                self.summon_monster()
+                self.destroy()
+                self.location.redraw = True
+
+    def summon_monster(self):
+        x,y,z = self.position
+        monster = self.summon(_name="Gulluk", _color="cyan", _location = self.location, _position=(x,y,1))
+        monster.exp += self.spawner.level*self.EXP_BONUS*(1+0.1*self.spawner.CHA.mod)
+        monster.strategy.target_type = character.Monster
+        
 class ActingEntity(Entity):
-    def __init__(self, _movement_speed=1, **kwargs):
+    def __init__(self, _movement_speed=BASE_MOVEMENT_SPEED, **kwargs):
         super().__init__(**kwargs)
         
-        self.movement_speed = _movement_speed
+        self._movement_speed = _movement_speed
         self.movement_recoil = 0
         self.recoil = 0
         self.slow_recovery = False
         self.actions = {}
 
     @property
+    def movement_speed(self):
+        return self._movement_speed
+
+    @property
+    def slow_recovery(self):
+        return self._slow_recovery
+    @slow_recovery.setter
+    def slow_recovery(self, value):
+        self._slow_recovery = value
+
+    @property
     def recoil(self):
         return self._recoil
-
     @recoil.setter
     def recoil(self, value):
         self._recoil = min(MAX_RECOIL, max(0, value))
@@ -370,6 +463,10 @@ class Projectile(ActingEntity):
         self.movement_recoil = 0
         self.on_hit = _on_hit
 
+    @property
+    def status(self):
+        return None
+
     def on_update(self, _deltatime):
         if distance(self.position, self.spawn_position) > self.max_range:
             self.destroy()
@@ -383,21 +480,22 @@ class Projectile(ActingEntity):
             self.destroy()
 
 class Arrow(Projectile):
-    def __init__(self, _spawner, _on_hit, **kwargs):
-        super().__init__(_spawner=_spawner, _on_hit=_on_hit, _movement_speed=6, _direction=_spawner.direction, _position=_spawner.forward, _location=_spawner.location, **kwargs)
+    def __init__(self, _spawner, _on_hit, _dmg, _crit, _max_range=1,  **kwargs):
         self.movement_recoil = SHORT_RECOIL * (1 - MOD_WEIGHT * _spawner.DEX.mod)
-        self.max_range = 8 + _spawner.DEX.mod
-        self.movement_speed = 5 + 0.5 * _spawner.DEX.mod
+        self.max_range = _max_range
+        self.dmg = _dmg
+        self.crit_range, self.crit_dmg = _crit
+        super().__init__(_spawner=_spawner, _on_hit=_on_hit, _movement_speed=5 + 0.5 * _spawner.DEX.mod, _max_range=_max_range, _direction=_spawner.direction, _position=_spawner.forward, _location=_spawner.location, **kwargs)
+        
 
 class FireBall(Projectile):
     def __init__(self, _spawner, _on_hit, _direction, _position, _fragment, _location=None, **kwargs):
         if not _location:
             _location = _spawner.location
-        super().__init__(_spawner=_spawner, _on_hit=_on_hit, _movement_speed=4, _direction=_direction, _position=_position, _location=_location, **kwargs)
-        self.color = "red"
+        super().__init__(_spawner=_spawner, _on_hit=_on_hit, _movement_speed=1.5 + 0.25 * _spawner.INT.mod, _direction=_direction, _position=_position, _location=_location, **kwargs)
+        self._color = "red"
         self.movement_recoil = SHORTER_RECOIL * (1 - MOD_WEIGHT * _spawner.INT.mod)
         self.max_range = 6 + _spawner.INT.mod
-        self.movement_speed = 1.5 + 0.25 * _spawner.INT.mod
         self.fragment = _fragment
 
     def on_update(self, _deltatime):

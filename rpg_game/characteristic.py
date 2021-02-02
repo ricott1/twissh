@@ -17,9 +17,7 @@ class Characteristic(object):
     def bonus(self):
         _bonus = self.temp_bonus
         if hasattr(self.entity, "equipment"):
-            for k, eqp in self.entity.equipment.items():
-                if eqp and self.short in eqp.bonus:
-                    _bonus += self.entity.equipment[k].bonus[self.short]
+            _bonus += sum([self.entity.full_eqp_bonus(eqp, self.short) for eqp in self.entity.equipment_set])
         if hasattr(self.entity, "game_class"):
             if self.short in self.entity.game_class.bonus:
                 _bonus += self.entity.game_class.bonus[self.short]

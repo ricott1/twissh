@@ -22,7 +22,7 @@ from datetime import datetime
 from rpg_game.gui import GUI
 from rpg_game.gui import PALETTE
 from rpg_game.master import Master 
-from rpg_game.constants import UPDATE_TIMESTEP 
+from rpg_game.constants import * 
 
 
 
@@ -52,8 +52,8 @@ class UrwidUi(object):
         self.loop = self.create_urwid_mainloop()
         
     def on_update(self):
-        self.redraw = False
         self.toplevel.on_update()
+        self.redraw = False
 
     def create_urwid_mainloop(self):
         evl = urwid.TwistedEventLoop(manage_reactor=False)
@@ -104,6 +104,8 @@ class UrwidMind(Adapter):
         super().__init__(original)
         self.master = master
         self.ui = None
+        self.key_map = KEY_MAP
+        self.last_frame = time.time()
 
     @property
     def avatar(self):
@@ -114,7 +116,10 @@ class UrwidMind(Adapter):
         if self.avatar.uuid in self.master.players:
             return self.master.players[self.avatar.uuid]
         return None
-    
+
+    @property
+    def screen_size(self):
+        return self.ui.screen.get_cols_rows()
 
     def set_terminalProtocol(self, terminalProtocol):
         self.terminalProtocol = terminalProtocol
@@ -128,14 +133,13 @@ class UrwidMind(Adapter):
         if self.ui:
             self.ui.redraw = True
             self.ui.screen.push(data)
-            # self.draw()
 
     def draw(self):
         self.ui.on_update()
         self.ui.loop.draw_screen()
 
     def on_update(self):
-        if self.ui and (self.ui.redraw or (self.player and self.player.location.redraw)):
+        if self.ui and self.ui.redraw:
             self.draw()
 
     def disconnect(self):
@@ -335,9 +339,11 @@ class UrwidTerminalProtocol(TerminalProtocol):
     def terminalSize(self, height, width):
         """Resize the terminal.
         """
+        #Resizing takes a lot of resources server side, could consider just returning here to avoid that
         self.width = width
         self.height = height
         self.urwid_mind.ui.loop.screen_size = None
+        return
         self.terminal.eraseDisplay()
         self.urwid_mind.draw()
 
@@ -398,7 +404,12 @@ class UrwidTerminalSession(TerminalSession):
         self.chained_protocol.terminalProtocol.terminalSize(h, w)
 
     def eofReceived(self):
-        self.mind.disconnect()
+        IUrwidMind(self.original).disconnect()
+
+    def execCommand(self, proto, cmd):
+        print("Error: Cannot execute commands", proto, cmd)
+        self.openShell(proto)
+        #raise econch.ConchError("Cannot execute commands")
 
 class UrwidRealm(TerminalRealm):
     """Custom terminal realm class-configured to use our custom Terminal User
@@ -423,6 +434,8 @@ class UrwidRealm(TerminalRealm):
         
         # #then update each mind, that updates each ui if necessary
         for k, mind in self.minds.items():
+            if mind.player and mind.player.location.redraw and t-mind.last_frame >= FRAME_RATE: 
+                mind.ui.redraw = True
             mind.on_update()
 
         for k, loc in self.master.world.locations.items():
@@ -468,7 +481,6 @@ class GameServer(TCPServer):
     
     def add_user(self, avatar):
         username = avatar.uuid
-        print(username)
         self.factory.portal.checkers.add_user(username, "")
         
 
@@ -480,7 +492,6 @@ def create_server_factory():
     rlm = UrwidRealm()
     ptl = Portal(rlm, cred_checkers)
     factory = ConchFactory(ptl)
-    print("FACTORY", factory.portal.checkers)
     factory.publicKeys[b'ssh-rsa'] = Key.fromFile('keys/test_rsa.pub')
     factory.privateKeys[b'ssh-rsa'] = Key.fromFile('keys/test_rsa')
     return factory

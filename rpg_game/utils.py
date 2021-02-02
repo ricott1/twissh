@@ -1,6 +1,6 @@
 import uuid, random, collections
 
-RANDOM_NAMES = ("Gorbacioff", "Gundam", "Pesca", "Lukiko","Armando","Mariella","Formaggio","Pancrazio","Tancredi","Swallace","Faminy","Pertis","Pericles","Atheno","Mastella","Ciriaco")
+RANDOM_NAMES = ("Gorbacioff", "Gundam", "Pesca", "Lukiko","Armando","Mariella","Formaggio","Pancrazio","Tancredi","Swallace","Faminy","Pertis","Pericles","Atheno","Mastella","Ciriaco","Harri","Pantera")
 
 nested_dict = lambda: collections.defaultdict(nested_dict)
 
@@ -19,11 +19,24 @@ def roll(num, dice):
 		tot += random.randint(1,dice) 
 	return tot
 
-def random_stats():
-    HP = random.randint(1,8)
-    data = {"CON" : roll3d6(), "INT" : roll3d6(), "HP" : HP, "CHA" : roll3d6(), "DEX" : roll3d6(), "STR" : roll3d6(), 
-    "WIS" : roll3d6()}
+def random_stats(_levels={}):
+    if not _levels:
+        data = {"CON" : roll3d6(), "INT" : roll3d6(), "CHA" : roll3d6(), "DEX" : roll3d6(), "STR" : roll3d6(), "WIS" : roll3d6()}
+    else:
+        data = {k:random_stat(v) for k, v in _levels.items()}
+    data["HP"] = random.randint(1,8)
+    print("ROLLED", _levels, data)
     return data
+
+def random_stat(_level = 1):
+    if _level == 3:
+        rolls = sorted([random.randint(1,6) for _ in range(4)])
+        return sum(rolls[1:])
+    elif _level == 2:
+        return roll3d6()
+    elif _level == 1:
+        rolls = sorted([random.randint(1,6) for _ in range(4)])
+        return sum(rolls[:-1])
 
 def random_name():
 	return random.sample(RANDOM_NAMES, 1)[0]

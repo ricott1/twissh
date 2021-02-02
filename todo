@@ -1,18 +1,43 @@
 access to race and job screens, access monster status
 
 
-attacco furtivo
-stop time
+slow time
 costruire muri usando risorse
-enchant weapons
+enchant weapons al nano
+necromante resuscita morti
 
-use markers central file and constants
-wall dmg markers
-dwarf, extra dmg to walls
+item set properties
 add build house, enabling saving
 in house, no updates
 
-select equipment in inventory disable all places where it doesn go
+use markers central file and constants
+modify mind.key_map from settings
+
+
+world map topology using squares and connectors, topology frame
+
+add suggested min screen size
+
+
+
+come fare incantesimi? mana?
+world map give also data, like connections and loot probabilities
+move player recoil and life and action to footer, levae just other stuff in header
+
+
+MOVE TO TELNET!!!!
+
+ADD TESTS without connecting server, just empty room with ogs
+
+
+##BUGs
+
+If arrow button is KEPT PRESSED, maps does not update (redraw is not triggered), hence player icon cannot be followed
+
+
+
+
+
 
 https://www.compart.com/en/unicode/category/So
 
