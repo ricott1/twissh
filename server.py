@@ -139,7 +139,7 @@ class UrwidMind(Adapter):
         self.ui.loop.draw_screen()
 
     def on_update(self):
-        if self.ui and self.ui.redraw and time.time()-self.last_frame >= FRAME_RATE:
+        if self.ui and self.ui.redraw:
             self.draw()
 
     def disconnect(self):
@@ -434,7 +434,7 @@ class UrwidRealm(TerminalRealm):
         
         # #then update each mind, that updates each ui if necessary
         for k, mind in self.minds.items():
-            if mind.player and mind.player.location.redraw: 
+            if mind.player and mind.player.location.redraw and t-mind.last_frame >= FRAME_RATE: 
                 mind.ui.redraw = True
             mind.on_update()
 
