@@ -434,7 +434,7 @@ class UrwidRealm(TerminalRealm):
         
         # #then update each mind, that updates each ui if necessary
         for k, mind in self.minds.items():
-            if mind.player and mind.player.location.redraw and t-mind.last_frame >= FRAME_RATE: 
+            if mind.ui and mind.player and mind.player.location.redraw and t-mind.last_frame >= FRAME_RATE: 
                 mind.ui.redraw = True
             mind.on_update()
 

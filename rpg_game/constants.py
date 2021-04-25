@@ -39,10 +39,12 @@ EXTRA_ENCUMBRANCE_MULTI = 2
 
 ###DEFAULT KEY MAP
 KEY_MAP = {
-	"inventory-menu" : "ctrl a", 
-	"status-menu" : "ctrl s",
-	"help-menu" : "ctrl d",
-	"equipment-menu" : "ctrl e",
+	"inventory-menu" : "l", 
+	"status-menu" : "j",
+	"help-menu" : "h",
+	"equipment-menu" : "k",
+
+	"drop" : "Q",
 
 	"up": "move_up",
     "down": "move_down",

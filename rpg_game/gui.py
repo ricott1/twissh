@@ -272,20 +272,26 @@ class GameFrame(UiFrame):
         elif _input == "enter" and self.player.inventory.selection:
             self.player.use_quick_item(self.player.inventory.selection)
             self.update_footer()
-        elif _input == "Q" and self.player.inventory.selection: 
+        elif _input == self.mind.key_map["drop"] and self.player.inventory.selection: 
             self.player.actions["drop"].use(self.player, obj=self.player.inventory.selection)
+            self.player.inventory.selection = None
             self.update_footer()
+            if self.menu_view:
+                self.menu.on_update()
         elif _input.isnumeric() or _input in ("-", "="):
             self.select_item(_input)
             self.update_footer()
         elif _input == self.mind.key_map["status-menu"] and self.menu_view:
-                self.menu.update_body("Status")
+            self.menu.update_body("Status")
         elif _input == self.mind.key_map["help-menu"] and self.menu_view:
-                self.menu.update_body("Help")
+            self.menu.update_body("Help")
         elif _input == self.mind.key_map["equipment-menu"] and self.menu_view:
-                self.menu.update_body("Equipment")
+            self.menu.update_body("Equipment")
         elif _input == self.mind.key_map["inventory-menu"] and self.menu_view:
-                self.menu.update_body("Inventory")
+            self.menu.update_body("Inventory")
+        elif _input in self.mind.key_map:
+            _action = self.mind.key_map[_input]
+            self.player.handle_input(_action)
         else:
             self.map.handle_input(_input)
 
@@ -323,8 +329,7 @@ class MapFrame(UiFrame):
         header_height = self.parent.header_height + 2
         tot_rows = self.mind.screen_size[1]
         return (tot_rows - header_height - FOOTER_HEIGHT)
-
-        
+    
     def on_update(self):
         if self.layer_view == -1:
             _map = copy.deepcopy(self.player.location.map)
@@ -350,9 +355,6 @@ class MapFrame(UiFrame):
             self.layer_view = self.layer_view + 1
             if self.layer_view > 2:
                 self.layer_view = -1 
-        elif _input in self.mind.key_map:
-            _action = self.mind.key_map[_input]
-            self.player.handle_input(_action)
 
 class MenuFrame(UiFrame):
     def __init__(self, parent, mind):
@@ -540,7 +542,7 @@ class HelpFrame(UiFrame):
         for i, act in enumerate(self.player.class_actions):
             k = class_action_keys[i]
             map_commands.append(f"{k}:{self.player.class_actions[act].description.lower()}\n")
-        menu_commands = ["Menu commands\n\n", f"tab:open/close\n",f"0/9-=:select item\n", f"ctrl+p:respawn\n", f"ctrl+a:inventory\n", f"ctrl+s:status\n", f"ctrl+d:help\n", f"ctrl+e:equipment\n"]
+        menu_commands = ["Menu commands\n\n", f"tab:open/close\n",f"0/9-=:select item\n", f"h:help\n", f"j:status\n", f"k:equipment\n", f"l:inventory\n", f"ctrl+p:respawn\n"]
         columns = urwid.Columns([urwid.Text(map_commands, wrap="clip"), urwid.Text(menu_commands, wrap="clip")], dividechars = 1)
         super().__init__(parent, mind, urwid.ListBox(urwid.SimpleListWalker([columns])))
 
@@ -642,19 +644,7 @@ class MyButton(urwid.Button):
             urwid.connect_signal(self, 'click', on_press, user_data)
 
         self.set_label(label)
-        self.lllavel = label
-
-    # @property
-    # def disabled(self):
-    #     return self._disabled
-    # @disabled.setter
-    # def disabled(self, value):
-    #     if self._disabled == value:
-    #         return
-    #     if self.disabled:
-    #         urwid.AttrMap(self, "disabled")
-    #     else:
-    #         urwid.AttrMap(self, None, "line")
+        # self.lllavel = label
 
     def selectable(self):
         return not self.disabled
