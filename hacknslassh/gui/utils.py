@@ -1,4 +1,5 @@
 from __future__ import annotations
+from hacknslassh.components import Image
 
 import urwid
 import pygame as pg
@@ -16,6 +17,23 @@ PALETTE = [
     ("yellow", "yellow", "black"),
     ("red", "light red", "black"),
 ]
+
+
+class SelectableListBox(urwid.ListBox):
+    def __init__(self, body):
+        super(SelectableListBox, self).__init__(body)
+
+    def focus_next(self):
+        try:
+            self.focus_position += 1
+        except IndexError:
+            pass
+
+    def focus_previous(self):
+        try:
+            self.focus_position -= 1
+        except IndexError:
+            pass
 
 
 class SelectableColumns(urwid.Columns):
@@ -105,11 +123,50 @@ def create_button(label, align="center", **kwargs):
     return btn
 
 
+def img_to_urwid_text(
+    img: Image, y_offset: int = 0, x_offset: int = 0, x_flip: bool = False, y_flip: bool = False
+) -> list[tuple[urwid.AttrSpec, str] | str]:
+    text = ["\n" * y_offset]
+    surface = pg.transform.flip(img.surface, x_flip, y_flip)
+    w, h = surface.get_width(), surface.get_height()
+
+    # We loop til h-1 to discard last level of odd-heigth images
+    for y in range(0, h - 1, 2):
+        text.append(" " * x_offset)
+        for x in range(w):
+            top_r, top_g, top_b, top_a = surface.get_at((x, y))
+            btm_r, btm_g, btm_b, btm_a = surface.get_at((x, y + 1))
+
+            if top_a == 0 and btm_a == 0:
+                t = " "
+            elif top_a > 0 and btm_a == 0:
+                top_r, top_g, top_b = RGBA_to_RGB(top_r, top_g, top_b, top_a)
+                top_attr = f"#{top_r:02x}{top_g:02x}{top_b:02x}"
+                t = (urwid.AttrSpec(top_attr, ""), "▀")
+            elif top_a == 0 and btm_a > 0:
+                btm_r, btm_g, btm_b = RGBA_to_RGB(btm_r, btm_g, btm_b, btm_a)
+                btm_attr = f"#{btm_r:02x}{btm_g:02x}{btm_b:02x}"
+                t = (urwid.AttrSpec(btm_attr, ""), "▄")
+            # elif top_a > 0 and btm_a > 0:
+            else:
+                top_r, top_g, top_b = RGBA_to_RGB(top_r, top_g, top_b, top_a)
+                top_attr = f"#{top_r:02x}{top_g:02x}{top_b:02x}"
+                btm_r, btm_g, btm_b = RGBA_to_RGB(btm_r, btm_g, btm_b, btm_a)
+                btm_attr = f"#{btm_r:02x}{btm_g:02x}{btm_b:02x}"
+                t = (urwid.AttrSpec(btm_attr, top_attr), "▄")
+
+            text.append(t)
+
+        text.append("\n")
+
+    return text
+
+
 def combine_RGB_colors(color1, color2, weight1=1, weight2=1):
     return (int((color1[i] * weight1 + color2[i] * weight2) / (weight1 + weight2)) for i in range(3))
 
 
-def RGBA_to_RGB(r, g, b, a, background=None):
+def RGBA_to_RGB(r: int, g: int, b: int, a: int, background: tuple[int] | None = None):
     """
     apply alpha using only RGB channels: https://en.wikipedia.org/wiki/Alpha_compositing
     """

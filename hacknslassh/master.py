@@ -1,54 +1,46 @@
-import os, sys
+import esper
 import uuid
 import pygame as pg
 
 from hacknslassh import components
 from hacknslassh.gui.scenes import GUI
-
-sys.path.append(os.path.abspath(os.path.dirname(__file__)))
-import esper
 from hacknslassh.utils import random_stats, random_name
 from hacknslassh.constants import GAME_SPEED
 
 
-
 class HackNSlash(object):
-    FPS = 30
-    UPDATE_STEP = 1/FPS
+    FPS = 10
+    UPDATE_STEP = 1 / FPS
+
     def __init__(self):
         self.players = {}
         self.chat_log = []
-        self.world = esper.World() #world.World()
+        self.world = esper.World()  # world.World()
         self.gui = GUI
         self.clock = pg.time.Clock()
 
     def on_start(self, _id):
         pass
 
-    def register_new_player(self, _id: uuid.UUID, race: components.RaceType, gender: components.GenderType) -> components.Actor:
-        # p = character.Player(
-        #     _id=_id,
-        #     _name=random_name(),
-        #     _location=self.world.starting_location(),
-        #     _game_class=race,
-        # )
-
-        
+    def register_new_player(
+        self, _id: uuid.UUID, race: components.RaceType, gender: components.GenderType
+    ) -> components.Actor:
         _components = [
             components.Position(),
-            components.ImageCollection.CHARACTERS[gender][race], 
-            components.RenderableWithDirection("white"), 
-            components.Directionable(), 
-            components.Characteristics(), 
-            components.Race(race), 
-            components.Gender(gender), 
-            components.Description(random_name(), "description")
+            components.ImageCollection.CHARACTERS[gender][race],
+            components.RenderableWithDirection("white"),
+            components.Directionable(),
+            components.Characteristics(),
+            components.Health(),
+            components.Mana(),
+            components.Race(race),
+            components.Gender(gender),
+            components.Description(random_name(), "description"),
         ]
-        player_id = self.world.create_entity(*_components)
-        player = self.world._entities[player_id]
+        player = components.Entity(self.world, _components)
         self.players[_id] = player
         print("Player", player)
-        return player_id
+        return player
 
     def disconnect(self, _id):
         print("disconnect", _id)
@@ -60,7 +52,7 @@ class HackNSlash(object):
 
     def on_update(self, _deltatime):
 
-        self.world.process(GAME_SPEED * _deltatime)  #on_update(GAME_SPEED * _deltatime)
+        self.world.process(GAME_SPEED * _deltatime)  # on_update(GAME_SPEED * _deltatime)
         # world.process()
 
         self.clock.tick(self.FPS)

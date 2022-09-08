@@ -1,5 +1,30 @@
 # encoding: utf-8
 
+"""
+Twisted integration for Urwid.
+This module allows you to serve Urwid applications remotely over ssh.
+The idea is that the server listens as an SSH server, and each connection is
+routed by Twisted to urwid, and the urwid UI is routed back to the console.
+The concept was a bit of a head-bender for me, but really we are just sending
+escape codes and the what-not back to the console over the shell that ssh has
+created. This is the same service as provided by the UI components in
+twisted.conch.insults.window, except urwid has more features, and seems more
+mature.
+This module is not highly configurable, and the API is not great, so
+don't worry about just using it as an example and copy-pasting.
+Process
+-------
+TODO:
+- better gpm tracking: there is no place for os.Popen in a Twisted app I
+  think.
+Copyright: 2010, Ali Afshar <aafshar@gmail.com>
+License:   MIT <http://www.opensource.org/licenses/mit-license.php>
+Portions Copyright: 2010, Ian Ward <ian@excess.org>
+Licence:   LGPL <http://opensource.org/licenses/lgpl-2.1.php>
+Portions Copyright: 2022, Costantino Frittura <inverness@duck.com>
+Licence:   LGPL <http://opensource.org/licenses/lgpl-2.1.php>
+"""
+
 from __future__ import annotations
 from typing import Callable
 
@@ -86,9 +111,6 @@ class UrwidUi(object):
     def disconnect(self) -> None:
         self.toplevel.disconnect()
 
-    def restart(self) -> None:
-        self.toplevel.restart()
-
 class UnhandledKeyHandler(object):
     def __init__(self, mind: UrwidMind):
         self.mind = mind
@@ -110,10 +132,6 @@ class UnhandledKeyHandler(object):
     def key_ctrl_c(self, _) -> None:
         self.mind.disconnect()
 
-    def key_ctrl_p(self, _) -> None:
-        self.mind.restart_ui()
-
-
 implementer(IUrwidMind)
 class UrwidMind(Adapter):
     unhandled_key_factory = UnhandledKeyHandler
@@ -124,6 +142,7 @@ class UrwidMind(Adapter):
         self.ui = None
         self.last_frame = time.time()
         self.callbacks = {}
+        self.register_callback("gui_redraw", self.draw)
 
     @property
     def avatar(self):
@@ -145,20 +164,21 @@ class UrwidMind(Adapter):
         self.unhandled_key_handler = self.unhandled_key_factory(self)
         self.unhandled_key = self.unhandled_key_handler.push
         self.ui = UrwidUi(self)
-        self.draw(0)
+        self.draw()
 
     def push(self, data):
         if self.ui:
-            self.ui.redraw = True
             self.ui.screen.push(data)
+            self.draw()
 
-    def draw(self, deltatime: float):
-        self.ui.on_update(deltatime)
-        self.ui.loop.draw_screen()
+    def draw(self):
+        if self.ui:
+            self.ui.loop.draw_screen()
 
     def on_update(self, deltatime: float):
-        if self.ui and self.ui.redraw:
-            self.draw(deltatime)
+        if self.ui:
+            self.ui.on_update(deltatime)
+            self.draw()
 
     def disconnect(self):
         self.master.disconnect(self.avatar.uuid)
@@ -176,10 +196,6 @@ class UrwidMind(Adapter):
         if event_name in self.callbacks:
             for callback in self.callbacks[event_name]:
                 callback(*args, **kwargs)
-
-    def restart_ui(self):
-        self.master.disconnect(self.avatar.uuid)
-        self.ui.restart()
 
 
 class TwistedScreen(Screen):
@@ -207,7 +223,7 @@ class TwistedScreen(Screen):
         self.colors = 16
         self._pal_escape = {}
         self.bright_is_bold = True
-        self.register_palette_entry(None, "white", "black")
+        # self.register_palette_entry(None, "white", "black")
         urwid.signals.connect_signal(self, urwid.UPDATE_PALETTE_ENTRY, self._on_update_palette_entry)
         # Don't need to wait for anything to start
         # self._started = True

@@ -1,3 +1,6 @@
+from enum import Enum
+
+
 WIDTH = 80
 HEIGHT = 24
 
@@ -22,8 +25,6 @@ LVUP_MULTI = 1000
 GAME_SPEED = 1
 REDRAW_MULTI = 10
 
-
-CHARACTERISTICS = ["STR", "INT", "WIS", "CON", "DEX", "CHA"]
 SLOW_RECOVERY_MULTI = 0.5
 MOD_WEIGHT = 0.1
 
@@ -39,23 +40,18 @@ EXTRA_ENCUMBRANCE_MULTI = 2
 
 
 ###DEFAULT KEY MAP
-KEY_MAP = {
-    "inventory-menu": "ctrl a",
-    "status-menu": "ctrl s",
-    "help-menu": "ctrl d",
-    "equipment-menu": "ctrl e",
-    "up": "move_up",
-    "down": "move_down",
-    "left": "move_left",
-    "right": "move_right",
-    "shift up": "dash_up",
-    "shift down": "dash_down",
-    "shift left": "dash_left",
-    "shift right": "dash_right",
-    "q": "pick_up",
-    "a": "attack",
-    "s": "class_ability_1",
-    "d": "class_ability_2",
-    "w": "class_ability_3",
-    "e": "class_ability_4",
-}
+class KeyMap(str, Enum):
+    INVENTORY_MENU = "I"
+    STATUS_MENU = "S"
+    HELP_MENU = "H"
+    EQUIPMENT_MENU = "E"
+    EXPLORER_MENU = "X"
+    QUICK_MENU = "Q"
+    TOGGLE_FULL_MENU = "tab"
+    UP = "up"
+    DOWN = "down"
+    LEFT = "left"
+    RIGHT = "right"
+
+
+MenuKeyMap = [KeyMap.STATUS_MENU, KeyMap.INVENTORY_MENU, KeyMap.EQUIPMENT_MENU, KeyMap.HELP_MENU]

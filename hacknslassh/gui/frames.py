@@ -1,5 +1,5 @@
 from hacknslassh.components import Image
-from hacknslassh.processor import img_to_urwid_text
+from hacknslassh.gui.utils import img_to_urwid_text
 import urwid
 import time
 import pygame as pg
@@ -92,8 +92,12 @@ class SplitVerticalFrame(UiFrame):
                 )
             )
         elif given:
-            super().__init__(urwid.Pile([(given[i], self.widgets[i]) for i in range(len(given))],
-                    focus_item=focus_item,))
+            super().__init__(
+                urwid.Pile(
+                    [(given[i], self.widgets[i]) for i in range(len(given))],
+                    focus_item=focus_item,
+                )
+            )
         else:
             super().__init__(urwid.Pile(self.widgets, focus_item=focus_item))
         self._completed = False

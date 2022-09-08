@@ -1,20 +1,14 @@
 # encoding: utf-8
 
-from enum import Enum, auto
 from typing import Callable
 import urwid
 import copy
 from hacknslassh.utils import distance
 from ..gui import frames
-from .utils import SelectableColumns, attr_button, create_button
+from .utils import SelectableColumns, attr_button, SelectableListBox
 from ..components import Entity, Image, ImageCollection, GenderType, QuickItemSlots
 from hacknslassh.constants import *
 from urwid import raw_display
-import pygame as pg
-
-from hacknslassh import components
-
-
 
 SIZE = lambda scr=raw_display.Screen(): scr.get_cols_rows()
 
@@ -93,10 +87,10 @@ class Scene(object):
     def on_complete(self, master_scene) -> None:
         pass
 
-    def register_callback(self, event_name:str, callback: Callable) -> None:
+    def register_callback(self, event_name: str, callback: Callable) -> None:
         self.mind.register_callback(event_name, callback)
-    
-    def emit_event(self, event_name:str, *args, **kwargs) -> None:
+
+    def emit_event(self, event_name: str, *args, **kwargs) -> None:
         self.mind.emit_event(event_name, *args, **kwargs)
 
 
@@ -158,17 +152,20 @@ class CharacterSelectionFrame(Scene, urwid.Pile):
         #     "abilities": "Fireball, teleport and ice wall",
         # }
     }
+
     def __init__(self, mind) -> None:
         self.options_keys = list(self.options.keys())
         self.title = urwid.WidgetDisable(frames.TitleFrame(["Hack'n'SlaSSH"]))
         # self.menu = frames.VerticalSelectionFrame([f"<--   {k:^7s}   --> " for k in self.options])
 
         max_width = max([len(opt) for opt in self.options], default=1)
-        self.buttons = [attr_button(
+        self.buttons = [
+            attr_button(
                 opt.center(max_width),
-            ) for opt in self.options]
+            )
+            for opt in self.options
+        ]
 
-        
         self.row_index = 0
         self.column_index = 1
         selection = self.options_keys[self.row_index]
@@ -181,9 +178,7 @@ class CharacterSelectionFrame(Scene, urwid.Pile):
         self.menu = urwid.ListBox(self.menu_walker)
 
         self.main = urwid.Columns(
-            [(20, left_img), self.menu, (20, right_img)],
-            focus_column=self.column_index,
-            min_width=20
+            [(20, left_img), self.menu, (20, right_img)], focus_column=self.column_index, min_width=20
         )
 
         super().__init__(mind, [(4, self.title), self.main], focus_item=1)
@@ -215,53 +210,62 @@ class CharacterSelectionFrame(Scene, urwid.Pile):
                 else CHARACTERS_SELECTION_FRAMES[GenderType.MALE]["unselected"][selection]
             )
 
-            self.main.contents[0] = (left_img, ('given', 20, False))
-            self.main.contents[2] = (right_img, ('given', 20, False))
+            self.main.contents[0] = (left_img, ("given", 20, False))
+            self.main.contents[2] = (right_img, ("given", 20, False))
             self.row_index = row_index
             self.column_index = column_index
-        
-            
+            self.emit_event("gui_redraw")
+
 
 class NetHackFrame(Scene, urwid.Frame):
     def __init__(self, mind) -> None:
         self.map = MapFrame(mind)
         self.menu = MenuFrame(mind)
-        self.quick_item = urwid.WidgetDisable(BottlesAndQuickItemFrame(mind))
+        self.bottom_menu = BottlesAndQuickItemFrame(mind)
         self.log = LogFrame(mind, visible_lines=FOOTER_HEIGHT)
 
-        self.left = urwid.Pile([self.map, (FOOTER_HEIGHT, self.quick_item)])
+        self.left = urwid.Pile([self.map, (FOOTER_HEIGHT, self.bottom_menu)])
         self.right = self.menu
-        
-        self.bottom = urwid.Columns([self.quick_item, (30, urwid.WidgetDisable(self.log))])
+
+        self.bottom = urwid.Columns([urwid.WidgetDisable(self.bottom_menu), (30, urwid.WidgetDisable(self.log))])
         self.full_view_body = urwid.Columns([self.left, (30, self.menu)])
         self.partial_view_body = urwid.Pile([self.map, (FOOTER_HEIGHT, self.bottom)])
         super().__init__(mind, self.full_view_body)
         self.full_menu_view = True
-    
+
     def handle_input(self, _input: str) -> None:
+        print(_input)
         if _input.isnumeric() and 1 <= int(_input) <= 5:
-            self.quick_item.handle_input(_input)
-        elif _input == "tab":
+            self.bottom_menu.handle_input(_input)
+        elif _input == KeyMap.TOGGLE_FULL_MENU:
             self.toggle_menu_view()
+        elif _input == KeyMap.QUICK_MENU:
+            self.bottom_menu.toggle_view()
+        elif _input in MenuKeyMap:
+            self.menu.handle_input(_input)
         else:
             self.map.handle_input(_input)
-    
+
     def toggle_menu_view(self) -> None:
         self.full_menu_view = not self.full_menu_view
         if self.full_menu_view:
             self.contents["body"] = (self.full_view_body, None)
         else:
             self.contents["body"] = (self.partial_view_body, None)
-    
+        self.emit_event("gui_redraw")
+
     def on_update(self, deltatime: float) -> None:
         self.map.on_update(deltatime)
         self.log.on_update(deltatime)
         if self.full_menu_view:
             self.menu.on_update(deltatime)
-        
+
 
 class BottlesAndQuickItemFrame(Scene, urwid.Columns):
+    BOTTLE_WIDTH = 10
+
     def __init__(self, mind) -> None:
+        self.mind = mind
         num_of_slots = QuickItemSlots.BASE_SLOTS
         # if self.player.equipment:
         #     num_of_slots += 3
@@ -269,73 +273,108 @@ class BottlesAndQuickItemFrame(Scene, urwid.Columns):
         quick_items = []
         for i in range(max_num_of_slots):
             if i < num_of_slots:
-                slot_frame = urwid.LineBox(frames.ImageFrame(ImageCollection.HP_POTION), title=str(i+1))
+                slot_frame = urwid.LineBox(
+                    frames.ImageFrame(ImageCollection.REJUVENATION_POTION.MEDIUM), title=str(i + 1)
+                )
             else:
-                slot_frame = frames.ImageFrame(ImageCollection.EMPTY)
+                slot_frame = urwid.LineBox(frames.ImageFrame(ImageCollection.EMPTY))
             quick_items.append(slot_frame)
 
-        self.quick_items_columns = urwid.Columns(quick_items)
-        experience = urwid.Text(f"Experience: 0")
-        central = urwid.Pile([(1, experience), (3, self.quick_items_columns)])
-        # columns = [frames.ImageFrame(ImageCollection.HP_BOTTLE_0, x_offset=1)]+ [central] + [frames.ImageFrame(ImageCollection.MP_BOTTLE_0, x_offset=1)]
-        # weights=[8] + [5 for _ in range(max_num_of_slots)] + [8]
-
+        self.quick_items_columns = quick_items
+        hp = self.player.health
+        mp = self.player.mana
+        self.status_walker = urwid.SimpleFocusListWalker(
+            [
+                urwid.Text(f"HP: {hp.value}/{hp.max_value}  MP: {mp.value}/{mp.max_value}"),
+                urwid.Text(f"Class L: Experiencebars"),
+            ]
+        )
+        self.status_columns = [urwid.LineBox(urwid.ListBox(self.status_walker))]
+        self.menu_view = self.status_columns
         super().__init__(
             mind,
-            [(4, frames.ImageFrame(ImageCollection.HP_BOTTLE_0, x_offset=0))] + quick_items + [(4, frames.ImageFrame(ImageCollection.MP_BOTTLE_0, x_offset=0))],
+            [(self.BOTTLE_WIDTH, frames.ImageFrame(ImageCollection.HP_BOTTLE.L0, x_offset=1))]
+            + self.menu_view
+            + [(self.BOTTLE_WIDTH, frames.ImageFrame(ImageCollection.MP_BOTTLE.L0, x_offset=1))],
         )
         self.register_callback("player_hp_changed", self.update_hp_bottle)
         self.register_callback("player_mp_changed", self.update_mp_bottle)
         self.register_callback("player_used_quick_item", self.remove_quick_item)
         self.register_callback("player_add_quick_item", self.add_quick_item)
-    
+
     def handle_input(self, _input: str) -> None:
         self.player.use_quick_item(int(_input))
-    
+
+    def toggle_view(self) -> None:
+        if self.menu_view == self.quick_items_columns:
+            self.contents[1:-1] = [(c, ("weight", 1, False)) for c in self.status_columns]
+            self.menu_view = self.status_columns
+        else:
+            self.contents[1:-1] = [(c, ("weight", 1, False)) for c in self.quick_items_columns]
+            self.menu_view = self.quick_items_columns
+        self.emit_event("gui_redraw")
+
     def remove_quick_item(self, slot: int) -> None:
-        self.quick_items_columns.contents[slot] = (urwid.LineBox(frames.ImageFrame(ImageCollection.EMPTY)), ("weight", 5))
-    
+        num_of_slots = QuickItemSlots.BASE_SLOTS
+        if slot < num_of_slots:
+            self.quick_items_columns.contents[slot] = urwid.LineBox(
+                frames.ImageFrame(ImageCollection.EMPTY), ("weight", 1)
+            )
+        else:
+            self.quick_items_columns.contents[slot] = (
+                urwid.LineBox(frames.ImageFrame(ImageCollection.EMPTY), title=str(slot + 1)),
+                ("weight", 1),
+            )
+        self.emit_event("gui_redraw")
+
     def add_quick_item(self, slot: int, item: Entity) -> None:
         if item.has_component(Image):
-            self.quick_items_columns.contents[slot] = (urwid.LineBox(frames.ImageFrame(item.image)), ("weight", 5))
+            self.quick_items_columns.contents[slot] = (
+                urwid.LineBox(frames.ImageFrame(item.image), title=str(slot + 1)),
+                ("weight", 1),
+            )
+        self.emit_event("gui_redraw")
 
     def update_hp_bottle(self) -> None:
         hp_percentage = self.player.hp / self.player.max_hp
         match hp_percentage:
             case x if x == 1:
-                hp_bottle_image = ImageCollection.HP_BOTTLE_0
+                hp_bottle_image = ImageCollection.HP_BOTTLE.L0
             case x if x >= 0.8:
-                hp_bottle_image = ImageCollection.HP_BOTTLE_1
+                hp_bottle_image = ImageCollection.HP_BOTTLE.L1
             case x if x >= 0.6:
-                hp_bottle_image = ImageCollection.HP_BOTTLE_2
+                hp_bottle_image = ImageCollection.HP_BOTTLE.L2
             case x if x >= 0.4:
-                hp_bottle_image = ImageCollection.HP_BOTTLE_3
+                hp_bottle_image = ImageCollection.HP_BOTTLE.L3
             case x if x >= 0.2:
-                hp_bottle_image = ImageCollection.HP_BOTTLE_4
+                hp_bottle_image = ImageCollection.HP_BOTTLE.L4
             case x if x > 0:
-                hp_bottle_image = ImageCollection.HP_BOTTLE_5
+                hp_bottle_image = ImageCollection.HP_BOTTLE.L5
             case _:
-                hp_bottle_image = ImageCollection.HP_BOTTLE_6
-        self.contents[0] = (frames.ImageFrame(hp_bottle_image, x_offset=1), ("weight", 8))
-    
+                hp_bottle_image = ImageCollection.HP_BOTTLE.L6
+        self.contents[0] = (frames.ImageFrame(hp_bottle_image, x_offset=1), ("given", self.BOTTLE_WIDTH))
+        self.emit_event("gui_redraw")
+
     def update_mp_bottle(self) -> None:
         mp_percentage = self.player.mp / self.player.max_mp
         match mp_percentage:
             case x if x == 1:
-                mp_bottle_image = ImageCollection.MP_BOTTLE_0
+                mp_bottle_image = ImageCollection.MP_BOTTLE.L0
             case x if x >= 0.8:
-                mp_bottle_image = ImageCollection.MP_BOTTLE_1
+                mp_bottle_image = ImageCollection.MP_BOTTLE.L1
             case x if x >= 0.6:
-                mp_bottle_image = ImageCollection.MP_BOTTLE_2
+                mp_bottle_image = ImageCollection.MP_BOTTLE.L2
             case x if x >= 0.4:
-                mp_bottle_image = ImageCollection.MP_BOTTLE_3
+                mp_bottle_image = ImageCollection.MP_BOTTLE.L3
             case x if x >= 0.2:
-                mp_bottle_image = ImageCollection.MP_BOTTLE_4
+                mp_bottle_image = ImageCollection.MP_BOTTLE.L4
             case x if x > 0:
-                mp_bottle_image = ImageCollection.MP_BOTTLE_5
+                mp_bottle_image = ImageCollection.MP_BOTTLE.L5
             case _:
-                mp_bottle_image = ImageCollection.MP_BOTTLE_6
-        self.contents[-1] = (frames.ImageFrame(mp_bottle_image, x_offset=1), ("weight", 8))
+                mp_bottle_image = ImageCollection.MP_BOTTLE.L6
+        self.contents[-1] = (frames.ImageFrame(mp_bottle_image, x_offset=1), ("given", self.BOTTLE_WIDTH))
+        self.emit_event("tui_updated")
+
 
 class GameFrame(Scene, urwid.Frame):
     def __init__(self, mind):
@@ -463,13 +502,13 @@ class GameFrame(Scene, urwid.Frame):
         elif _input.isnumeric() or _input in ("-", "="):
             self.select_item(_input)
             self.update_footer()
-        elif _input == KEY_MAP["status-menu"] and self.menu_view:
+        elif _input == KeyMap["status-menu"] and self.menu_view:
             self.menu.update_body("Status")
-        elif _input == KEY_MAP["help-menu"] and self.menu_view:
+        elif _input == KeyMap["help-menu"] and self.menu_view:
             self.menu.update_body("Help")
-        elif _input == KEY_MAP["equipment-menu"] and self.menu_view:
+        elif _input == KeyMap["equipment-menu"] and self.menu_view:
             self.menu.update_body("Equipment")
-        elif _input == KEY_MAP["inventory-menu"] and self.menu_view:
+        elif _input == KeyMap["inventory-menu"] and self.menu_view:
             self.menu.update_body("Inventory")
         else:
             self.map.handle_input(_input)
@@ -535,15 +574,16 @@ class MapFrame(Scene, urwid.Frame):
         self.map_box[:] = map_with_attr
 
     def handle_input(self, _input):
-        if _input == "ctrl f":
-            self.debug_view = not self.debug_view
-        elif _input == "ctrl v":
-            self.layer_view = self.layer_view + 1
-            if self.layer_view > 2:
-                self.layer_view = -1
-        elif _input in KEY_MAP:
-            _action = KEY_MAP[_input]
-            self.player.handle_input(_action)
+        # if _input == "ctrl f":
+        #     self.debug_view = not self.debug_view
+        # elif _input == "ctrl v":
+        #     self.layer_view = self.layer_view + 1
+        #     if self.layer_view > 2:
+        #         self.layer_view = -1
+        # elif _input in KeyMap:
+        #     _action = KeyMap[_input]
+        #     self.player.handle_input(_action)
+        pass
 
 
 class MenuFrame(Scene, urwid.Frame):
@@ -559,18 +599,28 @@ class MenuFrame(Scene, urwid.Frame):
         self.active_body = self.bodies[initial_submenu]
         super().__init__(mind, urwid.LineBox(self.active_body, title=initial_submenu))
 
+    def selectable(self):
+        return False
+
     def on_update(self, deltatime: float) -> None:
         self.active_body.on_update(deltatime)
 
-    def selectable(self):
-        return False
+    def handle_input(self, _input: str) -> None:
+        if _input == KeyMap.STATUS_MENU:
+            self.update_body("Status")
+        elif _input == KeyMap.HELP_MENU:
+            self.update_body("Help")
+        elif _input == KeyMap.EXPLORER_MENU:
+            self.update_body("Explorer")
 
     def update_body(self, _title):
         self.active_body = self.bodies[_title]
         self.contents["body"] = (urwid.LineBox(self.active_body, title=_title), None)
 
+
 class SubMenuFrame(Scene, urwid.Frame):
     pass
+
 
 class LogFrame(Scene, urwid.Frame):
     def __init__(self, mind, visible_lines: int = 0):
@@ -585,10 +635,11 @@ class LogFrame(Scene, urwid.Frame):
             self.visible_lines = max(self.mind.screen_size[1] - FOOTER_HEIGHT - 2, 1)
         elif isinstance(self.visible_lines, int):
             self.visible_lines = max(self.visible_lines, 1)
-        self.log_widget.body[:] = self.log[-self.visible_lines:]
-    
+        self.log_widget.body[:] = self.log[-self.visible_lines :]
+
     def update_log(self, _log):
         self.log.append(_log)
+
 
 class InventoryFrame(SubMenuFrame):
     def __init__(self, mind):
@@ -675,9 +726,9 @@ class StatusFrame(SubMenuFrame):
         self.register_callback("new_player", self.update_player_image)
         self.register_callback("player_equip", self.update_player_image)
         self.register_callback("player_unequip", self.update_player_image)
-    
+
     def update_player_image(self):
-        self.contents["body"] = (frames.ImageFrame(self.player[components.Image]), None)
+        self.contents["body"] = (frames.ImageFrame(self.player.image), None)
 
     def on_update(self, deltatime: float) -> None:
         return
@@ -737,13 +788,14 @@ class StatusFrame(SubMenuFrame):
             urwid.Columns([urwid.Text(_left), urwid.Text(_right)], dividechars=1),
         ]
 
+
 class ExplorerFrame(SubMenuFrame):
     def __init__(self, mind):
         body = frames.ImageFrame(ImageCollection.EMPTY)
         self.nearby_entities_walker = urwid.SimpleFocusListWalker([urwid.Text("")])
-        footer = SelectableListBox(self.nearby_entities_walker),
+        footer = (SelectableListBox(self.nearby_entities_walker),)
         super().__init__(mind, body, footer=footer)
-    
+
     @property
     def nearby_entities_list(self):
         return []
@@ -772,7 +824,6 @@ class ExplorerFrame(SubMenuFrame):
         if widgets:
             closest_entity = self.nearby_entities_list[0]
             self.contents["body"] = (frames.ImageFrame(closest_entity.image), None)
-        
 
 
 class EquipmentFrame(SubMenuFrame):
@@ -822,7 +873,7 @@ class HelpFrame(SubMenuFrame):
             f"a:attack\n",
             f"q:pickup\n",
         ]
-        class_action_keys = [k for k, act in KEY_MAP.items() if act.startswith("class_ability")]
+        class_action_keys = [k for k in KeyMap]
         # for i, act in enumerate(self.player.class_actions):
         #     k = class_action_keys[i]
         #     map_commands.append(f"{k}:{self.player.class_actions[act].description.lower()}\n")
@@ -846,32 +897,17 @@ class HelpFrame(SubMenuFrame):
         super().__init__(mind, urwid.ListBox(urwid.SimpleListWalker([columns])))
 
 
-class SelectableListBox(urwid.ListBox):
-    def __init__(self, body):
-        super(SelectableListBox, self).__init__(body)
-
-    def focus_next(self):
-        try:
-            self.focus_position += 1
-        except IndexError:
-            pass
-
-    def focus_previous(self):
-        try:
-            self.focus_position -= 1
-        except IndexError:
-            pass
-
 CHARACTERS_SELECTION_FRAMES = {
-            GenderType.FEMALE: {
-                "selected": {k: None for k in CharacterSelectionFrame.options},
-                "unselected": {k: None for k in CharacterSelectionFrame.options},
-            },
-            GenderType.MALE: {
-                "selected": {k: None for k in CharacterSelectionFrame.options},
-                "unselected": {k: None for k in CharacterSelectionFrame.options},
-            },
-        }
+    GenderType.FEMALE: {
+        "selected": {k: None for k in CharacterSelectionFrame.options},
+        "unselected": {k: None for k in CharacterSelectionFrame.options},
+    },
+    GenderType.MALE: {
+        "selected": {k: None for k in CharacterSelectionFrame.options},
+        "unselected": {k: None for k in CharacterSelectionFrame.options},
+    },
+}
+
 for c in CharacterSelectionFrame.options:
     for gender in GenderType:
         for bkg in ("unselected", "selected"):
