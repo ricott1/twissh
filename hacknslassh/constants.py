@@ -39,6 +39,11 @@ MAX_NUM_QUICK_ITEMS = 5
 EXTRA_ENCUMBRANCE_MULTI = 2
 
 
+class MapSize(object):
+    SMALL = (20, 20)
+    MEDIUM = (40, 20)
+    LARGE = (80, 20)
+
 ###DEFAULT KEY MAP
 class KeyMap(str, Enum):
     INVENTORY_MENU = "I"

@@ -68,10 +68,10 @@ class IUrwidMind(Interface):
     def push(data) -> None:
         """Push data"""
 
-    def draw(deltatime: float) -> None:
+    def draw() -> None:
         """Refresh the UI"""
 
-    def on_update(deltatime: float) -> None:
+    def on_update() -> None:
         """Update cycle"""
 
     def register_callback(event_name: str, callback: Callable):
@@ -86,14 +86,12 @@ class UrwidUi(object):
         self.mind = urwid_mind
         self.toplevel = self.mind.master.gui(self.mind)
         self.palette = self.toplevel.palette
-        self.redraw = False
         self.screen = TwistedScreen(self.mind.terminalProtocol)
         self.loop = self.create_urwid_mainloop()
         self.loop.run()
 
-    def on_update(self, deltatime: float) -> None:
-        self.toplevel.on_update(deltatime)
-        self.redraw = False
+    def on_update(self) -> None:
+        self.toplevel.on_update()
 
     def create_urwid_mainloop(self) -> urwid.MainLoop:
         evl = urwid.TwistedEventLoop(manage_reactor=False)
@@ -142,7 +140,7 @@ class UrwidMind(Adapter):
         self.ui = None
         self.last_frame = time.time()
         self.callbacks = {}
-        self.register_callback("gui_redraw", self.draw)
+        self.register_callback("gui_redraw", self.on_update)
 
     @property
     def avatar(self):
@@ -175,16 +173,17 @@ class UrwidMind(Adapter):
         if self.ui:
             self.ui.loop.draw_screen()
 
-    def on_update(self, deltatime: float):
+    def on_update(self):
         if self.ui:
-            self.ui.on_update(deltatime)
+            self.ui.on_update()
             self.draw()
 
     def disconnect(self):
         self.master.disconnect(self.avatar.uuid)
         self.terminal.loseConnection()
-        self.ui.disconnect()
-        self.ui = None
+        if self.ui:
+            self.ui.disconnect()
+            self.ui = None
     
     def register_callback(self, event_name: str, callback: Callable) -> None:
         if event_name in self.callbacks:
@@ -447,6 +446,9 @@ class UrwidTerminalSession(TerminalSession):
         print("Error: Cannot execute commands", proto, cmd)
         # self.openShell(proto)
         raise ConchError("Cannot execute commands")
+    
+    def closed(self):
+        IUrwidMind(self.original).disconnect()
 
 
 class UrwidRealm(TerminalRealm):
@@ -470,13 +472,15 @@ class UrwidRealm(TerminalRealm):
 
         self.master.on_update(deltatime)
 
-        # #then update each mind, that updates each ui if necessary
+        # #then update each mind, that updates each ui if necessary 
+        to_delete = []
         for k, mind in self.minds.items():
             if not mind.ui:
+                to_delete.append(k)
                 continue
-            if mind.player:
-                mind.ui.redraw = True
-            mind.on_update(deltatime)
+            mind.on_update()
+        for k in to_delete:
+            del self.minds[k]
 
         self.time = time.time()
 

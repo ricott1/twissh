@@ -1,5 +1,4 @@
 from __future__ import annotations
-from hacknslassh.components import Image
 
 import urwid
 import pygame as pg
@@ -123,8 +122,18 @@ def create_button(label, align="center", **kwargs):
     return btn
 
 
+def marker_to_urwid_text(marker: str, fg: tuple[int, int, int], bg: tuple[int, int, int] | None, a: int = 255) -> tuple[urwid.AttrSpec, str]: 
+    f_r, f_g, f_b = RGBA_to_RGB(*fg, a)
+    f_attr = f"#{f_r:02x}{f_g:02x}{f_b:02x}"
+    if bg:
+        b_r, b_g, b_b = RGBA_to_RGB(*bg, a)
+        b_attr = f"#{b_r:02x}{b_g:02x}{b_b:02x}"
+    else:
+        b_attr = ""
+    return (urwid.AttrSpec(f_attr, b_attr), marker)
+
 def img_to_urwid_text(
-    img: Image, y_offset: int = 0, x_offset: int = 0, x_flip: bool = False, y_flip: bool = False
+    img, y_offset: int = 0, x_offset: int = 0, x_flip: bool = False, y_flip: bool = False
 ) -> list[tuple[urwid.AttrSpec, str] | str]:
     text = ["\n" * y_offset]
     surface = pg.transform.flip(img.surface, x_flip, y_flip)

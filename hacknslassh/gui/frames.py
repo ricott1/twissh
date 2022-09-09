@@ -24,7 +24,7 @@ class UiFrame(urwid.Frame):
     def handle_input(self, _input, pressed_since=0):
         pass
 
-    def on_update(self, deltatime):
+    def on_update(self):
         pass
 
 
@@ -67,10 +67,10 @@ class SplitHorizontalFrame(UiFrame):
     def completed(self, value):
         self._completed = value
 
-    def on_update(self, deltatime):
+    def on_update(self):
         for index in self.update_order:
             if hasattr(self.widgets[index], "on_update"):
-                self.widgets[index].on_update(deltatime)
+                self.widgets[index].on_update()
 
     def handle_input(self, _input, pressed_since=0):
         for index in self.update_order:
@@ -115,10 +115,10 @@ class SplitVerticalFrame(UiFrame):
     def completed(self, value):
         self._completed = value
 
-    def on_update(self, deltatime):
+    def on_update(self):
         for index in self.update_order:
             if hasattr(self.widgets[index], "on_update"):
-                self.widgets[index].on_update(deltatime)
+                self.widgets[index].on_update()
 
     def handle_input(self, _input, pressed_since=0):
         for index in self.update_order:
@@ -178,9 +178,9 @@ class OverlayFrame(UiFrame):
         super().__init__(self.full_body)
         self.top_is_visible = True
 
-    def on_update(self, deltatime):
-        self.top.on_update(deltatime)
-        self.bottom.on_update(deltatime)
+    def on_update(self):
+        self.top.on_update()
+        self.bottom.on_update()
 
     def handle_input(self, _input):
         self.top.handle_input(_input)
@@ -231,7 +231,7 @@ class VerticalSelectionFrame(UiFrame):
         self.selection = selection
         self.completed = True
 
-    def on_update(self, deltatime):
+    def on_update(self):
         index = self.contents["body"][0].focus_position
         if index != self.index:
             self.index = index
@@ -306,7 +306,7 @@ class SpeechFrame(UiFrame):
         listbox = urwid.ListBox(self.walker)
         super().__init__(listbox)
 
-    def on_update(self, deltatime):
+    def on_update(self):
         self.update_speech()
 
     def handle_input(self, _input, pressed_since=0):
