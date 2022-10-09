@@ -17,6 +17,7 @@ PALETTE = [
     ("red", "light red", "black"),
 ]
 
+EMPTY_FILL = urwid.ListBox(urwid.SimpleListWalker([urwid.Text("")]))
 
 class SelectableListBox(urwid.ListBox):
     def __init__(self, body):
@@ -133,7 +134,7 @@ def marker_to_urwid_text(marker: str, fg: tuple[int, int, int], bg: tuple[int, i
     return (urwid.AttrSpec(f_attr, b_attr), marker)
 
 def img_to_urwid_text(
-    img, y_offset: int = 0, x_offset: int = 0, x_flip: bool = False, y_flip: bool = False
+    img, x_offset: int = 0, y_offset: int = 0, x_flip: bool = False, y_flip: bool = False
 ) -> list[tuple[urwid.AttrSpec, str] | str]:
     text = ["\n" * y_offset]
     surface = pg.transform.flip(img.surface, x_flip, y_flip)
@@ -171,7 +172,7 @@ def img_to_urwid_text(
     return text
 
 
-def combine_RGB_colors(color1, color2, weight1=1, weight2=1):
+def combine_RGB_colors(color1: tuple[int, int, int], color2: tuple[int, int, int], weight1: float=1, weight2:float=1) -> tuple[int, int, int]:
     return (int((color1[i] * weight1 + color2[i] * weight2) / (weight1 + weight2)) for i in range(3))
 
 

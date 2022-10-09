@@ -26,7 +26,7 @@ Licence:   LGPL <http://opensource.org/licenses/lgpl-2.1.php>
 """
 
 from __future__ import annotations
-from typing import Callable
+from typing import Callable, Type
 
 import uuid, time
 import urwid
@@ -37,7 +37,7 @@ from twisted.application.service import Application
 from twisted.application.internet import TCPServer
 
 from twisted.cred.portal import Portal
-from twisted.conch.interfaces import IConchUser, ISession
+from twisted.conch.interfaces import IConchUser, ISession, ISessionSetEnv, EnvironmentVariableNotPermitted
 from twisted.conch.insults.insults import TerminalProtocol, ServerProtocol
 from twisted.conch.manhole_ssh import (
     ConchFactory,
@@ -56,7 +56,38 @@ from twisted.python.components import Componentized, Adapter
 from twisted.internet.task import LoopingCall
 from twisted.internet import defer
 
-from hacknslassh import HackNSlash
+from hacknslassh import HackNSlash, HackNSlashGUI
+from sshattrick import SSHattrick, SSHattrickGUI
+
+class UrwidUi(object):
+    def __init__(self, mind: UrwidMind, topLevel: Type[urwid.Widget]) -> None:
+        self.mind = mind
+        self.toplevel = topLevel(self.mind)
+        self.palette = self.toplevel.palette
+        self.redraw = False
+        self.screen = TwistedScreen(self.mind.terminalProtocol)
+        self.loop = self.create_urwid_mainloop()
+        self.loop.run()
+
+    def create_urwid_mainloop(self) -> urwid.MainLoop:
+        evl = urwid.TwistedEventLoop(manage_reactor=False)
+        loop = urwid.MainLoop(
+            self.toplevel,
+            screen=self.screen,
+            event_loop=evl,
+            unhandled_input=self.mind.unhandled_key,
+            palette=self.palette,
+        )
+        loop.screen.set_terminal_properties(colors=256)
+        self.screen.loop = loop
+        return loop
+    
+    def handle_input(self, _input):
+        self.toplevel.handle_input(_input)
+
+    def disconnect(self) -> None:
+        self.loop.stop()
+        self.toplevel.disconnect()
 
 
 class IUrwidMind(Interface):
@@ -80,35 +111,6 @@ class IUrwidMind(Interface):
     def emit_event(event_name: str, *args, **kwargs) -> None:
         """Emit an event"""
 
-
-class UrwidUi(object):
-    def __init__(self, urwid_mind: UrwidMind) -> None:
-        self.mind = urwid_mind
-        self.toplevel = self.mind.master.gui(self.mind)
-        self.palette = self.toplevel.palette
-        self.screen = TwistedScreen(self.mind.terminalProtocol)
-        self.loop = self.create_urwid_mainloop()
-        self.loop.run()
-
-    def on_update(self) -> None:
-        self.toplevel.on_update()
-
-    def create_urwid_mainloop(self) -> urwid.MainLoop:
-        evl = urwid.TwistedEventLoop(manage_reactor=False)
-        loop = urwid.MainLoop(
-            self.toplevel,
-            screen=self.screen,
-            event_loop=evl,
-            unhandled_input=self.mind.unhandled_key,
-            palette=self.palette,
-        )
-        loop.screen.set_terminal_properties(colors=256)
-        self.screen.loop = loop
-        return loop
-
-    def disconnect(self) -> None:
-        self.toplevel.disconnect()
-
 class UnhandledKeyHandler(object):
     def __init__(self, mind: UrwidMind):
         self.mind = mind
@@ -119,7 +121,7 @@ class UnhandledKeyHandler(object):
         else:
             mind_handler = getattr(self, "key_%s" % key.replace(" ", "_"), None)
             if mind_handler is None:
-                screen_handler = self.mind.ui.toplevel.handle_input
+                screen_handler = self.mind.ui.handle_input
                 if screen_handler is None:
                     return
                 else:
@@ -134,34 +136,37 @@ implementer(IUrwidMind)
 class UrwidMind(Adapter):
     unhandled_key_factory = UnhandledKeyHandler
 
-    def __init__(self, original, master):
+    def __init__(self, original: Componentized, game: dict) -> None:
         super().__init__(original)
-        self.master = master
+        self.game = game
+        self.master = self.game["master"]
         self.ui = None
         self.last_frame = time.time()
         self.callbacks = {}
-        self.register_callback("gui_redraw", self.on_update)
+        # we ask to redraw as soon as a change from the ui is registered
+        self.register_callback("redraw_local_ui", self.draw)
+        self.register_callback("redraw_local_ui_next_cycle", self.set_ui_redraw)
+        self.register_callback("redraw_global_ui", lambda: self.master.dispatch_event("redraw_local_ui_next_cycle"))
+        self.register_callback("chat_message_sent", lambda _from, msg: self.master.dispatch_event("chat_message_received", _from, msg))
 
     @property
     def avatar(self):
         return IConchUser(self.original)
 
     @property
-    def player(self):
-        if self.avatar.uuid in self.master.players:
-            return self.master.players[self.avatar.uuid]
-        return None
-
-    @property
-    def screen_size(self):
+    def screen_size(self) -> tuple:
         return self.ui.screen.get_cols_rows()
+    
+    def set_ui_redraw(self) -> None:
+        if self.ui:
+            self.ui.redraw = True
 
-    def set_terminalProtocol(self, terminalProtocol):
+    def set_terminalProtocol(self, terminalProtocol: TerminalProtocol) -> None:
         self.terminalProtocol = terminalProtocol
         self.terminal = terminalProtocol.terminal
         self.unhandled_key_handler = self.unhandled_key_factory(self)
         self.unhandled_key = self.unhandled_key_handler.push
-        self.ui = UrwidUi(self)
+        self.ui = UrwidUi(self, self.game["toplevel"])
         self.draw()
 
     def push(self, data):
@@ -172,29 +177,24 @@ class UrwidMind(Adapter):
     def draw(self):
         if self.ui:
             self.ui.loop.draw_screen()
-
-    def on_update(self):
-        if self.ui:
-            self.ui.on_update()
-            self.draw()
+            self.ui.redraw = False
 
     def disconnect(self):
         self.master.disconnect(self.avatar.uuid)
         self.terminal.loseConnection()
-        if self.ui:
-            self.ui.disconnect()
-            self.ui = None
+        self.ui = None
     
-    def register_callback(self, event_name: str, callback: Callable) -> None:
+    def register_callback(self, event_name: str, callback: Callable, priority: int = 0) -> None:
         if event_name in self.callbacks:
-            self.callbacks[event_name].append(callback)
+            self.callbacks[event_name].append({"priority": priority, "callback": callback})
+            self.callbacks[event_name] = sorted(self.callbacks[event_name], key=lambda x: x["priority"], reverse=True)
         else:
-            self.callbacks[event_name] = [callback]
+            self.callbacks[event_name] = [{"priority": priority, "callback": callback}]
     
-    def emit_event(self, event_name: str, *args, **kwargs) -> None:
+    def process_event(self, event_name: str, *args, **kwargs) -> None:
         if event_name in self.callbacks:
-            for callback in self.callbacks[event_name]:
-                callback(*args, **kwargs)
+            for c in self.callbacks[event_name]:
+                c["callback"](*args, **kwargs)
 
 
 class TwistedScreen(Screen):
@@ -254,9 +254,9 @@ class TwistedScreen(Screen):
                 # if cs or attr:
                 # print(text.decode('utf-8', "ignore"))
                 self.write(text)
-        cursor = r.get_cursor()
-        if cursor is not None:
-            self.terminal.cursorPosition(*cursor)
+        # cursor = r.get_cursor()
+        # if cursor is not None:
+        #     self.terminal.cursorPosition(*cursor)
 
     # XXX from base screen
     def set_mouse_tracking(self, enable=True):
@@ -367,7 +367,7 @@ class UrwidTerminalProtocol(TerminalProtocol):
     This integrates with the TwistedScreen in a 1:1.
     """
 
-    def __init__(self, urwid_mind):
+    def __init__(self, urwid_mind: UrwidMind) -> None:
         self.urwid_mind = urwid_mind
         self.width = 80
         self.height = 24
@@ -381,14 +381,12 @@ class UrwidTerminalProtocol(TerminalProtocol):
         self.width = width
         self.height = height
         self.urwid_mind.ui.loop.screen_size = None
-        self.urwid_mind.emit_event("screen_resize", width, height)
+        self.urwid_mind.process_event("screen_resize", width, height)
         # Resizing takes a lot of resources server side, 
         # could consider just returning here to avoid that
-        return
-        self.terminal.eraseDisplay()
-        self.urwid_mind.draw()
+        self.urwid_mind.ui.redraw = True
 
-    def dataReceived(self, data):
+    def dataReceived(self, data) -> None:
         """Received data from the connection.
 
         This overrides the default implementation which parses and passes to
@@ -419,7 +417,7 @@ class UrwidUser(TerminalUser):
         self.avatarId = avatarId
         self.uuid = uuid.uuid4()
 
-
+@implementer(ISession, ISessionSetEnv)
 class UrwidTerminalSession(TerminalSession):
     """A terminal session that remembers the avatar and chained protocol for
     later use. And implements a missing method for changed Window size.
@@ -438,6 +436,10 @@ class UrwidTerminalSession(TerminalSession):
         """Called when the window size has changed."""
         (h, w, x, y) = dimensions
         self.chained_protocol.terminalProtocol.terminalSize(h, w)
+    
+    def setEnv(name, value, *args):
+        """Set an environment variable."""
+        raise EnvironmentVariableNotPermitted
 
     def eofReceived(self):
         IUrwidMind(self.original).disconnect()
@@ -455,22 +457,31 @@ class UrwidRealm(TerminalRealm):
     """Custom terminal realm class-configured to use our custom Terminal User
     Terminal Session.
     """
-
+    UPDATE_STEP = 0.025
     def __init__(self):
-        self.master = HackNSlash()
+        self.games = {
+            b"hacknssh": {
+                "master": HackNSlash(),
+                "toplevel": HackNSlashGUI
+            },
+            b"sshattrick": {
+                "master": SSHattrick(),
+                "toplevel": SSHattrickGUI
+            }
+        }
         self.minds = {}
         self.time = time.time()
-        self.update_loop = LoopingCall(self.on_update)
-        self.update_loop.start(self.master.UPDATE_STEP)
+        self.update_loop = LoopingCall(self.update)
+        self.update_loop.start(self.UPDATE_STEP)
 
-    def on_update(self):
+    def update(self):
         # update cycle
         # note: user inputs that do not imply a change of the game state
         # (i.e. changing menu currently viewed) are handled on the mind push function,
         # and drawn immediately (only for the user)
         deltatime = time.time() - self.time
-
-        self.master.on_update(deltatime)
+        for game in self.games.values():
+            game["master"].on_update(deltatime)
 
         # #then update each mind, that updates each ui if necessary 
         to_delete = []
@@ -478,29 +489,37 @@ class UrwidRealm(TerminalRealm):
             if not mind.ui:
                 to_delete.append(k)
                 continue
-            mind.on_update()
+            elif mind.ui.redraw:
+                mind.draw()
         for k in to_delete:
             del self.minds[k]
 
         self.time = time.time()
 
     def _getAvatar(self, avatarId):
+        if avatarId in self.games:
+            game = self.games[avatarId]
+        else:
+            game = self.games[b"hacknssh"]
+        
         comp = Componentized()
         user = UrwidUser(comp, avatarId)
         comp.setComponent(IConchUser, user)
         sess = UrwidTerminalSession(comp)
         comp.setComponent(ISession, sess)
-        mind = UrwidMind(comp, self.master)
+        mind = UrwidMind(comp, game)
         comp.setComponent(IUrwidMind, mind)
 
         self.minds[mind.avatar.uuid] = mind
-        print(f"Connected {avatarId} at {mind.avatar.uuid}")
+        game["master"].minds[mind.avatar.uuid] = mind
+        print(f"Connected {avatarId} at {mind.avatar.uuid} to {game['master'].minds}")
         return user
 
     def requestAvatar(self, avatarId, mind, *interfaces):
+        print("requestAvatar", avatarId, mind, interfaces)
         for i in interfaces:
             if i is IConchUser:
-                # if avatarId != b"new" and avatarId not in self.master.players:
+                # if avatarId != b"new" and avatarId not in self.master.players_id:
                 #     return defer.fail(credError.UnauthorizedLogin(f"{avatarId} is not a valid game"))
                 # elif avatarId != b"new" and avatarId in self.minds:
                 #     return defer.fail(credError.UnauthorizedLogin(f"{avatarId} is already logged in"))
@@ -554,7 +573,10 @@ def create_server_factory():
 
 def create_application(application_name, port):
     """Convenience to create an application suitable for tac file"""
+    urwid.escape.SHOW_CURSOR = ''
     application = Application(application_name)
     svc = TCPServer(port, create_server_factory())
     svc.setServiceParent(application)
     return application
+
+
