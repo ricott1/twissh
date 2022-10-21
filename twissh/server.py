@@ -36,7 +36,6 @@ from zope.interface import Interface, Attribute, implementer
 from twisted.application.service import Application
 from twisted.application.internet import TCPServer
 
-from twisted.cred.portal import Portal
 from twisted.conch.interfaces import IConchUser, ISession, ISessionSetEnv, EnvironmentVariableNotPermitted
 from twisted.conch.insults.insults import TerminalProtocol, ServerProtocol
 from twisted.conch.manhole_ssh import (
@@ -47,6 +46,7 @@ from twisted.conch.manhole_ssh import (
     TerminalSessionTransport,
 )
 from twisted.cred.checkers import ICredentialsChecker
+from twisted.cred.portal import Portal
 from twisted.cred import credentials
 from twisted.conch.ssh.keys import Key
 from twisted.conch.ssh.userauth import SSHUserAuthServer
@@ -54,15 +54,12 @@ from twisted.conch.error import ConchError
 from twisted.conch import interfaces
 from twisted.python.components import Componentized, Adapter
 from twisted.internet.task import LoopingCall
-from twisted.internet import defer
-
-from hacknslassh import HackNSlash, HackNSlashGUI
-from sshattrick import SSHattrick, SSHattrickGUI
+from twisted.internet import defer, reactor
 
 class UrwidUi(object):
-    def __init__(self, mind: UrwidMind, topLevel: Type[urwid.Widget]) -> None:
+    def __init__(self, mind: UrwidMind, toplevel: Type[urwid.Widget]) -> None:
         self.mind = mind
-        self.toplevel = topLevel(self.mind)
+        self.toplevel = toplevel(self.mind)
         self.palette = self.toplevel.palette
         self.redraw = False
         self.screen = TwistedScreen(self.mind.terminalProtocol)
@@ -136,21 +133,23 @@ implementer(IUrwidMind)
 class UrwidMind(Adapter):
     unhandled_key_factory = UnhandledKeyHandler
 
-    def __init__(self, original: Componentized, game: dict) -> None:
+    def __init__(self, original: Componentized, master) -> None:
         super().__init__(original)
-        self.game = game
-        self.master = self.game["master"]
+        self.master = master
+        
         self.ui = None
         self.last_frame = time.time()
         self.callbacks = {}
-        # we ask to redraw as soon as a change from the ui is registered
-        self.register_callback("redraw_local_ui", self.draw)
-        self.register_callback("redraw_local_ui_next_cycle", self.set_ui_redraw)
-        self.register_callback("redraw_global_ui", lambda: self.master.dispatch_event("redraw_local_ui_next_cycle"))
-        self.register_callback("chat_message_sent", lambda _from, msg: self.master.dispatch_event("chat_message_received", _from, msg))
-
+        if self.master:
+            self.master.minds[self.avatar.uuid] = self
+            # we ask to redraw as soon as a change from the ui is registered
+            self.register_callback("redraw_local_ui", self.draw)
+            self.register_callback("redraw_local_ui_next_cycle", self.set_ui_redraw)
+            self.register_callback("redraw_global_ui", lambda: self.master.dispatch_event("redraw_local_ui_next_cycle"))
+            self.register_callback("chat_message_sent", lambda _from, msg: self.master.dispatch_event("chat_message_received", _from, msg))
+        
     @property
-    def avatar(self):
+    def avatar(self) -> UrwidUser:
         return IConchUser(self.original)
 
     @property
@@ -166,8 +165,9 @@ class UrwidMind(Adapter):
         self.terminal = terminalProtocol.terminal
         self.unhandled_key_handler = self.unhandled_key_factory(self)
         self.unhandled_key = self.unhandled_key_handler.push
-        self.ui = UrwidUi(self, self.game["toplevel"])
-        self.draw()
+        if self.master:
+            self.ui = UrwidUi(self, self.master.toplevel)
+            self.draw()
 
     def push(self, data):
         if self.ui:
@@ -180,7 +180,8 @@ class UrwidMind(Adapter):
             self.ui.redraw = False
 
     def disconnect(self):
-        self.master.disconnect(self.avatar.uuid)
+        if self.master:
+            self.master.disconnect(self.avatar.uuid)
         self.terminal.loseConnection()
         self.ui = None
     
@@ -378,13 +379,14 @@ class UrwidTerminalProtocol(TerminalProtocol):
 
     def terminalSize(self, height: int, width: int) -> None:
         """Resize the terminal."""
-        self.width = width
-        self.height = height
-        self.urwid_mind.ui.loop.screen_size = None
-        self.urwid_mind.process_event("screen_resize", width, height)
-        # Resizing takes a lot of resources server side, 
-        # could consider just returning here to avoid that
-        self.urwid_mind.ui.redraw = True
+        if self.urwid_mind.ui:
+            self.width = width
+            self.height = height
+            self.urwid_mind.ui.loop.screen_size = None
+            self.urwid_mind.process_event("screen_resize", width, height)
+            # Resizing takes a lot of resources server side, 
+            # could consider just returning here to avoid that
+            self.urwid_mind.ui.redraw = True
 
     def dataReceived(self, data) -> None:
         """Received data from the connection.
@@ -459,71 +461,76 @@ class UrwidRealm(TerminalRealm):
     """
     UPDATE_STEP = 0.025
     def __init__(self):
+        from hacknslassh import HackNSlash
+        from mathclassh import MathClassH
+        _hacknslassh = HackNSlash()
+        _mathclassh = MathClassH()
         self.games = {
-            b"hacknssh": {
-                "master": HackNSlash(),
-                "toplevel": HackNSlashGUI
-            },
-            b"sshattrick": {
-                "master": SSHattrick(),
-                "toplevel": SSHattrickGUI
-            }
+            b"hacknssh": _hacknslassh,
+            b"mathclassh": _mathclassh,
         }
-        self.minds = {}
-        self.time = time.time()
-        self.update_loop = LoopingCall(self.update)
-        self.update_loop.start(self.UPDATE_STEP)
+        self.help_text = """
+        Welcome to the Urwid Terminal Server!
 
-    def update(self):
-        # update cycle
-        # note: user inputs that do not imply a change of the game state
-        # (i.e. changing menu currently viewed) are handled on the mind push function,
-        # and drawn immediately (only for the user)
-        deltatime = time.time() - self.time
-        for game in self.games.values():
-            game["master"].on_update(deltatime)
+        This server is running the following games:
+        {}
+        """.format(
+            "\n".join(
+                [
+                    f"  {name}: {game.__doc__}"
+                    for name, game in self.games.items()
+                ]
+            )
+        )
 
+        self.minds: dict[uuid.UUID, UrwidMind] = {}
+
+        for g in self.games:
+            update_loop = LoopingCall(self.games[g].update)
+            update_loop.start(self.games[g].UPDATE_STEP)
+
+        self.update_minds_loop = LoopingCall(self.update_minds)
+        self.update_minds_loop.start(self.UPDATE_STEP)
+
+    def update_minds(self) -> None:
         # #then update each mind, that updates each ui if necessary 
         to_delete = []
         for k, mind in self.minds.items():
+            if mind.master is None:
+                mind.terminal.write(self.help_text.encode())
+                mind.terminal.transport.loseConnection()
             if not mind.ui:
                 to_delete.append(k)
                 continue
-            elif mind.ui.redraw:
+            if mind.ui.redraw:
                 mind.draw()
         for k in to_delete:
             del self.minds[k]
 
-        self.time = time.time()
-
     def _getAvatar(self, avatarId):
-        if avatarId in self.games:
-            game = self.games[avatarId]
-        else:
-            game = self.games[b"hacknssh"]
-        
         comp = Componentized()
         user = UrwidUser(comp, avatarId)
         comp.setComponent(IConchUser, user)
         sess = UrwidTerminalSession(comp)
         comp.setComponent(ISession, sess)
-        mind = UrwidMind(comp, game)
+        if avatarId in self.games:
+            master = self.games[avatarId] 
+        else:
+            master = None
+        mind = UrwidMind(comp, master)
         comp.setComponent(IUrwidMind, mind)
 
         self.minds[mind.avatar.uuid] = mind
-        game["master"].minds[mind.avatar.uuid] = mind
-        print(f"Connected {avatarId} at {mind.avatar.uuid} to {game['master'].minds}")
+        print(f"Connected {avatarId} at {mind.avatar.uuid} to {master}")
         return user
 
     def requestAvatar(self, avatarId, mind, *interfaces):
         print("requestAvatar", avatarId, mind, interfaces)
         for i in interfaces:
             if i is IConchUser:
-                # if avatarId != b"new" and avatarId not in self.master.players_id:
-                #     return defer.fail(credError.UnauthorizedLogin(f"{avatarId} is not a valid game"))
-                # elif avatarId != b"new" and avatarId in self.minds:
-                #     return defer.fail(credError.UnauthorizedLogin(f"{avatarId} is already logged in"))
-                return (IConchUser, self._getAvatar(avatarId), lambda: None)
+                avatar = self._getAvatar(avatarId)
+                print("avatar", avatar)
+                return (IConchUser, avatar, lambda: None)
         raise NotImplementedError()
 
 

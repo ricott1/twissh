@@ -1,7 +1,6 @@
 # encoding: utf-8
 
 from sshattrick.game import Game, Side
-from sshattrick.master import SSHattrick
 from .utils import attr_button, img_to_urwid_text
 from typing import Callable
 import urwid

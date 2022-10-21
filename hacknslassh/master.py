@@ -1,3 +1,4 @@
+import time
 import esper
 from hacknslassh.processors import processor
 import pygame as pg
@@ -6,6 +7,7 @@ from hacknslassh.utils import random_name
 from hacknslassh.constants import GAME_SPEED
 from .components import *
 from .location import Location
+from .gui.gui import GUI
 
 
 class HackNSlash(object):
@@ -22,7 +24,9 @@ class HackNSlash(object):
         self.world.add_processor(processor.ImageTransitionProcessor())
         self.base_loc = Location()
         self.starting_pos = self.base_loc.generate_random_map(self.world)[0].center
-        self.clock = pg.time.Clock()
+        # self.clock = pg.time.Clock()
+        self.toplevel = GUI
+        self.time = time.time()
 
     def register_new_player(
         self, mind, race: RaceType, gender: GenderType
@@ -64,7 +68,9 @@ class HackNSlash(object):
         if mind_id in self.minds:
             del self.minds[mind_id]
 
-    def on_update(self, _deltatime: float) -> None:
-        self.world.process(GAME_SPEED * _deltatime)
+    def update(self) -> None:
+        deltatime = time.time() - self.time
+        self.world.process(GAME_SPEED * deltatime)
         # world.process()
-        self.clock.tick(self.FPS)
+        # self.clock.tick(self.FPS)
+        self.time = time.time()

@@ -1,5 +1,4 @@
 from __future__ import annotations
-from email.policy import default
 from enum import auto
 from .constants import *
 
@@ -16,7 +15,7 @@ import os
     v x
 """
 
-fileDir = os.path.dirname(os.path.realpath(__file__))
+file_dir = os.path.dirname(os.path.realpath(__file__))
 DEFAULT_SIZE = (80, 48)
 GOAL_TOP = 18
 GOAL_BOTTOM = 26
@@ -43,42 +42,42 @@ class Input(str, Enum):
 
 
 class RedPlayer(object):
-    RIGHT = pg.image.load(f"{fileDir}/assets/red_player01.png")
-    DOWN = pg.image.load(f"{fileDir}/assets/red_player02.png")
-    LEFT = pg.image.load(f"{fileDir}/assets/red_player03.png")
-    UP = pg.image.load(f"{fileDir}/assets/red_player04.png")
-    UP_RIGHT = pg.image.load(f"{fileDir}/assets/red_player05.png")
-    DOWN_RIGHT = pg.image.load(f"{fileDir}/assets/red_player06.png")
-    DOWN_LEFT = pg.image.load(f"{fileDir}/assets/red_player07.png")
-    UP_LEFT = pg.image.load(f"{fileDir}/assets/red_player08.png")
-    RIGHT_SHOOT = pg.image.load(f"{fileDir}/assets/red_player_shoot01.png")
-    DOWN_SHOOT = pg.image.load(f"{fileDir}/assets/red_player_shoot02.png")
-    LEFT_SHOOT = pg.image.load(f"{fileDir}/assets/red_player_shoot03.png")
-    UP_SHOOT = pg.image.load(f"{fileDir}/assets/red_player_shoot04.png")
-    UP_RIGHT_SHOOT = pg.image.load(f"{fileDir}/assets/red_player_shoot05.png")
-    DOWN_RIGHT_SHOOT = pg.image.load(f"{fileDir}/assets/red_player_shoot06.png")
-    DOWN_LEFT_SHOOT = pg.image.load(f"{fileDir}/assets/red_player_shoot07.png")
-    UP_LEFT_SHOOT = pg.image.load(f"{fileDir}/assets/red_player_shoot08.png")
-    GOALIE = pg.image.load(f"{fileDir}/assets/red_goalie.png")
+    RIGHT = pg.image.load(f"{file_dir}/assets/red_player01.png")
+    DOWN = pg.image.load(f"{file_dir}/assets/red_player02.png")
+    LEFT = pg.image.load(f"{file_dir}/assets/red_player03.png")
+    UP = pg.image.load(f"{file_dir}/assets/red_player04.png")
+    UP_RIGHT = pg.image.load(f"{file_dir}/assets/red_player05.png")
+    DOWN_RIGHT = pg.image.load(f"{file_dir}/assets/red_player06.png")
+    DOWN_LEFT = pg.image.load(f"{file_dir}/assets/red_player07.png")
+    UP_LEFT = pg.image.load(f"{file_dir}/assets/red_player08.png")
+    RIGHT_SHOOT = pg.image.load(f"{file_dir}/assets/red_player_shoot01.png")
+    DOWN_SHOOT = pg.image.load(f"{file_dir}/assets/red_player_shoot02.png")
+    LEFT_SHOOT = pg.image.load(f"{file_dir}/assets/red_player_shoot03.png")
+    UP_SHOOT = pg.image.load(f"{file_dir}/assets/red_player_shoot04.png")
+    UP_RIGHT_SHOOT = pg.image.load(f"{file_dir}/assets/red_player_shoot05.png")
+    DOWN_RIGHT_SHOOT = pg.image.load(f"{file_dir}/assets/red_player_shoot06.png")
+    DOWN_LEFT_SHOOT = pg.image.load(f"{file_dir}/assets/red_player_shoot07.png")
+    UP_LEFT_SHOOT = pg.image.load(f"{file_dir}/assets/red_player_shoot08.png")
+    GOALIE = pg.image.load(f"{file_dir}/assets/red_goalie.png")
 
 class BluePlayer(object):
-    RIGHT = pg.image.load(f"{fileDir}/assets/blue_player01.png")
-    DOWN = pg.image.load(f"{fileDir}/assets/blue_player02.png")
-    LEFT = pg.image.load(f"{fileDir}/assets/blue_player03.png")
-    UP = pg.image.load(f"{fileDir}/assets/blue_player04.png")
-    UP_RIGHT = pg.image.load(f"{fileDir}/assets/blue_player05.png")
-    DOWN_RIGHT = pg.image.load(f"{fileDir}/assets/blue_player06.png")
-    DOWN_LEFT = pg.image.load(f"{fileDir}/assets/blue_player07.png")
-    UP_LEFT = pg.image.load(f"{fileDir}/assets/blue_player08.png")
-    RIGHT_SHOOT = pg.image.load(f"{fileDir}/assets/blue_player_shoot01.png")
-    DOWN_SHOOT = pg.image.load(f"{fileDir}/assets/blue_player_shoot02.png")
-    LEFT_SHOOT = pg.image.load(f"{fileDir}/assets/blue_player_shoot03.png")
-    UP_SHOOT = pg.image.load(f"{fileDir}/assets/blue_player_shoot04.png")
-    UP_RIGHT_SHOOT = pg.image.load(f"{fileDir}/assets/blue_player_shoot05.png")
-    DOWN_RIGHT_SHOOT = pg.image.load(f"{fileDir}/assets/blue_player_shoot06.png")
-    DOWN_LEFT_SHOOT = pg.image.load(f"{fileDir}/assets/blue_player_shoot07.png")
-    UP_LEFT_SHOOT = pg.image.load(f"{fileDir}/assets/blue_player_shoot08.png")
-    GOALIE = pg.image.load(f"{fileDir}/assets/blue_goalie.png")
+    RIGHT = pg.image.load(f"{file_dir}/assets/blue_player01.png")
+    DOWN = pg.image.load(f"{file_dir}/assets/blue_player02.png")
+    LEFT = pg.image.load(f"{file_dir}/assets/blue_player03.png")
+    UP = pg.image.load(f"{file_dir}/assets/blue_player04.png")
+    UP_RIGHT = pg.image.load(f"{file_dir}/assets/blue_player05.png")
+    DOWN_RIGHT = pg.image.load(f"{file_dir}/assets/blue_player06.png")
+    DOWN_LEFT = pg.image.load(f"{file_dir}/assets/blue_player07.png")
+    UP_LEFT = pg.image.load(f"{file_dir}/assets/blue_player08.png")
+    RIGHT_SHOOT = pg.image.load(f"{file_dir}/assets/blue_player_shoot01.png")
+    DOWN_SHOOT = pg.image.load(f"{file_dir}/assets/blue_player_shoot02.png")
+    LEFT_SHOOT = pg.image.load(f"{file_dir}/assets/blue_player_shoot03.png")
+    UP_SHOOT = pg.image.load(f"{file_dir}/assets/blue_player_shoot04.png")
+    UP_RIGHT_SHOOT = pg.image.load(f"{file_dir}/assets/blue_player_shoot05.png")
+    DOWN_RIGHT_SHOOT = pg.image.load(f"{file_dir}/assets/blue_player_shoot06.png")
+    DOWN_LEFT_SHOOT = pg.image.load(f"{file_dir}/assets/blue_player_shoot07.png")
+    UP_LEFT_SHOOT = pg.image.load(f"{file_dir}/assets/blue_player_shoot08.png")
+    GOALIE = pg.image.load(f"{file_dir}/assets/blue_goalie.png")
 
 class Mask(object):
     RIGHT = pg.mask.from_surface(RedPlayer.RIGHT)
@@ -314,7 +313,7 @@ class Game(object):
         self.left_wall = Wall(0, 0, 1, self.size[1])
         self.right_wall = Wall(self.size[0] - 1, 0, 1, self.size[1])
 
-        self.field = pg.image.load(f"{fileDir}/assets/field.png")
+        self.field = pg.image.load(f"{file_dir}/assets/field.png")
         self.field.blit(self.bottom_wall.image, self.bottom_wall.rect)
         self.field.blit(self.top_wall.image, self.top_wall.rect)
         self.field.blit(self.left_wall.image, self.left_wall.rect)

@@ -1,5 +1,7 @@
+import time
 import pygame as pg
 from sshattrick.game import Game, Side
+from sshattrick.gui.gui import GUI
 
 
 class SSHattrick(object):
@@ -11,6 +13,8 @@ class SSHattrick(object):
         self.minds = {}
         self.games = {}
         self.clock = pg.time.Clock()
+        self.toplevel = GUI
+        self.time = time.time()
 
     def register_new_game(self, mind, name: str) -> None:
         if name in self.games:
@@ -34,7 +38,9 @@ class SSHattrick(object):
             # self.world.delete_entity(self.players_id[avatar_id])
             # del self.players_id[avatar_id]
 
-    def on_update(self, _deltatime: float) -> None:
+    def update(self) -> None:
+        deltatime = time.time() - self.time
         for game in self.games.values():
-            game.update(_deltatime)
+            game.update(deltatime)
         self.clock.tick(self.FPS)
+        self.time = time.time()
