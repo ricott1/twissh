@@ -26,6 +26,7 @@ Licence:   LGPL <http://opensource.org/licenses/lgpl-2.1.php>
 """
 
 from __future__ import annotations
+from enum import Enum
 from typing import Callable, Type
 
 import uuid, time
@@ -455,6 +456,10 @@ class UrwidTerminalSession(TerminalSession):
         IUrwidMind(self.original).disconnect()
 
 
+class CONNECTION_ERROR(str, Enum):
+    INVALID_AVATAR_ID = "Invalid avatarId"
+    AVATAR_ALREADY_CONNECTED = "Avatar already connected"
+
 class UrwidRealm(TerminalRealm):
     """Custom terminal realm class-configured to use our custom Terminal User
     Terminal Session.
@@ -463,47 +468,45 @@ class UrwidRealm(TerminalRealm):
     def __init__(self):
         from hacknslassh import HackNSlash
         from mathclassh import MathClassH
-        _hacknslassh = HackNSlash()
-        _mathclassh = MathClassH()
-        self.games = {
-            b"hacknssh": _hacknslassh,
-            b"mathclassh": _mathclassh,
-        }
+
+        self.hacknslassh = HackNSlash()
+        self.mathclassh = MathClassH()
+
         self.help_text = """
         Welcome to the Urwid Terminal Server!
 
         This server is running the following games:
-        {}
-        """.format(
-            "\n".join(
-                [
-                    f"  {name}: {game.__doc__}"
-                    for name, game in self.games.items()
-                ]
-            )
-        )
+        """
 
         self.minds: dict[uuid.UUID, UrwidMind] = {}
 
-        for g in self.games:
-            update_loop = LoopingCall(self.games[g].update)
-            update_loop.start(self.games[g].UPDATE_STEP)
-
-        self.update_minds_loop = LoopingCall(self.update_minds)
-        self.update_minds_loop.start(self.UPDATE_STEP)
+        LoopingCall(self.hacknslassh.update).start(self.hacknslassh.UPDATE_STEP)
+        LoopingCall(self.mathclassh.update).start(self.mathclassh.UPDATE_STEP)
+        LoopingCall(self.update_minds).start(self.UPDATE_STEP)
 
     def update_minds(self) -> None:
         # #then update each mind, that updates each ui if necessary 
         to_delete = []
         for k, mind in self.minds.items():
-            if mind.master is None:
-                mind.terminal.write(self.help_text.encode())
+            if mind.master == CONNECTION_ERROR.AVATAR_ALREADY_CONNECTED:
+                mind.terminal.write(CONNECTION_ERROR.AVATAR_ALREADY_CONNECTED.encode())
                 mind.terminal.transport.loseConnection()
+                to_delete.append(k)
+                continue
+
+            if mind.master == CONNECTION_ERROR.INVALID_AVATAR_ID:
+                mind.terminal.write(CONNECTION_ERROR.INVALID_AVATAR_ID.encode())
+                mind.terminal.transport.loseConnection()
+                to_delete.append(k)
+                continue
+
             if not mind.ui:
                 to_delete.append(k)
                 continue
+
             if mind.ui.redraw:
                 mind.draw()
+
         for k in to_delete:
             del self.minds[k]
 
@@ -513,15 +516,18 @@ class UrwidRealm(TerminalRealm):
         comp.setComponent(IConchUser, user)
         sess = UrwidTerminalSession(comp)
         comp.setComponent(ISession, sess)
-        if avatarId in self.games:
-            master = self.games[avatarId] 
-        else:
-            master = None
-        mind = UrwidMind(comp, master)
-        comp.setComponent(IUrwidMind, mind)
 
+        if avatarId in self.minds:
+            mind = UrwidMind(comp, CONNECTION_ERROR.AVATAR_ALREADY_CONNECTED)
+        elif avatarId in self.hacknslassh.player_ids:
+            mind = UrwidMind(comp, self.hacknslassh)
+            mind.avatar.uuid = avatarId
+        else:
+            # mind = UrwidMind(comp, CONNECTION_ERROR.INVALID_AVATAR_ID)
+            mind = UrwidMind(comp, self.mathclassh)
+
+        comp.setComponent(IUrwidMind, mind)
         self.minds[mind.avatar.uuid] = mind
-        print(f"Connected {avatarId} at {mind.avatar.uuid} to {master}")
         return user
 
     def requestAvatar(self, avatarId, mind, *interfaces):
@@ -529,7 +535,6 @@ class UrwidRealm(TerminalRealm):
         for i in interfaces:
             if i is IConchUser:
                 avatar = self._getAvatar(avatarId)
-                print("avatar", avatar)
                 return (IConchUser, avatar, lambda: None)
         raise NotImplementedError()
 

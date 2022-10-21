@@ -33,8 +33,8 @@ class Scene(object):
 
     @property
     def player_id(self) -> int:
-        if self.mind.avatar.uuid in self.mind.master.players_id:
-            return self.mind.master.players_id[self.mind.avatar.uuid]
+        if self.mind.avatar.uuid in self.mind.master.player_ids:
+            return self.mind.master.player_ids[self.mind.avatar.uuid]
         else:
             return 0
     

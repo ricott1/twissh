@@ -27,11 +27,14 @@ class MathClassH(object):
         self.time = time.time()
         self.current_date = 0
         self.cities = [City.from_dict(d) for d in utils.load_data("cities.json")]
-        self.fields = [Field.from_dict(d) for d in utils.load_data("fields.json")]
+        # self.fields = [Field.from_dict(d) for d in utils.load_data("fields.json")]
         self.mathematicians = {}
 
     def get_random_mathematician(self) -> Mathematician:
         return random.choice(list(self.mathematicians.values()))
+
+    def generate_mathematician(self) -> Mathematician:
+        mathematician = Mathematician.generate(random.choice(self.cities), ROLE.HEAD)
 
     def generate_research_group(self) -> ResearchGroup:
         members = [

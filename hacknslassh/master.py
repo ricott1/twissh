@@ -15,7 +15,7 @@ class HackNSlash(object):
     UPDATE_STEP = 1 / FPS
 
     def __init__(self) -> None:
-        self.players_id = {}
+        self.player_ids = {}
         self.minds = {}
         self.world = esper.World()
         self.world.add_processor(processor.ActionProcessor())
@@ -48,7 +48,7 @@ class HackNSlash(object):
         self.base_loc.set_at(in_location.position, player_id)
         self.base_loc.set_renderable_entity(self.world, player_id)
 
-        self.players_id[mind.avatar.uuid] = player_id
+        self.player_ids[mind.avatar.uuid] = player_id
         print("Player", player_id)
         return player_id
     
@@ -58,13 +58,13 @@ class HackNSlash(object):
 
     def disconnect(self, mind_id):
         print("disconnect", mind_id, "from", self.minds)
-        if mind_id in self.players_id:
+        if mind_id in self.player_ids:
             print("deleting", mind_id)
-            ent_id = self.players_id[mind_id]
+            ent_id = self.player_ids[mind_id]
             self.world.component_for_entity(ent_id, Health).value = 0
             # comment next line to keep disconnected bodies in (maybe set them dead)
-            # self.world.delete_entity(self.players_id[avatar_id])
-            # del self.players_id[avatar_id]
+            # self.world.delete_entity(self.player_ids[avatar_id])
+            # del self.player_ids[avatar_id]
         if mind_id in self.minds:
             del self.minds[mind_id]
 
