@@ -1,0 +1,147 @@
+[
+    {
+        "name": "Number theory",
+        "short_name": "number_theory",
+        "description": "Number theory is a branch of pure mathematics devoted primarily to the study of the integers.",
+        "subfields": [
+            {
+                "name": "Elementary number theory",
+                "short_name": "elementary_number_theory",
+                "description": "Elementary number theory is the study of the natural numbers and their properties."
+            },
+            {
+                "name": "Analytic number theory",
+                "short_name": "analytic_number_theory",
+                "description": "Analytic number theory is the study of the integers by means of tools from real and complex analysis."
+            },
+            {
+                "name": "Algebraic number theory",
+                "short_name": "algebraic_number_theory",
+                "description": "Algebraic number theory is the study of the integers and their properties using methods from algebra."
+            },
+            {
+                "name": "Diophantine geometry",
+                "short_name": "diophantine_geometry",
+                "description": "Diophantine geometry is the study of the integers and their properties using methods from geometry."
+            }
+        ]
+    },
+    {
+        "name": "Geometry",
+        "short_name": "geometry",
+        "description": "Geometry is a branch of mathematics concerned with questions of shape, size, relative position of figures, and the properties of space.",
+        "subfields": [
+            {
+                "name": "Projective geometry",
+                "short_name": "projective_geometry",
+                "description": "Projective geometry is the study of the properties of points, lines, and planes in a projective space."
+            },
+            {
+                "name": "Affine geometry",
+                "short_name": "affine_geometry",
+                "description": "Affine geometry is the study of properties relative to parallelism and independent from the concept of length."
+            },
+            {
+                "name": "Differential geometry",
+                "short_name": "differential_geometry",
+                "description": "Differential geometry is the study of curves, surfaces, and their generalizations, which are defined using differentiable functions."
+            },
+            {
+                "name": "Manifold theory",
+                "short_name": "manifold_theory",
+                "description": "Manifold theory is the study of shapes that are not necessarily embedded in a larger space."
+            },
+            {
+                "name": "Riemannian geometry",
+                "short_name": "riemannian_geometry",
+                "description": "Riemannian geometry is the study of distance properties in curved spaces."
+            },
+            {
+                "name": "Algebraic geometry",
+                "short_name": "algebraic_geometry",
+                "description": "Algebraic geometry is the study of curves, surfaces, and their generalizations, which are defined using polynomials."
+            },
+            {
+                "name": "Topology",
+                "short_name": "topology",
+                "description": "Topology is the study of properties that are kept under continuous deformations."
+            },
+            {
+                "name": "Algebraic topology",
+                "short_name": "algebraic_topology",
+                "description": "Algebraic topology is the use in topology of algebraic methods, mainly homological algebra."
+            },
+            {
+                "name": "Discrete geometry",
+                "short_name": "discrete_geometry",
+                "description": "Discrete geometry is the study of finite configurations in geometry."
+            },
+            {
+                "name": "Convex geometry",
+                "short_name": "convex_geometry",
+                "description": "Convex geometry is the study of convex sets, which takes its importance from its applications in optimization."
+            },
+            {
+                "name": "Complex geometry",
+                "short_name": "complex_geometry",
+                "description": "Complex geometry is the geometry obtained by replacing real numbers with complex numbers."
+            }
+    },
+    {
+        // # subfields of ALGEBRA
+        // #     group theory;
+        // #     field theory;
+        // #     vector spaces, whose study is essentially the same as linear algebra;
+        // #     ring theory;
+        // #     commutative algebra, which is the study of commutative rings, includes the study of polynomials, and is a foundational part of algebraic geometry;
+        // #     homological algebra
+        // #     Lie algebra and Lie group theory;
+        // #     Boolean algebra, which is widely used for the study of the logical structure of computers.
+        // #     The study of types of algebraic structures as mathematical objects is the object of universal algebra and category theory.
+        "name": "Algebra",
+        "short_name": "algebra",
+        "description": "Algebra is the branch of mathematics in which letters and other general symbols are used to represent numbers and quantities, while maintaining the properties of operations.",
+        "subfields": [
+            {
+                "name": "Group theory",
+                "short_name": "group_theory",
+                "description": "Group theory is the study of groups, which are algebraic structures consisting of a set of elements together with an operation that combines any two elements to form a third."
+            },
+            {
+                "name": "Field theory",
+                "short_name": "field_theory",
+                "description": "Field theory is the study of fields, which are algebraic structures consisting of a set of elements together with two operations that combine any two elements to form a third, and which satisfy certain properties."
+            },
+            {
+                "name": "Vector spaces",
+                "short_name": "vector_spaces",
+                "description": "Vector spaces are algebraic structures consisting of a set of elements together with two operations that combine any two elements to form a third, and which satisfy certain properties."
+            },
+            {
+                "name": "Ring theory",
+                "short_name": "ring_theory",
+                "description": "Ring theory is the study of rings, which are algebraic structures consisting of a set of elements together with two operations that combine any two elements to form a third, and which satisfy certain properties."
+            },
+            {
+                "name": "Commutative algebra",
+                "short_name": "commutative_algebra",
+                "description": "Commutative algebra is the study of commutative rings, which are algebraic structures consisting of a set of elements together with two operations that combine any two elements to form a third, and which satisfy certain properties."
+            },
+            {
+                "name": "Homological algebra",
+                "short_name": "homological_algebra",
+                "description": "Homological algebra is the study of algebraic structures that are used to study the homology and cohomology of topological spaces."
+            },
+            {
+                "name": "Lie algebra and Lie group theory",
+                "short_name": "lie_algebra_and_lie_group_theory",
+                "description": "Lie algebra and Lie group theory is the study of Lie algebras and Lie groups, which are algebraic structures consisting of a set of elements together with two operations that combine any two elements to form a third, and which satisfy certain properties."
+            },
+            {
+                "name": "Boolean algebra",
+                "short_name": "boolean_algebra",
+                "description": "Boolean algebra is the study of algebraic structures consisting of a set of elements together with two operations that combine any two elements to form a third, and which satisfy certain properties."
+            }
+    }
+
+]

@@ -1,0 +1,994 @@
+[
+    {
+      "name": "Paris",
+      "country": "France",
+      "population": 2206488,
+      "one_person_yearly_costs": 38256,
+      "universities": [
+        {
+          "name": "Paris-Sorbonne",
+          "city": "Paris",
+          "unallocated_funds": 1000000,
+          "research_groups": {},
+          "number_of_students": 300,
+          "students_level": 81
+        },
+        {
+          "name": "Paris-Dauphine",
+          "city": "Paris",
+          "unallocated_funds": 1000000,
+          "research_groups": {},
+          "number_of_students": 300,
+          "students_level": 81
+        },
+        {
+          "name": "Paris-Diderot",
+          "city": "Paris",
+          "unallocated_funds": 1000000,
+          "research_groups": {},
+          "number_of_students": 300,
+          "students_level": 81
+        }
+      ]
+    },
+    {
+      "name": "London",
+      "country": "United Kingdom",
+      "population": 8825000,
+      "one_person_yearly_costs": 43068,
+      "universities": [
+        {
+          "name": "London School of Economics",
+          "city": "London",
+          "unallocated_funds": 1000000,
+          "research_groups": {},
+          "number_of_students": 300,
+          "students_level": 81
+        },
+        {
+          "name": "University College London",
+          "city": "London",
+          "unallocated_funds": 1000000,
+          "research_groups": {},
+          "number_of_students": 300,
+          "students_level": 81
+        },
+        {
+          "name": "Imperial College London",
+          "city": "London",
+          "unallocated_funds": 1000000,
+          "research_groups": {},
+          "number_of_students": 300,
+          "students_level": 81
+        }
+      ]
+    },
+    {
+      "name": "New York",
+      "country": "United States",
+      "population": 8406000,
+      "one_person_yearly_costs": 59467,
+      "universities": [
+        {
+          "name": "Columbia University",
+          "city": "New York",
+          "unallocated_funds": 1000000,
+          "research_groups": {},
+          "number_of_students": 300,
+          "students_level": 81
+        },
+        {
+          "name": "New York University",
+          "city": "New York",
+          "unallocated_funds": 1000000,
+          "research_groups": {},
+          "number_of_students": 300,
+          "students_level": 81
+        },
+        {
+          "name": "Cornell University",
+          "city": "New York",
+          "unallocated_funds": 1000000,
+          "research_groups": {},
+          "number_of_students": 300,
+          "students_level": 81
+        }
+      ]
+    },
+    {
+      "name": "Tokyo",
+      "country": "Japan",
+      "population": 13350000,
+      "one_person_yearly_costs": 1000000,
+      "universities": [
+        {
+          "name": "University of Tokyo",
+          "city": "Tokyo",
+          "unallocated_funds": 1000000,
+          "research_groups": {},
+          "number_of_students": 300,
+          "students_level": 81
+        },
+        {
+          "name": "Tokyo Institute of Technology",
+          "city": "Tokyo",
+          "unallocated_funds": 1000000,
+          "research_groups": {},
+          "number_of_students": 300,
+          "students_level": 81
+        },
+        {
+          "name": "Tokyo University of Science",
+          "city": "Tokyo",
+          "unallocated_funds": 1000000,
+          "research_groups": {},
+          "number_of_students": 300,
+          "students_level": 81
+        }
+      ]
+    },
+    {
+      "name": "Hong Kong",
+      "country": "China",
+      "population": 7324300,
+      "one_person_yearly_costs": 1000000,
+      "universities": [
+        {
+          "name": "The University of Hong Kong",
+          "city": "Hong Kong",
+          "unallocated_funds": 1000000,
+          "research_groups": {},
+          "number_of_students": 300,
+          "students_level": 81
+        },
+        {
+          "name": "The Hong Kong University of Science and Technology",
+          "city": "Hong Kong",
+          "unallocated_funds": 1000000,
+          "research_groups": {},
+          "number_of_students": 300,
+          "students_level": 81
+        },
+        {
+          "name": "City University of Hong Kong",
+          "city": "Hong Kong",
+          "unallocated_funds": 1000000,
+          "research_groups": {},
+          "number_of_students": 300,
+          "students_level": 81
+        }
+      ]
+    },
+    {
+      "name": "Singapore",
+      "country": "Singapore",
+      "population": 5076700,
+      "one_person_yearly_costs": 1000000,
+      "universities": [
+        {
+          "name": "National University of Singapore",
+          "city": "Singapore",
+          "unallocated_funds": 1000000,
+          "research_groups": {},
+          "number_of_students": 300,
+          "students_level": 81
+        },
+        {
+          "name": "Nanyang Technological University",
+          "city": "Singapore",
+          "unallocated_funds": 1000000,
+          "research_groups": {},
+          "number_of_students": 300,
+          "students_level": 81
+        },
+        {
+          "name": "Singapore Management University",
+          "city": "Singapore",
+          "unallocated_funds": 1000000,
+          "research_groups": {},
+          "number_of_students": 300,
+          "students_level": 81
+        }
+      ]
+    },
+    {
+      "name": "Sydney",
+      "country": "Australia",
+      "population": 4293000,
+      "one_person_yearly_costs": 1000000,
+      "universities": [
+        {
+          "name": "University of Sydney",
+          "city": "Sydney",
+          "unallocated_funds": 1000000,
+          "research_groups": {},
+          "number_of_students": 300,
+          "students_level": 81
+        },
+        {
+          "name": "University of New South Wales",
+          "city": "Sydney",
+          "unallocated_funds": 1000000,
+          "research_groups": {},
+          "number_of_students": 300,
+          "students_level": 81
+        },
+        {
+          "name": "University of Technology Sydney",
+          "city": "Sydney",
+          "unallocated_funds": 1000000,
+          "research_groups": {},
+          "number_of_students": 300,
+          "students_level": 81
+        }
+      ]
+    },
+    {
+      "name": "Dubai",
+      "country": "United Arab Emirates",
+      "population": 2558000,
+      "one_person_yearly_costs": 1000000,
+      "universities": [
+        {
+          "name": "American University in Dubai",
+          "city": "Dubai",
+          "unallocated_funds": 1000000,
+          "research_groups": {},
+          "number_of_students": 300,
+          "students_level": 81
+        },
+        {
+          "name": "University of Wollongong in Dubai",
+          "city": "Dubai",
+          "unallocated_funds": 1000000,
+          "research_groups": {},
+          "number_of_students": 300,
+          "students_level": 81
+        },
+        {
+          "name": "University of Dubai",
+          "city": "Dubai",
+          "unallocated_funds": 1000000,
+          "research_groups": {},
+          "number_of_students": 300,
+          "students_level": 81
+        }
+      ]
+    },
+    {
+      "name": "Shanghai",
+      "country": "China",
+      "population": 24240000,
+      "one_person_yearly_costs": 1000000,
+      "universities": [
+        {
+          "name": "Fudan University",
+          "city": "Shanghai",
+          "unallocated_funds": 1000000,
+          "research_groups": {},
+          "number_of_students": 300,
+          "students_level": 81
+        },
+        {
+          "name": "Shanghai Jiao Tong University",
+          "city": "Shanghai",
+          "unallocated_funds": 1000000,
+          "research_groups": {},
+          "number_of_students": 300,
+          "students_level": 81
+        },
+        {
+          "name": "Shanghai University",
+          "city": "Shanghai",
+          "unallocated_funds": 1000000,
+          "research_groups": {},
+          "number_of_students": 300,
+          "students_level": 81
+        }
+      ]
+    },
+    {
+      "name": "Moscow",
+      "country": "Russia",
+      "population": 11920000,
+      "one_person_yearly_costs": 1000000,
+      "universities": [
+        {
+          "name": "Moscow State University",
+          "city": "Moscow",
+          "unallocated_funds": 1000000,
+          "research_groups": {},
+          "number_of_students": 300,
+          "students_level": 81
+        },
+        {
+          "name": "Lomonosov Moscow State University",
+          "city": "Moscow",
+          "unallocated_funds": 1000000,
+          "research_groups": {},
+          "number_of_students": 300,
+          "students_level": 81
+        },
+        {
+          "name": "National Research University Higher School of Economics",
+          "city": "Moscow",
+          "unallocated_funds": 1000000,
+          "research_groups": {},
+          "number_of_students": 300,
+          "students_level": 81
+        }
+      ]
+    },
+    {
+      "name": "Istanbul",
+      "country": "Turkey",
+      "population": 14160467,
+      "one_person_yearly_costs": 1000000,
+      "universities": [
+        {
+          "name": "Istanbul Technical University",
+          "city": "Istanbul",
+          "unallocated_funds": 1000000,
+          "research_groups": {},
+          "number_of_students": 300,
+          "students_level": 81
+        },
+        {
+          "name": "Istanbul University",
+          "city": "Istanbul",
+          "unallocated_funds": 1000000,
+          "research_groups": {},
+          "number_of_students": 300,
+          "students_level": 81
+        },
+        {
+          "name": "Istanbul Bilgi University",
+          "city": "Istanbul",
+          "unallocated_funds": 1000000,
+          "research_groups": {},
+          "number_of_students": 300,
+          "students_level": 81
+        }
+      ]
+    },
+    {
+      "name": "Seoul",
+      "country": "South Korea",
+      "population": 10229262,
+      "one_person_yearly_costs": 1000000,
+      "universities": [
+        {
+          "name": "Seoul National University",
+          "city": "Seoul",
+          "unallocated_funds": 1000000,
+          "research_groups": {},
+          "number_of_students": 300,
+          "students_level": 81
+        },
+        {
+          "name": "Korea University",
+          "city": "Seoul",
+          "unallocated_funds": 1000000,
+          "research_groups": {},
+          "number_of_students": 300,
+          "students_level": 81
+        },
+        {
+          "name": "Yonsei University",
+          "city": "Seoul",
+          "unallocated_funds": 1000000,
+          "research_groups": {},
+          "number_of_students": 300,
+          "students_level": 81
+        }
+      ]
+    },
+    {
+      "name": "Beijing",
+      "country": "China",
+      "population": 21516000,
+      "one_person_yearly_costs": 1000000,
+      "universities": [
+        {
+          "name": "Peking University",
+          "city": "Beijing",
+          "unallocated_funds": 1000000,
+          "research_groups": {},
+          "number_of_students": 300,
+          "students_level": 81
+        },
+        {
+          "name": "Tsinghua University",
+          "city": "Beijing",
+          "unallocated_funds": 1000000,
+          "research_groups": {},
+          "number_of_students": 300,
+          "students_level": 81
+        },
+        {
+          "name": "Beijing Normal University",
+          "city": "Beijing",
+          "unallocated_funds": 1000000,
+          "research_groups": {},
+          "number_of_students": 300,
+          "students_level": 81
+        }
+      ]
+    },
+    {
+      "name": "Cape Town",
+      "country": "South Africa",
+      "population": 3740026,
+      "one_person_yearly_costs": 1000000,
+      "universities": [
+        {
+          "name": "University of Cape Town",
+          "city": "Cape Town",
+          "unallocated_funds": 1000000,
+          "research_groups": {},
+          "number_of_students": 300,
+          "students_level": 81
+        },
+        {
+          "name": "University of the Western Cape",
+          "city": "Cape Town",
+          "unallocated_funds": 1000000,
+          "research_groups": {},
+          "number_of_students": 300,
+          "students_level": 81
+        },
+        {
+          "name": "University of Stellenbosch",
+          "city": "Cape Town",
+          "unallocated_funds": 1000000,
+          "research_groups": {},
+          "number_of_students": 300,
+          "students_level": 81
+        }
+      ]
+    },
+    {
+      "name": "Milan",
+      "country": "Italy",
+      "population": 1350680,
+      "one_person_yearly_costs": 1000000,
+      "universities": [
+        {
+          "name": "University of Milan",
+          "city": "Milan",
+          "unallocated_funds": 1000000,
+          "research_groups": {},
+          "number_of_students": 300,
+          "students_level": 81
+        },
+        {
+          "name": "Politecnico di Milano",
+          "city": "Milan",
+          "unallocated_funds": 1000000,
+          "research_groups": {},
+          "number_of_students": 300,
+          "students_level": 81
+        },
+        {
+          "name": "University of Bicocca",
+          "city": "Milan",
+          "unallocated_funds": 1000000,
+          "research_groups": {},
+          "number_of_students": 300,
+          "students_level": 81
+        }
+      ]
+    },
+    {
+      "name": "Barcelona",
+      "country": "Spain",
+      "population": 1602386,
+      "one_person_yearly_costs": 1000000,
+      "universities": [
+        {
+          "name": "University of Barcelona",
+          "city": "Barcelona",
+          "unallocated_funds": 1000000,
+          "research_groups": {},
+          "number_of_students": 300,
+          "students_level": 81
+        },
+        {
+          "name": "Autonomous University of Barcelona",
+          "city": "Barcelona",
+          "unallocated_funds": 1000000,
+          "research_groups": {},
+          "number_of_students": 300,
+          "students_level": 81
+        },
+        {
+          "name": "Polytechnic University of Catalonia",
+          "city": "Barcelona",
+          "unallocated_funds": 1000000,
+          "research_groups": {},
+          "number_of_students": 300,
+          "students_level": 81
+        }
+      ]
+    },
+    {
+      "name": "Buenos Aires",
+      "country": "Argentina",
+      "population": 2891082,
+      "one_person_yearly_costs": 1000000,
+      "universities": [
+        {
+          "name": "University of Buenos Aires",
+          "city": "Buenos Aires",
+          "unallocated_funds": 1000000,
+          "research_groups": {},
+          "number_of_students": 300,
+          "students_level": 81
+        },
+        {
+          "name": "National University of La Plata",
+          "city": "Buenos Aires",
+          "unallocated_funds": 1000000,
+          "research_groups": {},
+          "number_of_students": 300,
+          "students_level": 81
+        },
+        {
+          "name": "National University of Córdoba",
+          "city": "Buenos Aires",
+          "unallocated_funds": 1000000,
+          "research_groups": {},
+          "number_of_students": 300,
+          "students_level": 81
+        }
+      ]
+    },
+    {
+      "name": "Rio de Janeiro",
+      "country": "Brazil",
+      "population": 6023742,
+      "one_person_yearly_costs": 1000000,
+      "universities": [
+        {
+          "name": "Federal University of Rio de Janeiro",
+          "city": "Rio de Janeiro",
+          "unallocated_funds": 1000000,
+          "research_groups": {},
+          "number_of_students": 300,
+          "students_level": 81
+        },
+        {
+          "name": "State University of Rio de Janeiro",
+          "city": "Rio de Janeiro",
+          "unallocated_funds": 1000000,
+          "research_groups": {},
+          "number_of_students": 300,
+          "students_level": 81
+        }
+      ]
+    },
+    {
+      "name": "Mexico City",
+      "country": "Mexico",
+      "population": 8851080,
+      "one_person_yearly_costs": 1000000,
+      "universities": [
+        {
+          "name": "National Autonomous University of Mexico",
+          "city": "Mexico City",
+          "unallocated_funds": 1000000,
+          "research_groups": {},
+          "number_of_students": 300,
+          "students_level": 81
+        },
+        {
+          "name": "National Polytechnic Institute",
+          "city": "Mexico City",
+          "unallocated_funds": 1000000,
+          "research_groups": {},
+          "number_of_students": 300,
+          "students_level": 81
+        },
+        {
+          "name": "National Autonomous University of Mexico",
+          "city": "Mexico City",
+          "unallocated_funds": 1000000,
+          "research_groups": {},
+          "number_of_students": 300,
+          "students_level": 81
+        }
+      ]
+    },
+    {
+      "name": "Sao Paulo",
+      "country": "Brazil",
+      "population": 12038175,
+      "one_person_yearly_costs": 1000000,
+      "universities": [
+        {
+          "name": "University of Sao Paulo",
+          "city": "Sao Paulo",
+          "unallocated_funds": 1000000,
+          "research_groups": {},
+          "number_of_students": 300,
+          "students_level": 81
+        }
+      ]
+    },
+    {
+      "name": "Los Angeles",
+      "country": "United States",
+      "population": 3971883,
+      "one_person_yearly_costs": 1000000,
+      "universities": [
+        {
+          "name": "University of California",
+          "city": "Los Angeles",
+          "unallocated_funds": 1000000,
+          "research_groups": {},
+          "number_of_students": 300,
+          "students_level": 81
+        },
+        {
+          "name": "University of Southern California",
+          "city": "Los Angeles",
+          "unallocated_funds": 1000000,
+          "research_groups": {},
+          "number_of_students": 300,
+          "students_level": 81
+        }
+      ]
+    },
+    {
+      "name": "Chicago",
+      "country": "United States",
+      "population": 2695598,
+      "one_person_yearly_costs": 1000000,
+      "universities": [
+        {
+          "name": "University of Chicago",
+          "city": "Chicago",
+          "unallocated_funds": 1000000,
+          "research_groups": {},
+          "number_of_students": 300,
+          "students_level": 81
+        }
+      ]
+    },
+    {
+      "name": "Toronto",
+      "country": "Canada",
+      "population": 2731571,
+      "one_person_yearly_costs": 1000000,
+      "universities": [
+        {
+          "name": "University of Toronto",
+          "city": "Toronto",
+          "unallocated_funds": 1000000,
+          "research_groups": {},
+          "number_of_students": 300,
+          "students_level": 81
+        }
+      ]
+    },
+    {
+      "name": "Montreal",
+      "country": "Canada",
+      "population": 1704694,
+      "one_person_yearly_costs": 1000000,
+      "universities": [
+        {
+          "name": "McGill University",
+          "city": "Montreal",
+          "unallocated_funds": 1000000,
+          "research_groups": {},
+          "number_of_students": 300,
+          "students_level": 81
+        },
+        {
+          "name": "University of Montreal",
+          "city": "Montreal",
+          "unallocated_funds": 1000000,
+          "research_groups": {},
+          "number_of_students": 300,
+          "students_level": 81
+        },
+        {
+          "name": "Concordia University",
+          "city": "Montreal",
+          "unallocated_funds": 1000000,
+          "research_groups": {},
+          "number_of_students": 300,
+          "students_level": 81
+        }
+      ]
+    },
+    {
+      "name": "Santiago",
+      "country": "Chile",
+      "population": 6074588,
+      "one_person_yearly_costs": 1000000,
+      "universities": [
+        {
+          "name": "Pontificia Universidad Catolica de Chile",
+          "city": "Santiago",
+          "unallocated_funds": 1000000,
+          "research_groups": {},
+          "number_of_students": 300,
+          "students_level": 81
+        },
+        {
+          "name": "Universidad de Chile",
+          "city": "Santiago",
+          "unallocated_funds": 1000000,
+          "research_groups": {},
+          "number_of_students": 300,
+          "students_level": 81
+        }
+      ]
+    },
+    {
+      "name": "Bogota",
+      "country": "Colombia",
+      "population": 7878783,
+      "one_person_yearly_costs": 1000000,
+      "universities": [
+        {
+          "name": "Pontificia Universidad Javeriana",
+          "city": "Bogota",
+          "unallocated_funds": 1000000,
+          "research_groups": {},
+          "number_of_students": 300,
+          "students_level": 81
+        },
+        {
+          "name": "Universidad Nacional de Colombia",
+          "city": "Bogota",
+          "unallocated_funds": 1000000,
+          "research_groups": {},
+          "number_of_students": 300,
+          "students_level": 81
+        }
+      ]
+    },
+    {
+      "name": "Lisbon",
+      "country": "Portugal",
+      "population": 505526,
+      "one_person_yearly_costs": 1000000,
+      "universities": [
+        {
+          "name": "University of Lisbon",
+          "city": "Lisbon",
+          "unallocated_funds": 1000000,
+          "research_groups": {},
+          "number_of_students": 300,
+          "students_level": 81
+        }
+      ]
+    },
+    {
+      "name": "Madrid",
+      "country": "Spain",
+      "population": 3165235,
+      "one_person_yearly_costs": 1000000,
+      "universities": [
+        {
+          "name": "Universidad Complutense de Madrid",
+          "city": "Madrid",
+          "unallocated_funds": 1000000,
+          "research_groups": {},
+          "number_of_students": 300,
+          "students_level": 81
+        },
+        {
+          "name": "Universidad Autonoma de Madrid",
+          "city": "Madrid",
+          "unallocated_funds": 1000000,
+          "research_groups": {},
+          "number_of_students": 300,
+          "students_level": 81
+        }
+      ]
+    },
+    {
+      "name": "Budapest",
+      "country": "Hungary",
+      "population": 1752286,
+      "one_person_yearly_costs": 1000000,
+      "universities": [
+        {
+          "name": "Eotvos Lorand University",
+          "city": "Budapest",
+          "unallocated_funds": 1000000,
+          "research_groups": {},
+          "number_of_students": 300,
+          "students_level": 81
+        }
+      ]
+    },
+    {
+      "name": "Vienna",
+      "country": "Austria",
+      "population": 1897491,
+      "one_person_yearly_costs": 1000000,
+      "universities": [
+        {
+          "name": "University of Vienna",
+          "city": "Vienna",
+          "unallocated_funds": 1000000,
+          "research_groups": {},
+          "number_of_students": 300,
+          "students_level": 81
+        }
+      ]
+    },
+    {
+      "name": "Prague",
+      "country": "Czech Republic",
+      "population": 1280506,
+      "one_person_yearly_costs": 1000000,
+      "universities": [
+        {
+          "name": "Charles University",
+          "city": "Prague",
+          "unallocated_funds": 1000000,
+          "research_groups": {},
+          "number_of_students": 300,
+          "students_level": 81
+        }
+      ]
+    },
+    {
+      "name": "Brussels",
+      "country": "Belgium",
+      "population": 1215300,
+      "one_person_yearly_costs": 1000000,
+      "universities": [
+        {
+          "name": "Vrije Universiteit Brussel",
+          "city": "Brussels",
+          "unallocated_funds": 1000000,
+          "research_groups": {},
+          "number_of_students": 300,
+          "students_level": 81
+        }
+      ]
+    },
+    {
+      "name": "Amsterdam",
+      "country": "Netherlands",
+      "population": 821752,
+      "one_person_yearly_costs": 1000000,
+      "universities": [
+        {
+          "name": "University of Amsterdam",
+          "city": "Amsterdam",
+          "unallocated_funds": 1000000,
+          "research_groups": {},
+          "number_of_students": 300,
+          "students_level": 81
+        }
+      ]
+    },
+    {
+      "name": "Berlin",
+      "country": "Germany",
+      "population": 3644826,
+      "one_person_yearly_costs": 1000000,
+      "universities": [
+        {
+          "name": "Freie Universitat Berlin",
+          "city": "Berlin",
+          "unallocated_funds": 1000000,
+          "research_groups": {},
+          "number_of_students": 300,
+          "students_level": 81
+        },
+        {
+          "name": "Technische Universitat Berlin",
+          "city": "Berlin",
+          "unallocated_funds": 1000000,
+          "research_groups": {},
+          "number_of_students": 300,
+          "students_level": 81
+        },
+        {
+          "name": "Humboldt Universitat zu Berlin",
+          "city": "Berlin",
+          "unallocated_funds": 1000000,
+          "research_groups": {},
+          "number_of_students": 300,
+          "students_level": 81
+        }
+      ]
+    },
+    {
+      "name": "Copenhagen",
+      "country": "Denmark",
+      "population": 602481,
+      "one_person_yearly_costs": 1000000,
+      "universities": [
+        {
+          "name": "University of Copenhagen",
+          "city": "Copenhagen",
+          "unallocated_funds": 1000000,
+          "research_groups": {},
+          "number_of_students": 300,
+          "students_level": 81
+        }
+      ]
+    },
+    {
+      "name": "Stockholm",
+      "country": "Sweden",
+      "population": 961609,
+      "one_person_yearly_costs": 1000000,
+      "universities": [
+        {
+          "name": "Stockholm University",
+          "city": "Stockholm",
+          "unallocated_funds": 1000000,
+          "research_groups": {},
+          "number_of_students": 300,
+          "students_level": 81
+        }
+      ]
+    },
+    {
+      "name": "Oslo",
+      "country": "Norway",
+      "population": 673469,
+      "one_person_yearly_costs": 1000000,
+      "universities": [
+        {
+          "name": "University of Oslo",
+          "city": "Oslo",
+          "unallocated_funds": 1000000,
+          "research_groups": {},
+          "number_of_students": 300,
+          "students_level": 81
+        }
+      ]
+    },
+    {
+      "name": "Rome",
+      "country": "Italy",
+      "population": 2870500,
+      "one_person_yearly_costs": 1000000,
+      "universities": [
+        {
+          "name": "Universita degli Studi di Roma La Sapienza",
+          "city": "Rome",
+          "unallocated_funds": 1000000,
+          "research_groups": {},
+          "number_of_students": 300,
+          "students_level": 81
+        }
+      ]
+    },
+    {
+      "name": "Pisa",
+      "country": "Italy",
+      "population": 90518,
+      "one_person_yearly_costs": 1000000,
+      "universities": [
+        {
+          "name": "Universita di Pisa",
+          "city": "Pisa",
+          "unallocated_funds": 1000000,
+          "research_groups": {},
+          "number_of_students": 300,
+          "students_level": 81
+        },
+        {
+          "name": "Scuola Normale Superiore di Pisa",
+          "city": "Pisa",
+          "unallocated_funds": 1000000,
+          "research_groups": {},
+          "number_of_students": 45,
+          "students_level": 90
+        }
+      ]
+    }
+  ]
