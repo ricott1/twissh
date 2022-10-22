@@ -321,7 +321,7 @@ class SpeechFrame(UiFrame):
         if self.quick_text:
             _idx = len(_speech)
         else:
-            _idx = int((time.time() - self.start) / FRAME_RATE)
+            _idx = int((time.time() - self.start) / 10)
 
         _text = _speech[:_idx]
         if _idx == len(_speech):

@@ -5,6 +5,7 @@ import pygame as pg
 
 from hacknslassh.utils import random_name
 from hacknslassh.constants import GAME_SPEED
+from twissh.server import UrwidMind
 from .components import *
 from .location import Location
 from .gui.gui import GUI
@@ -15,7 +16,7 @@ class HackNSlash(object):
     UPDATE_STEP = 1 / FPS
 
     def __init__(self) -> None:
-        self.player_ids = {}
+        self.player_ids: dict[bytes, int] = {}
         self.minds = {}
         self.world = esper.World()
         self.world.add_processor(processor.ActionProcessor())
@@ -29,9 +30,9 @@ class HackNSlash(object):
         self.time = time.time()
 
     def register_new_player(
-        self, mind, race: RaceType, gender: GenderType
+        self, mind: UrwidMind, race: RaceType, gender: GenderType
     ) -> int:
-        x, y, z = self.starting_pos
+        x, y, _ = self.starting_pos
         in_location = InLocation(self.base_loc, (x, y, 1))
         _components = [
             ImageCollection.CHARACTERS[gender][race],
@@ -48,25 +49,24 @@ class HackNSlash(object):
         self.base_loc.set_at(in_location.position, player_id)
         self.base_loc.set_renderable_entity(self.world, player_id)
 
-        self.player_ids[mind.avatar.uuid] = player_id
-        print("Player", player_id)
+        self.player_ids[mind.avatar.uuid.bytes] = player_id
+        self.minds[mind.avatar.uuid.bytes] = mind
         return player_id
     
     def dispatch_event(self, event_name: str, *args, **kwargs) -> None:
         for mind in self.minds:
             mind.process_event(event_name, *args, **kwargs)
 
-    def disconnect(self, mind_id):
-        print("disconnect", mind_id, "from", self.minds)
-        if mind_id in self.player_ids:
-            print("deleting", mind_id)
-            ent_id = self.player_ids[mind_id]
+    def disconnect(self, mind: UrwidMind) -> None:
+        print("disconnect", mind.avatar.uuid.bytes, "from", self.minds)
+        if mind.avatar.uuid.bytes in self.player_ids:
+            ent_id = self.player_ids[mind.avatar.uuid.bytes]
             self.world.component_for_entity(ent_id, Health).value = 0
             # comment next line to keep disconnected bodies in (maybe set them dead)
             # self.world.delete_entity(self.player_ids[avatar_id])
             # del self.player_ids[avatar_id]
-        if mind_id in self.minds:
-            del self.minds[mind_id]
+        if mind.avatar.uuid.bytes in self.minds:
+            del self.minds[mind.avatar.uuid.bytes]
 
     def update(self) -> None:
         deltatime = time.time() - self.time

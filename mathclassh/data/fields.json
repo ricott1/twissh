@@ -86,18 +86,9 @@
                 "short_name": "complex_geometry",
                 "description": "Complex geometry is the geometry obtained by replacing real numbers with complex numbers."
             }
+        ]
     },
     {
-        // # subfields of ALGEBRA
-        // #     group theory;
-        // #     field theory;
-        // #     vector spaces, whose study is essentially the same as linear algebra;
-        // #     ring theory;
-        // #     commutative algebra, which is the study of commutative rings, includes the study of polynomials, and is a foundational part of algebraic geometry;
-        // #     homological algebra
-        // #     Lie algebra and Lie group theory;
-        // #     Boolean algebra, which is widely used for the study of the logical structure of computers.
-        // #     The study of types of algebraic structures as mathematical objects is the object of universal algebra and category theory.
         "name": "Algebra",
         "short_name": "algebra",
         "description": "Algebra is the branch of mathematics in which letters and other general symbols are used to represent numbers and quantities, while maintaining the properties of operations.",
@@ -141,7 +132,12 @@
                 "name": "Boolean algebra",
                 "short_name": "boolean_algebra",
                 "description": "Boolean algebra is the study of algebraic structures consisting of a set of elements together with two operations that combine any two elements to form a third, and which satisfy certain properties."
+            },
+            {
+                "name": "Category theory",
+                "short_name": "category_theory",
+                "description": "Category theory is the study of categories, which are algebraic structures consisting of a set of elements together with two operations that combine any two elements to form a third, and which satisfy certain properties."
             }
+        ]
     }
-
 ]

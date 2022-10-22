@@ -142,7 +142,6 @@ class UrwidMind(Adapter):
         self.last_frame = time.time()
         self.callbacks = {}
         if self.master:
-            self.master.minds[self.avatar.uuid] = self
             # we ask to redraw as soon as a change from the ui is registered
             self.register_callback("redraw_local_ui", self.draw)
             self.register_callback("redraw_local_ui_next_cycle", self.set_ui_redraw)
@@ -182,7 +181,7 @@ class UrwidMind(Adapter):
 
     def disconnect(self):
         if self.master:
-            self.master.disconnect(self.avatar.uuid)
+            self.master.disconnect(self)
         self.terminal.loseConnection()
         self.ui = None
     

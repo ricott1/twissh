@@ -94,7 +94,7 @@ class DisplayMathematician(Scene, urwid.Frame):
                 self.view = DisplayView.STATS
         elif _input == "d":   
             if self.view != DisplayView.DESCRIPTION:
-                self.middle_text.set_text(self.mathematician.description)
+                self.middle_text.set_text(self.mathematician.description + self.mathematician.skill_description)
                 self.bottom_text.set_text(" Press 's' to see stats")
                 self.view = DisplayView.DESCRIPTION
 

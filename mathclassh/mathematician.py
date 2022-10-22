@@ -1,5 +1,8 @@
 from __future__ import annotations
 from typing import TYPE_CHECKING
+
+from mathclassh.math_skills import FieldNames
+
 if TYPE_CHECKING:
     from .research_group import ResearchGroup
 
@@ -271,6 +274,14 @@ class Mathematician:
     @property
     def stats_description(self) -> str:
         return f"Charisma: {self.stats.charisma}\nCreativity: {self.stats.creativity}\nIntelligence: {self.stats.intelligence}\nLuck: {self.stats.luck}\nWork ethic: {self.stats.work_ethic}"
+
+    @property
+    def skill_description(self) -> str:
+        skills = ""
+        for f in FieldNames:
+            if hasattr(self, f):
+                skills += f"{f}: {getattr(self, f)}\n"
+        return skills
 
     def update_relation(self, mathematician: Mathematician, value: int) -> None:
         if mathematician.id in self.relations:

@@ -2,14 +2,12 @@ from __future__ import annotations
 from dataclasses import dataclass
 from enum import Enum
 
-from .utils import roll
-
 class FieldNames(str, Enum):
-    NUMBER_THEORY: str = "number theory"
+    NUMBER_THEORY: str = "number_theory"
     ALGEBRA: str = "algebra"
     GEOMETRY: str = "geometry"
     ANALYSIS: str = "analysis"
-    DISCRETE_MATH: str = "discrete math"
+    DISCRETE_MATH: str = "discrete_math"
     LOGIC: str = "logic"
 
 @dataclass
@@ -17,7 +15,6 @@ class SubField:
     name: str
     short_name: str
     description: str
-    value: int = roll(1, 10)
 
     @classmethod
     def from_dict(cls, d: dict[str, any]) -> SubField:
@@ -28,8 +25,9 @@ class SubField:
         )
 
 @dataclass
-class Field:
+class FieldDescription:
     name: str
+    short_name: str
     description: str
     subfields: list[SubField]
 
@@ -38,16 +36,22 @@ class Field:
             setattr(self, sf.short_name, sf)
     
     @classmethod
-    def from_dict(cls, d: dict[str, any]) -> Field:
-        return Field(
+    def from_dict(cls, d: dict[str, any]) -> FieldDescription:
+        return FieldDescription(
             name=d["name"],
+            short_name=d["short_name"],
             description=d["description"],
             subfields=[SubField.from_dict(sf) for sf in d["subfields"]]
         )
 
+
+class FieldSkill:
+    def __init__(self, subfields: dict[str, int]):
+        self.subfields = subfields
+
     @property
     def value(self) -> int:
-        return sum([subfield.value for subfield in self.subfields])
+        return sum(self.subfields.values())
 
 
 
