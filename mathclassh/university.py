@@ -1,33 +1,28 @@
 from __future__ import annotations
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any
+from typing import Any
 import uuid
-
-if TYPE_CHECKING:
-    from .city import City
 
 from mathclassh.research_group import ResearchGroup
 
 @dataclass
 class University:
+    id: bytes
     name: str
-    city: City
+    city: bytes
     unallocated_funds: int
-    research_groups: dict[uuid.UUID, ResearchGroup]
+    research_groups: list[bytes]
     number_of_students: int
     students_level: int
-
-    def __post_init__(self) -> None:
-        for group in self.research_groups.values():
-            group.university = self
 
     @classmethod
     def from_dict(cls, d: dict[str, Any]) -> University:
         return University(
+            id = uuid.uuid4().bytes,
             name=d["name"],
-            city=d["city"],
+            city=None,
             unallocated_funds=d["unallocated_funds"],
-            research_groups={},
+            research_groups=[],
             number_of_students=d["number_of_students"],
             students_level=d["students_level"],
         )
@@ -36,9 +31,11 @@ class University:
         return sum([g.funds for g in self.research_groups.values()]) + self.unallocated_funds
     
     def add_research_group(self, research_group: ResearchGroup) -> None:
-        self.research_groups[research_group.id] = research_group
-        research_group.university = self
+        if research_group.id not in self.research_groups:
+            research_group.university = self.id
+            self.research_groups.append(research_group.id)
     
     def remove_group(self, research_group: ResearchGroup) -> None:
         if research_group.id in self.research_groups:
-            del self.research_groups[research_group.id]
+            research_group.university = None
+            self.research_groups.remove(research_group.id)

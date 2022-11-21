@@ -3,6 +3,7 @@ from enum import Enum, auto
 
 from .base import Component
 
+
 class Rarity(Enum):
     COMMON = auto()
     UNCOMMON = auto()

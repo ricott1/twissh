@@ -26,6 +26,7 @@ Licence:   LGPL <http://opensource.org/licenses/lgpl-2.1.php>
 """
 
 from __future__ import annotations
+from dataclasses import dataclass
 from enum import Enum
 from typing import Callable, Type
 
@@ -87,7 +88,6 @@ class UrwidUi(object):
         self.loop.stop()
         self.toplevel.disconnect()
 
-
 class IUrwidMind(Interface):
     ui = Attribute("")
     terminalProtocol = Attribute("")
@@ -130,31 +130,39 @@ class UnhandledKeyHandler(object):
     def key_ctrl_c(self, _) -> None:
         self.mind.disconnect()
 
+@dataclass
+class UrwidMaster:
+    minds: dict[bytes, UrwidMind]
+    toplevel: urwid.Widget
+
+    def register_mind(self, mind: UrwidMind) -> None:
+        self.minds[mind.avatar.uuid.bytes] = mind
+    
+    def dispatch_event(self, event_name: str, *args, **kwargs) -> None:
+        for k, mind in self.minds.items():
+            mind.process_event(event_name, *args, **kwargs)
+
 implementer(IUrwidMind)
 class UrwidMind(Adapter):
     unhandled_key_factory = UnhandledKeyHandler
 
-    def __init__(self, original: Componentized, master) -> None:
+    def __init__(self, original: Componentized) -> None:
         super().__init__(original)
-        self.master = master
-        
+        self.master = None
+        self.connection_error = None
         self.ui = None
         self.last_frame = time.time()
-        self.callbacks = {}
-        if self.master:
-            # we ask to redraw as soon as a change from the ui is registered
-            self.register_callback("redraw_local_ui", self.draw)
-            self.register_callback("redraw_local_ui_next_cycle", self.set_ui_redraw)
-            self.register_callback("redraw_global_ui", lambda: self.master.dispatch_event("redraw_local_ui_next_cycle"))
-            self.register_callback("chat_message_sent", lambda _from, msg: self.master.dispatch_event("chat_message_received", _from, msg))
+        self.callbacks = {}            
         
     @property
     def avatar(self) -> UrwidUser:
         return IConchUser(self.original)
 
     @property
-    def screen_size(self) -> tuple:
-        return self.ui.screen.get_cols_rows()
+    def screen_size(self) -> tuple[int, int]:
+        if self.ui:
+            return self.ui.screen.get_cols_rows()
+        return (80, 24)
     
     def set_ui_redraw(self) -> None:
         if self.ui:
@@ -168,6 +176,15 @@ class UrwidMind(Adapter):
         if self.master:
             self.ui = UrwidUi(self, self.master.toplevel)
             self.draw()
+    
+    def set_master(self, master: UrwidMaster) -> None:
+        self.master = master
+        self.master.register_mind(self)
+        # we ask to redraw as soon as a change from the ui is registered
+        self.register_callback("redraw_local_ui", self.draw)
+        self.register_callback("redraw_local_ui_next_cycle", self.set_ui_redraw)
+        self.register_callback("redraw_global_ui", lambda: self.master.dispatch_event("redraw_local_ui_next_cycle"), priority=1)
+        self.register_callback("chat_message_sent", lambda _from, msg: self.master.dispatch_event("chat_message_received", _from, msg))
 
     def push(self, data):
         if self.ui:
@@ -456,8 +473,8 @@ class UrwidTerminalSession(TerminalSession):
 
 
 class CONNECTION_ERROR(str, Enum):
-    INVALID_AVATAR_ID = "Invalid avatarId"
-    AVATAR_ALREADY_CONNECTED = "Avatar already connected"
+    INVALID_AVATAR_ID = "\nInvalid avatarId\n"
+    AVATAR_ALREADY_CONNECTED = "\nAvatar already connected.\n"
 
 class UrwidRealm(TerminalRealm):
     """Custom terminal realm class-configured to use our custom Terminal User
@@ -465,36 +482,59 @@ class UrwidRealm(TerminalRealm):
     """
     UPDATE_STEP = 0.025
     def __init__(self):
-        from hacknslassh import HackNSlash
+        from hacknslassh import HackNSlassh
         from mathclassh import MathClassH
 
-        self.hacknslassh = HackNSlash()
+        self.hacknslassh = HackNSlassh()
         self.mathclassh = MathClassH()
 
-        self.help_text = """
-        Welcome to the Urwid Terminal Server!
-
-        This server is running the following games:
-        """
-
-        self.minds: dict[uuid.UUID, UrwidMind] = {}
+        self.minds: dict[bytes, UrwidMind] = {}
 
         LoopingCall(self.hacknslassh.update).start(self.hacknslassh.UPDATE_STEP)
         LoopingCall(self.mathclassh.update).start(self.mathclassh.UPDATE_STEP)
         LoopingCall(self.update_minds).start(self.UPDATE_STEP)
 
+    def requestAvatar(self, avatarId, mind, *interfaces):
+        print("requestAvatar", avatarId, mind, interfaces)
+        for i in interfaces:
+            if i is IConchUser:
+                avatar = self._getAvatar(avatarId)
+                return (IConchUser, avatar, lambda: None)
+        raise NotImplementedError()
+
+    def _getAvatar(self, avatarId):
+        comp = Componentized()
+        user = UrwidUser(comp, avatarId)
+        comp.setComponent(IConchUser, user)
+        sess = UrwidTerminalSession(comp)
+        comp.setComponent(ISession, sess)
+
+        if avatarId in self.minds:
+            mind = UrwidMind(comp)
+            mind.connection_error = CONNECTION_ERROR.AVATAR_ALREADY_CONNECTED
+        elif avatarId in self.hacknslassh.player_ids:
+            mind = UrwidMind(comp)
+            mind.set_master(self.hacknslassh)
+            mind.avatar.uuid = avatarId
+        elif avatarId == b"hns":
+            mind = UrwidMind(comp)
+            mind.set_master(self.hacknslassh)
+        elif avatarId == b"new":
+            mind = UrwidMind(comp)
+            mind.set_master(self.mathclassh)
+        else:
+            mind = UrwidMind(comp)
+            mind.connection_error = CONNECTION_ERROR.INVALID_AVATAR_ID
+        comp.setComponent(IUrwidMind, mind)
+        self.minds[mind.avatar.uuid.bytes] = mind
+        return user
+
     def update_minds(self) -> None:
         # #then update each mind, that updates each ui if necessary 
         to_delete = []
         for k, mind in self.minds.items():
-            if mind.master == CONNECTION_ERROR.AVATAR_ALREADY_CONNECTED:
-                mind.terminal.write(CONNECTION_ERROR.AVATAR_ALREADY_CONNECTED.encode())
-                mind.terminal.transport.loseConnection()
-                to_delete.append(k)
-                continue
-
-            if mind.master == CONNECTION_ERROR.INVALID_AVATAR_ID:
-                mind.terminal.write(CONNECTION_ERROR.INVALID_AVATAR_ID.encode())
+            if not mind.master:
+                mind.terminal.write(mind.connection_error.encode())
                 mind.terminal.transport.loseConnection()
                 to_delete.append(k)
                 continue
@@ -508,34 +548,6 @@ class UrwidRealm(TerminalRealm):
 
         for k in to_delete:
             del self.minds[k]
-
-    def _getAvatar(self, avatarId):
-        comp = Componentized()
-        user = UrwidUser(comp, avatarId)
-        comp.setComponent(IConchUser, user)
-        sess = UrwidTerminalSession(comp)
-        comp.setComponent(ISession, sess)
-
-        if avatarId in self.minds:
-            mind = UrwidMind(comp, CONNECTION_ERROR.AVATAR_ALREADY_CONNECTED)
-        elif avatarId in self.hacknslassh.player_ids:
-            mind = UrwidMind(comp, self.hacknslassh)
-            mind.avatar.uuid = avatarId
-        else:
-            # mind = UrwidMind(comp, CONNECTION_ERROR.INVALID_AVATAR_ID)
-            mind = UrwidMind(comp, self.mathclassh)
-
-        comp.setComponent(IUrwidMind, mind)
-        self.minds[mind.avatar.uuid] = mind
-        return user
-
-    def requestAvatar(self, avatarId, mind, *interfaces):
-        print("requestAvatar", avatarId, mind, interfaces)
-        for i in interfaces:
-            if i is IConchUser:
-                avatar = self._getAvatar(avatarId)
-                return (IConchUser, avatar, lambda: None)
-        raise NotImplementedError()
 
 
 class NoCheckSSHUserAuthServer(SSHUserAuthServer):

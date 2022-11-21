@@ -1,8 +1,9 @@
 import esper
+from hacknslassh.components.tokens import IncreasedSightToken
 import pygame as pg
 from hacknslassh.components.image import ImageTransition, ImageTransitionStyle
 from hacknslassh.components.in_location import InLocation
-from ..gui.utils import combine_RGB_colors, marker_to_urwid_text
+from ..gui.utils import combine_RGB_colors
 from ..components import Image, DelayCallback, Health, HealthRegeneration, Mana, ManaRegeneration, Acting, User, DeathCallback
 
 
@@ -13,6 +14,25 @@ class UserInputProcessor(esper.Processor):
                 acting.selected_action = acting.actions[user.last_input]
                 user.last_input = ""
 
+class SightTokenProcessor(esper.Processor):
+    def process(self, dt: float) -> None:
+        for ent_id, (in_loc, sight_token) in self.world.get_components(InLocation, IncreasedSightToken):
+            user: User = self.world.try_component(ent_id, User)
+            reduction_signalled = False
+            for i in range(len(sight_token.values)):
+                sight_token.values[i] -= dt
+                if sight_token.values[i] <= 0:
+                    in_loc.sight_radius -= 1
+                    if user and not reduction_signalled:
+                        user.mind.process_event("redraw_local_ui")
+                        user.mind.process_event("player_status_changed")
+                        reduction_signalled = True
+
+            sight_token.values = [x for x in sight_token.values if x > 0]
+            if not sight_token.values:
+                self.world.remove_component(ent_id, IncreasedSightToken)
+            
+
 class DeathProcessor(esper.Processor):
     def process(self, dt: float) -> None:
         for ent_id, (health, _) in self.world.get_components(Health, Acting):
@@ -22,10 +42,10 @@ class DeathProcessor(esper.Processor):
                 self.world.component_for_entity(ent_id, Acting).selected_action = None
                 in_location = self.world.component_for_entity(ent_id, InLocation)
                 x, y, z = in_location.position
-                in_location.location.remove_renderable_entity(self.world, ent_id)
+                in_location.dungeon.remove_renderable_entity(ent_id)
                 in_location.position = (x, y, 0)
                 in_location.marker = "X"
-                in_location.location.set_renderable_entity(self.world, ent_id)
+                in_location.dungeon.set_renderable_entity(ent_id)
 
 class ActionProcessor(esper.Processor):
     def process(self, deltatime: float) -> None:
@@ -89,7 +109,7 @@ class ImageTransitionProcessor(esper.Processor):
                 user.mind.process_event("player_image_changed")
 
 class RegenerationProcessor(esper.Processor):
-    def process(self):
+    def process(self, deltatime: float):
         for ent, (health, health_reg) in self.world.get_components(Health, HealthRegeneration):
             health_reg.frame += 1
             if health_reg.frame >= health_reg.frames_to_regenerate:
@@ -114,22 +134,8 @@ class RegenerationProcessor(esper.Processor):
                     mana.value = mana.max_value
                     self.world.remove_component(ent, ManaRegeneration)
 
-class UserLocationRenderProcessor(esper.Processor):
-    def process(self):
-        for ent, (user, loc) in self.world.get_components(User, Location):
-            loc_map = list(base_map)
-            for z in range(loc.max_z):
-                for y in range(loc.max_y):
-                    loc_map.append(" " * x_offset)
-                    for x in range(loc.max_x):
-                        obj = loc.get_at((x, y, z))
-                        t = " "
-                        if obj:
-                            if obj.has_component(Renderable):
-                                renderable: Renderable = obj.get_component(Renderable)
-                                if renderable.visibility:
-                                    t = marker_to_urwid_text(renderable.marker, renderable.fg, renderable.bg, renderable.visibility)
-                        text.append(t)
-                    text.append("\n")
 
-                return text
+# class DungeonRendererProcessor(esper.Processor):
+#     def process(self, deltatime: float):
+#         for ent, (in_loc) in self.world.get_components(InLocation):
+            

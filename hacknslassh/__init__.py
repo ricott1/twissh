@@ -1,1 +1,1 @@
-from .master import HackNSlash
+from .master import HackNSlassh

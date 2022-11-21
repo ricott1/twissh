@@ -1,27 +1,59 @@
 from __future__ import annotations
-from typing import TYPE_CHECKING
-
 from mathclassh.math_skills import FieldNames
-
-if TYPE_CHECKING:
-    from .research_group import ResearchGroup
 
 from dataclasses import dataclass
 from enum import Enum
-from .utils import FEMALE_PORTRAITS, MALE_PORTRAITS, roll
-from .city import City
+from .utils import FEMALE_PORTRAITS, MALE_PORTRAITS, roll, roll_stat
 import random
 import pygame as pg
 import time
 import uuid
+
+
+default_stats: dict[str, dict[str, int]] = {
+    "base": {
+        "intelligence": 10,
+        "creativity": 10,
+        "social": 10,
+        "work_ethic": 10
+    },
+    "number_theory": {
+        "elementary_number_theory": 10,
+        "analytic_number_theory": 10,
+        "algebraic_number_theory": 10,
+        "diophantine_geometry": 10
+    },
+    "algebra": {
+        
+    },
+    "geometry": {
+        
+    },
+    "analysis": {
+
+    },
+    "discrete_math": {
+        
+    },
+    "logic": {
+        
+    }
+}
 
 @dataclass
 class Stats:
     creativity: int
     intelligence: int
     charisma: int
-    luck: int
     work_ethic: int
+
+@dataclass
+class Algebra:
+    name: str
+    field: FieldNames
+    level: int
+    experience: int
+    next_level_experience: int
 
 class ROLE(str, Enum):
     HEAD = "head"
@@ -155,25 +187,25 @@ class Contract:
 
 @dataclass
 class Mathematician:
-    id: uuid.UUID
+    id: bytes
     name: str
     last_name: str
     gender: GENDER
     age: int
-    born_in: City
+    born_in: bytes
     portrait: pg.Surface
-    research_group: ResearchGroup
+    research_group: bytes
     contract: Contract
-    relations: dict[uuid.UUID, int]
+    relations: dict[bytes, int]
     happiness: int
     fame: int
     stress: int
-    stats: Stats
+    stats: dict[str, dict[str, int]]
     potential: int
     crackpot: bool = False
 
     @classmethod
-    def generate(cls, born_in: City, role: ROLE, research_group: ResearchGroup | None = None) -> Mathematician:
+    def generate(cls, born_in: bytes, role: ROLE, research_group: bytes | None = None) -> Mathematician:
         born_in = born_in
         gender = random.choice(list(GENDER))
         name = random.choice(list(MALE_NAMES)) if gender == GENDER.MALE else random.choice(list(FEMALE_NAMES))
@@ -191,6 +223,8 @@ class Mathematician:
                 contract = Contract.master_contract()
             case ROLE.UNDERGRAD:
                 contract = Contract.undergrad_contract()
+        
+        stats = {k: {k2: roll_stat() for k2 in default_stats[k].keys()} for k in default_stats.keys()}
 
         return Mathematician(
             id = uuid.uuid4(),
@@ -206,82 +240,11 @@ class Mathematician:
             happiness=roll(1, 100),
             fame=roll(1, 100),
             stress=roll(1, 100),
-            stats=Stats(
-                creativity=roll(1, 100),
-                intelligence=roll(1, 100),
-                charisma=roll(1, 100),
-                luck=roll(1, 100),
-                work_ethic=roll(1, 100)
-            ),
+            stats=stats,
             potential=roll(1, 100),
             crackpot=False
         )
 
-    @property
-    def living_in(self) -> City:
-        if self.research_group:
-            return self.research_group.city
-        return self.born_in
-
-    @property
-    def description(self) -> str:
-        match self.gender:
-            case GENDER.MALE:
-                pronoun = "He is"
-            case GENDER.FEMALE:
-                pronoun = "She is"
-            case _:
-                pronoun = "They are"
-
-        if self.contract:
-            work = f"{pronoun} currently {self.contract.role} at {self.research_group.university.name} in {self.research_group.city.name}, {self.research_group.city.country}. The contract will end on {time.strftime('%d-%m-%Y', time.localtime(self.contract.end_date))}.\n"
-        else:
-            work = f"{pronoun} currently unemployed.\n"
-        # contract = f"{pronoun} is currently under contract until {time.strftime('%Y-%m-%d', time.localtime(self.contract.end_date))}, earning {self.contract.salary} per year.\n"
-
-        match self.happiness:
-            case x if x < 20:
-                happiness = f"{pronoun} miserable "
-            case x if x < 40:
-                happiness = f"{pronoun} unhappy "
-            case x if x < 60:
-                happiness = f"{pronoun} alright "
-            case x if x < 80:
-                happiness = f"{pronoun} happy "
-            case x if x <= 100:
-                happiness = f"{pronoun} ecstatic "
-            case _:
-                happiness = f"{pronoun} in a state of confusion "
-        
-        match self.fame:
-            case x if x < 20:
-                fame = f"and unknown.\n"
-            case x if x < 40:
-                fame = f"and a local celebrity.\n"
-            case x if x < 70:
-                fame = f"and a national celebrity.\n"
-            case x if x < 90:
-                fame = f"and a global celebrity.\n"
-            case _:
-                fame = f"and will be remembered forever.\n"
-
-        return work + happiness + fame
-
-    @property
-    def general_info(self) -> str:
-        return f"{self.name} {self.last_name} is a {self.age}-year-old from {self.born_in.name}, {self.born_in.country}."
-    
-    @property
-    def stats_description(self) -> str:
-        return f"Charisma: {self.stats.charisma}\nCreativity: {self.stats.creativity}\nIntelligence: {self.stats.intelligence}\nLuck: {self.stats.luck}\nWork ethic: {self.stats.work_ethic}"
-
-    @property
-    def skill_description(self) -> str:
-        skills = ""
-        for f in FieldNames:
-            if hasattr(self, f):
-                skills += f"{f}: {getattr(self, f)}\n"
-        return skills
 
     def update_relation(self, mathematician: Mathematician, value: int) -> None:
         if mathematician.id in self.relations:

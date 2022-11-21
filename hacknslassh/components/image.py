@@ -1,22 +1,34 @@
-from enum import Enum, auto
-from .base import Component
-import pygame as pg
 import os
 from dataclasses import dataclass
+from enum import Enum, auto
+from typing import Sequence, Union
 
-from .info import RaceType, GenderType
+import pygame as pg
+
+from .base import Component
+from .description import GenderType, GameClassName
+
+_ColorInput = Union[pg.Color, str, list[int], tuple[int, int, int], tuple[int, int, int, int]]
+_RgbaOutput = tuple[int, int, int, int]
 
 
 @dataclass
 class Image(Component):
     surface: pg.Surface
 
+    def set_at(self, x_y: tuple[int, int], color: _ColorInput) -> None:
+        self.surface.set_at(x_y, color)
+
+    def get_at(self, x_y: Sequence[int]) -> _RgbaOutput:
+        return self.surface.get_at(x_y)
+
 
 class ImageTransitionStyle(str, Enum):
     LINEAR = auto()
     QUADRATIC = auto()
     CUBIC = auto()
-    
+
+
 @dataclass
 class ImageTransition(Component):
     old_surface: pg.Surface
@@ -25,6 +37,7 @@ class ImageTransition(Component):
     current_delay: float = 0.0
     transition: ImageTransitionStyle = ImageTransitionStyle.LINEAR
     reversed: bool = False
+
 
 file_dir = os.path.dirname(os.path.realpath(__file__))
 
@@ -84,6 +97,21 @@ class MPBottleImageCollection(object):
     R4 = Image(pg.image.load(f"{file_dir}/assets/bottles/mp_reg4.png"))
     R5 = Image(pg.image.load(f"{file_dir}/assets/bottles/mp_reg5.png"))
 
+class SPBottleImageCollection(object):
+    L0 = Image(pg.image.load(f"{file_dir}/assets/bottles/sp0.png"))
+    L1 = Image(pg.image.load(f"{file_dir}/assets/bottles/sp1.png"))
+    L2 = Image(pg.image.load(f"{file_dir}/assets/bottles/sp2.png"))
+    L3 = Image(pg.image.load(f"{file_dir}/assets/bottles/sp3.png"))
+    L4 = Image(pg.image.load(f"{file_dir}/assets/bottles/sp4.png"))
+    L5 = Image(pg.image.load(f"{file_dir}/assets/bottles/sp5.png"))
+    L6 = Image(pg.image.load(f"{file_dir}/assets/bottles/sp6.png"))
+    R0 = Image(pg.image.load(f"{file_dir}/assets/bottles/sp_reg0.png"))
+    R1 = Image(pg.image.load(f"{file_dir}/assets/bottles/sp_reg1.png"))
+    R2 = Image(pg.image.load(f"{file_dir}/assets/bottles/sp_reg2.png"))
+    R3 = Image(pg.image.load(f"{file_dir}/assets/bottles/sp_reg3.png"))
+    R4 = Image(pg.image.load(f"{file_dir}/assets/bottles/sp_reg4.png"))
+    R5 = Image(pg.image.load(f"{file_dir}/assets/bottles/sp_reg5.png"))
+
 
 class ImageCollection(object):
     EMPTY = Image(pg.Surface((0, 0), pg.SRCALPHA))
@@ -91,16 +119,13 @@ class ImageCollection(object):
     BACKGROUND_SELECTED = Image(pg.image.load(f"{file_dir}/assets/background_selected.png"))
     BACKGROUND_UNSELECTED = Image(pg.image.load(f"{file_dir}/assets/background_unselected.png"))
     CHARACTERS = {
-        GenderType.FEMALE: {
-            k: Image(pg.image.load(f"{file_dir}/assets/characters/{k.lower()}_female.png")) for k in RaceType
-        },
-        GenderType.MALE: {
-            k: Image(pg.image.load(f"{file_dir}/assets/characters/{k.lower()}_male.png")) for k in RaceType
-        },
+        GenderType.FEMALE: {k: Image(pg.image.load(f"{file_dir}/assets/characters/{k.lower()}_female.png")) for k in GameClassName},
+        GenderType.MALE: {k: Image(pg.image.load(f"{file_dir}/assets/characters/{k.lower()}_male.png")) for k in GameClassName},
     }
 
     HP_BOTTLE = HPBottleImageCollection()
     MP_BOTTLE = MPBottleImageCollection()
+    SP_BOTTLE = SPBottleImageCollection()
     HP_POTION = HPPotionImageCollection()
     MP_POTION = MPPotionImageCollection()
     REJUVENATION_POTION = RejuvenationPotionImageCollection()

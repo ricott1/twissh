@@ -18,11 +18,11 @@ class GUI(urwid.Frame):
         self.palette = PALETTE
         research_group = self.master.register_new_game(mind)
 
-        print(len(research_group.members_list))
-        left_math, right_math = random.sample(research_group.members_list, 2)
-        left = DisplayMathematician(self.mind, left_math)
+        left_math_id, right_math_id = random.sample(research_group.members, 2)
 
-        right = DisplayMathematician(self.mind, right_math)
+        left = DisplayMathematician(self.mind, self.master.mathematicians[left_math_id])
+
+        right = DisplayMathematician(self.mind, self.master.mathematicians[right_math_id])
         self.active_body = SideView(self.mind, left, right)
         super().__init__(self.active_body)
         

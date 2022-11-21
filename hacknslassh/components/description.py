@@ -3,7 +3,8 @@ from enum import Enum, auto
 
 from .base import Component
 
-class RaceType(str, Enum):
+
+class GameClassName(str, Enum):
     ELF = "Elf"
     DWARF = "Dwarf"
     NERD = "Nerd"
@@ -11,10 +12,13 @@ class RaceType(str, Enum):
     BARD = "Bard"
     SLIME = "Slime"
     DEVIL = "Devil"
+    DWARVIL = "Dwarvil"
+    CAT = "Cat"
 
 class GenderType(Enum):
     FEMALE = auto()
     MALE = auto()
+
 
 @dataclass
 class Description(Component):
@@ -24,5 +28,5 @@ class Description(Component):
 
     name: str
     text: str
-    race: RaceType
+    game_class: GameClassName
     gender: GenderType

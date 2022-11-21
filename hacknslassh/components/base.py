@@ -4,4 +4,3 @@ class Component(object):
     """
 
     pass
-

@@ -1,6 +1,6 @@
 from .base import *
 from .characteristics import *
-from .info import *
+from .description import *
 from .in_location import *
 from .image import *
 from .item import *

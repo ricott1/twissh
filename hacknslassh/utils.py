@@ -92,7 +92,7 @@ def mod(value):
     return 0
 
 
-def distance(a, b):
+def distance(a: tuple[int, ...], b: tuple[int, ...]) -> float:
     return sum([(a[i] - b[i]) ** 2 for i in range(len(a))]) ** 0.5
 
 

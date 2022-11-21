@@ -58,7 +58,7 @@ class Action(object):
             return None
         target_square = cls.target_square(world, ent_id)
         if target_square:
-            return in_location.location.get_at(target_square)
+            return in_location.dungeon.get_at(target_square)
         return None
 
     @classmethod

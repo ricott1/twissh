@@ -1,11 +1,14 @@
+import hacknslassh
 from hacknslassh.gui.scenes import CharacterSelectionFrame, NetHackFrame
 from hacknslassh.gui.utils import PALETTE
+from twissh.server import UrwidMind
 import urwid
 
 
 class GUI(urwid.Frame):
-    def __init__(self, mind):
+    def __init__(self, mind: UrwidMind):
         self.mind = mind
+        self.master: hacknslassh.HackNSlassh = self.mind.master
         self.palette = PALETTE
         self.active_body = CharacterSelectionFrame(self.mind)
         super().__init__(self.active_body)

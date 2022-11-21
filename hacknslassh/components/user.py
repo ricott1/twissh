@@ -1,13 +1,12 @@
-# from __future__ import annotations
 from dataclasses import dataclass
+
+from twissh.server import UrwidMind
+
 from .base import Component
 
 
 @dataclass
 class User(Component):
-    mind: None
+    mind: None | UrwidMind
     last_input: str = ""
-    # visible_map: list[list[str]] = [""]
-
-
-
+    color: tuple[int, int, int] = (255, 0, 0)

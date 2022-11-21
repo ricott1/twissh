@@ -52,7 +52,7 @@ class KeyMap(str, Enum):
     EXPLORER_MENU = "X"
     QUICK_MENU = "Q"
     TOGGLE_FULL_MENU = "tab"
-    TOGGLE_CENTER_VIEW = "C"
+    CENTER_CAMERA = "c"
     UP = "up"
     DOWN = "down"
     LEFT = "left"
@@ -60,3 +60,10 @@ class KeyMap(str, Enum):
 
 
 MenuKeyMap = [KeyMap.STATUS_MENU, KeyMap.INVENTORY_MENU, KeyMap.EQUIPMENT_MENU, KeyMap.HELP_MENU]
+
+class Tile:
+    EMPTY = " "
+    WALL = "█"
+    FLOOR = "."
+    STAIRS_UP = "<"
+    STAIRS_DOWN = ">"

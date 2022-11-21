@@ -33,6 +33,26 @@ class DoubleLineBox(urwid.LineBox):
             bline=u'═', brcorner=u'╝'
         )
 
+class SolidLineBox(urwid.LineBox):
+    def __init__(self, original_widget, title="",
+            title_align="center", title_attr=None,
+        ):
+        super().__init__(original_widget, title,title_align, title_attr,
+            tlcorner=u'▛', tline=u'▔', lline=u'▏',
+            trcorner=u'▜', blcorner=u'▙', rline=u'▕',
+            bline=u'▁', brcorner=u'▟'
+        )
+    
+class NoLineBox(urwid.LineBox):
+    def __init__(self, original_widget, title="",
+            title_align="center", title_attr=None,
+        ):
+        super().__init__(original_widget, title,title_align, title_attr,
+            tlcorner=u' ', tline=u' ', lline=u' ',
+            trcorner=u' ', blcorner=u' ', rline=u' ',
+            bline=u' ', brcorner=u' '
+        )
+
 class WarningFrame(UiFrame):
     def __init__(self, w: int, h: int) -> None:
         super().__init__(

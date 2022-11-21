@@ -1,8 +1,12 @@
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
 import urwid
 import pygame as pg
 from ..constants import WIDTH, HEIGHT
+
+if TYPE_CHECKING:
+    from hacknslassh.components.image import Image
 
 PALETTE = [
     # (None, "yellow", "light red"),
@@ -12,9 +16,12 @@ PALETTE = [
     ("background", "white", "black"),
     ("background_focus", "black", "white", "standout"),
     ("name", "yellow", "black"),
-    ("green", "light green", "black"),
-    ("yellow", "yellow", "black"),
-    ("red", "light red", "black"),
+    ("green", "light green", ""),
+    ("yellow", "yellow", ""),
+    ("red", "light red", ""),
+    ("blue", "light blue", ""),
+    ("white", "white", ""),
+    ("cyan", "light cyan", ""),
 ]
 
 EMPTY_FILL = urwid.ListBox(urwid.SimpleListWalker([urwid.Text("")]))
@@ -122,7 +129,6 @@ def create_button(label, align="center", **kwargs):
     btn._label.align = align
     return btn
 
-
 def marker_to_urwid_text(marker: str, fg: tuple[int, int, int], bg: tuple[int, int, int] | None, a: int = 255) -> tuple[urwid.AttrSpec, str]: 
     f_r, f_g, f_b = RGBA_to_RGB(*fg, a)
     f_attr = f"#{f_r:02x}{f_g:02x}{f_b:02x}"
@@ -134,18 +140,29 @@ def marker_to_urwid_text(marker: str, fg: tuple[int, int, int], bg: tuple[int, i
     return (urwid.AttrSpec(f_attr, b_attr), marker)
 
 def img_to_urwid_text(
-    img, x_offset: int = 0, y_offset: int = 0, x_flip: bool = False, y_flip: bool = False
+    img: Image, x_offset: int = 0, y_offset: int = 0, x_flip: bool = False, y_flip: bool = False, overlay_text: str = "", overlay_text_row: int = 0
 ) -> list[tuple[urwid.AttrSpec, str] | str]:
     text = ["\n" * y_offset]
     surface = pg.transform.flip(img.surface, x_flip, y_flip)
     w, h = surface.get_width(), surface.get_height()
+    
+    overlay_text_x = (w - len(overlay_text))//2
+    overlay_char = 0
 
-    # We loop til h-1 to discard last level of odd-heigth images
+    # We loop til h-1 to discard last level of odd-height images
     for y in range(0, h - 1, 2):
         text.append(" " * x_offset)
         for x in range(w):
             top_r, top_g, top_b, top_a = surface.get_at((x, y))
             btm_r, btm_g, btm_b, btm_a = surface.get_at((x, y + 1))
+
+            if overlay_text and y == overlay_text_row and overlay_text_x <= x < overlay_text_x + len(overlay_text):
+                char = overlay_text[overlay_char]
+                overlay_char += 1
+                btm_attr = f"#{btm_r:02x}{btm_g:02x}{btm_b:02x}" if btm_a else ""
+                t = (urwid.AttrSpec("white", btm_attr), char)
+                text.append(t)
+                continue
 
             if top_a == 0 and btm_a == 0:
                 t = " "
@@ -164,6 +181,10 @@ def img_to_urwid_text(
                 btm_r, btm_g, btm_b = RGBA_to_RGB(btm_r, btm_g, btm_b, btm_a)
                 btm_attr = f"#{btm_r:02x}{btm_g:02x}{btm_b:02x}"
                 t = (urwid.AttrSpec(btm_attr, top_attr), "▄")
+                # if top_attr == btm_attr and top_a == btm_a:
+                #     t = (urwid.AttrSpec(top_attr, ""), "█")
+                # else:
+                #     t = (urwid.AttrSpec(btm_attr, top_attr), "▄")
 
             text.append(t)
 
@@ -176,7 +197,7 @@ def combine_RGB_colors(color1: tuple[int, int, int], color2: tuple[int, int, int
     return (int((color1[i] * weight1 + color2[i] * weight2) / (weight1 + weight2)) for i in range(3))
 
 
-def RGBA_to_RGB(r: int, g: int, b: int, a: int, background: tuple[int] | None = None):
+def RGBA_to_RGB(r: int, g: int, b: int, a: int, background: tuple[int] | None = None) -> tuple[int, int, int]:
     """
     apply alpha using only RGB channels: https://en.wikipedia.org/wiki/Alpha_compositing
     """
@@ -184,7 +205,7 @@ def RGBA_to_RGB(r: int, g: int, b: int, a: int, background: tuple[int] | None = 
         return combine_RGB_colors((r, g, b), background, weight1=a, weight2=255 * (255 - a))
     elif a == 255:
         return (r, g, b)
-    return (int(c * a / 255.0) for c in (r, g, b))
+    return tuple(int(c * a / 255.0) for c in (r, g, b))
 
 
 def interpolate_colors(color1, color2, value):

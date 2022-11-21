@@ -1,17 +1,16 @@
 import time
 import esper
 from hacknslassh.processors import processor
-import pygame as pg
 
 from hacknslassh.utils import random_name
 from hacknslassh.constants import GAME_SPEED
-from twissh.server import UrwidMind
+from twissh.server import UrwidMaster, UrwidMind
 from .components import *
-from .location import Location
+from .dungeon import Dungeon
 from .gui.gui import GUI
 
 
-class HackNSlash(object):
+class HackNSlassh(UrwidMaster):
     FPS = 60
     UPDATE_STEP = 1 / FPS
 
@@ -23,39 +22,36 @@ class HackNSlash(object):
         self.world.add_processor(processor.UserInputProcessor(), priority=2)
         self.world.add_processor(processor.DeathProcessor(), priority=3)
         self.world.add_processor(processor.ImageTransitionProcessor())
-        self.base_loc = Location()
-        self.starting_pos = self.base_loc.generate_random_map(self.world)[0].center
+        self.world.add_processor(processor.SightTokenProcessor())
+        self.base_loc = Dungeon(self.world)
         # self.clock = pg.time.Clock()
         self.toplevel = GUI
         self.time = time.time()
 
     def register_new_player(
-        self, mind: UrwidMind, race: RaceType, gender: GenderType
+        self, mind: UrwidMind, game_class: GameClassName, gender: GenderType
     ) -> int:
-        x, y, _ = self.starting_pos
-        in_location = InLocation(self.base_loc, (x, y, 1))
+        x, y = self.base_loc.random_floor_tile()
+        in_location = InLocation(self.base_loc, (x, y, 1), fg=(255, 0, 0))
         _components = [
-            ImageCollection.CHARACTERS[gender][race],
-            Characteristics(),
+            ImageCollection.CHARACTERS[gender][game_class],
+            Characteristics.get_random(),
             Health(),
             Mana(),
-            Description(random_name(), "description", race, gender),
+            Description(random_name(), "description", game_class, gender),
             in_location,
             Acting(),
             User(mind)
         ]
         
         player_id = self.world.create_entity(*_components)
-        self.base_loc.set_at(in_location.position, player_id)
-        self.base_loc.set_renderable_entity(self.world, player_id)
+        print("register_new_player", player_id, "for", mind.avatar.uuid.bytes)
+        # self.base_loc.set_at(in_location.position, player_id)
+        self.base_loc.set_renderable_entity(player_id)
 
         self.player_ids[mind.avatar.uuid.bytes] = player_id
         self.minds[mind.avatar.uuid.bytes] = mind
         return player_id
-    
-    def dispatch_event(self, event_name: str, *args, **kwargs) -> None:
-        for mind in self.minds:
-            mind.process_event(event_name, *args, **kwargs)
 
     def disconnect(self, mind: UrwidMind) -> None:
         print("disconnect", mind.avatar.uuid.bytes, "from", self.minds)

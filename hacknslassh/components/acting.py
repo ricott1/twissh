@@ -1,10 +1,15 @@
 from __future__ import annotations
+
 from dataclasses import dataclass
 
-from hacknslassh.processors.transform_actions import TransformToDevil
+from hacknslassh.processors.sight_actions import IncreaseSightRadius
+from hacknslassh.processors.transform_actions import TransformToCat, TransformToDevil
+
+from ..processors.move_actions import (Action, MoveDown, MoveLeft, MoveRight,
+                                       MoveUp)
 from .base import Component
 from .in_location import Direction
-from ..processors.move_actions import MoveDown, MoveUp, MoveLeft, MoveRight, Action
+
 
 @dataclass
 class Acting(Component):
@@ -16,5 +21,7 @@ class Acting(Component):
         Direction.DOWN: MoveDown,
         Direction.LEFT: MoveLeft,
         Direction.RIGHT: MoveRight,
-        "t": TransformToDevil
+        "t": TransformToDevil,
+        "y": TransformToCat,
+        "r": IncreaseSightRadius
     }

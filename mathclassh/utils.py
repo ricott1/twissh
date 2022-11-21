@@ -5,6 +5,7 @@ import uuid
 import random
 import datetime
 import os
+from mathclassh.constants import MAX_STAT_VALUE
 import pygame as pg
 
 FILE_DIR = os.path.dirname(os.path.realpath(__file__))
@@ -15,27 +16,11 @@ def roll(num, dice):
         tot += random.randint(1, dice)
     return tot
 
-
-def mod(value):
-    # return (value-10)//2
-    if value <= 3:
-        return -3
-    elif value <= 5:
-        return -2
-    elif value <= 8:
-        return -1
-    elif value >= 18:
-        return 3
-    elif value >= 16:
-        return 2
-    elif value >= 13:
-        return 1
-    return 0
-
+def roll_stat(mod: int = 0) -> int:
+    return min(MAX_STAT_VALUE, max(1, roll(3, 6) + mod))
 
 def get_time():
     return datetime.datetime.now().strftime("%H:%M:%S")
-
 
 def new_id():
     return uuid.uuid4()
