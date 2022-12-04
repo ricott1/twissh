@@ -1,8 +1,8 @@
 from __future__ import annotations
 from hacknslassh.constants import Tile
-from hacknslassh.gui.utils import marker_to_urwid_text
-from hacknslassh.utils import nested_dict
-from .components import InLocation
+from hacknslassh.gui.utils import RGBA_to_RGB, marker_to_urwid_text
+from hacknslassh.utils import distance, nested_dict
+from .components import InLocation, MAX_SIGHT_RADIUS, MIN_ALPHA, Sight
 import urwid
 import esper
 import random
@@ -44,50 +44,102 @@ class Dungeon(object):
         self.max_z = max_z
         self.content = nested_dict()
         #stores cache of shadowed tiles at a certain position for quick access, to be used in inlocation.update_visited_and_visible_tiles
-        self.shadow_cache: dict[tuple[int, int], set] = {} 
+        self.visible_cache: dict[tuple[int, int], list[int, int, float]] = {} 
+        self.tile_cache: dict[tuple[int, int], list[int, int, float]] = {} 
         self.urwid_text: list[tuple[urwid.AttrSpec, str] | str] = []
 
         self.max_x, self.max_y, self.tiles = generate_dungeon(cells_x, cells_y, cell_size)
         self.map = [[Tile.EMPTY for _ in range(self.max_y)] for _ in range(self.max_x)]
-        self.empty_map = [[Tile.EMPTY for _ in range(self.max_y)] for _ in range(self.max_x)]
+        # self.empty_map = [[Tile.EMPTY for _ in range(self.max_y)] for _ in range(self.max_x)]
 
         self.floor_tiles = [pos for pos, tile in self.tiles.items() if tile == Tile.FLOOR]
         self.wall_tiles = [pos for pos, tile in self.tiles.items() if tile == Tile.WALL]
 
         for tile in self.wall_tiles:
-            self.set_renderable_entity(self.world.create_entity(InLocation(self, (tile[0], tile[1], 1), marker=Tile.WALL, _sight_radius=0)))
-            self.empty_map[tile[0]][tile[1]] = marker_to_urwid_text(Tile.WALL, (255, 255, 255), None, 255)
+            self.set_renderable_entity(self.world.create_entity(InLocation(self, (tile[0], tile[1], 1), marker=Tile.WALL)))
+            # self.empty_map[tile[0]][tile[1]] = marker_to_urwid_text(Tile.WALL, (255, 255, 255), None, 255)
         for tile in self.floor_tiles:
             self.map[tile[0]][tile[1]] = marker_to_urwid_text(Tile.FLOOR, (255, 255, 255), None, 255)
-            self.empty_map[tile[0]][tile[1]] = marker_to_urwid_text(Tile.FLOOR, (255, 255, 255), None, 255)
+            # self.empty_map[tile[0]][tile[1]] = marker_to_urwid_text(Tile.FLOOR, (255, 255, 255), None, 255)
 
     def random_floor_tile(self) -> tuple[int, int]:
         return random.choice(self.floor_tiles)
+    
+    def destroy_wall_at(self, position: tuple[int, int, int]) -> None:
+        wall_id = self.get_at(position)
+        if not wall_id or not self.is_wall_at(position):
+            return
         
-    def is_in_bound(self, position: tuple) -> bool:
+        x, y, _ = position
+        self.remove_renderable_entity(wall_id)
+        self.world.delete_entity(wall_id)
+        self.wall_tiles.remove((x, y))
+        self.floor_tiles.append((x, y))
+
+    def create_wall_at(self, position: tuple[int, int, int]) -> None:
+        if not self.is_wall_at(position):
+            self.set_renderable_entity(self.world.create_entity(InLocation(self, position, marker=Tile.WALL)))
+            x, y, _ = position
+            if (x, y) in self.floor_tiles:
+                self.floor_tiles.remove((x, y))
+            self.wall_tiles.append((x, y))
+
+    def visible_tiles_at(self, x0: int, y0: int) -> list[tuple[int, int, float]]:
+        # If shadows are cached, get them from cache
+        if (x0, y0) in self.visible_cache:
+            return self.visible_cache[(x0, y0)]
+
+        # Otherwise calculate shadows for MAX_SIGHT_RADIUS and store in cache
+        walls = [t for t in self.wall_tiles if distance(t, (x0, y0)) <= MAX_SIGHT_RADIUS]
+        max_visible_tiles = []
+        for x, y, d in self.all_visible_tiles_at(x0, y0):
+            if not is_tile_shadowed_by_walls((x0, y0), (x, y), walls):
+                max_visible_tiles.append((x, y, d))
+        
+        self.visible_cache[(x0, y0)] = sorted(max_visible_tiles, key=lambda t: t[2])
+        return self.visible_cache[(x0, y0)]
+    
+    def all_visible_tiles_at(self, x0: int, y0: int) -> list[tuple[int, int, float]]:
+        # If shadows are cached, get them from cache
+        if (x0, y0) in self.tile_cache:
+            return self.tile_cache[(x0, y0)]
+
+        # Otherwise calculate shadows for MAX_SIGHT_RADIUS and store in cache
+        max_visible_tiles = []
+        for x in range(x0 - MAX_SIGHT_RADIUS, x0 + MAX_SIGHT_RADIUS+1):
+            for y in range(y0 - MAX_SIGHT_RADIUS, y0 + MAX_SIGHT_RADIUS+1):
+                if d := distance((x0, y0), (x, y)) <= MAX_SIGHT_RADIUS:
+                    max_visible_tiles.append((x, y, d))
+        
+        self.tile_cache[(x0, y0)] = sorted(max_visible_tiles, key=lambda t: t[2])
+        return self.tile_cache[(x0, y0)]
+        
+    def is_in_bound(self, position: tuple[int, int, int]) -> bool:
         x, y, z = position
         return x < self.max_x and y < self.max_y and z < self.max_z and x >= 0 and y >= 0 and z >= 0
 
-    def max_z_at(self, position: tuple) -> int:
+    def max_z_at(self, position: tuple[int, int, int]) -> int:
         x, y, _ = position
         if x in self.content and y in self.content[x]:
             return max([z for z in self.content[x][y]], default=-1)
         return -1
     
-    def get_top_at(self, position: tuple) -> int:
+    def get_top_at(self, position: tuple[int, int, int]) -> int:
         z = self.max_z_at(position)
         if z >= 0:
             x, y, _ = position
             return self.content[x][y][z]
         return 0
     
-    def is_wall_at(self, position: tuple) -> bool:
-        x, y, z = position
-        if x in self.content and y in self.content[x] and z in self.content[x][y]:
-            return self.world.component_for_entity(self.content[x][y][z], InLocation).marker == Tile.WALL
-        return False
+    def is_wall_at(self, position: tuple[int, int, int]) -> bool:
+        x, y, _ = position
+        return (x, y) in self.wall_tiles
     
-    def get_at(self, position: tuple) -> int | None:
+    def is_empty_at(self, position: tuple[int, int, int]) -> bool:
+        x, y, _ = position
+        return self.is_in_bound(position) and self.map[x][y] == Tile.EMPTY
+
+    def get_at(self, position: tuple[int, int, int]) -> int | None:
         x, y, z = position
         if not self.is_in_bound(position):
             return None
@@ -95,7 +147,7 @@ class Dungeon(object):
             return self.content[x][y][z]
         return None
     
-    def set_at(self, position: tuple, ent_id: int) -> None:
+    def set_at(self, position: tuple[int, int, int], ent_id: int) -> None:
         if not self.is_in_bound(position):
             return
         x, y, z = position
@@ -105,7 +157,7 @@ class Dungeon(object):
             self.content[x][y] = nested_dict()
         self.content[x][y][z] = ent_id
 
-    def remove_at(self, position: tuple) -> None:
+    def remove_at(self, position: tuple[int, int, int]) -> None:
         x, y, z = position
         if x in self.content and y in self.content[x] and z in self.content[x][y]:
             del self.content[x][y][z]
@@ -135,7 +187,138 @@ class Dungeon(object):
                 top = self.world.component_for_entity(self.get_top_at(position), InLocation)
                 self.map[x][y] = marker_to_urwid_text(top.marker, top.fg, top.bg, top.visibility)
             else:
-                self.map[x][y] = self.empty_map[x][y]
+                self.map[x][y] = marker_to_urwid_text(Tile.FLOOR, (255, 255, 255), None, 255)
+
+    def remove_renderable_entity_at(self, position: tuple[int, int, int]) -> None:
+        ent_id = self.get_at(position)
+        if ent_id is not None:
+            self.remove_renderable_entity(ent_id)
+
+def render_dungeon_map(in_loc: InLocation, sight: Sight, camera_offset: tuple[int, int], screen_size: tuple[int, int]) -> list[list[str | tuple[urwid.AttrSpec, str]]]:
+    max_y, max_x = screen_size
+    # Double height since we are double buffering
+    max_x *= 2
+    off_y, off_x = camera_offset
+    # off_x //= 2
+    rendered_map = [[Tile.EMPTY for _ in range(max_y)] for _ in range(max_x)]
+    x0, y0, _ = in_loc.position
+
+    for x in range(0, max_x, 2):
+        if x - off_x >= 2*len(in_loc.dungeon.map):
+            break
+        if x < off_x:
+            continue
+        for y in range(max_y):
+            if y - off_y >= len(in_loc.dungeon.map[0]):
+                break
+            if y < off_y:
+                continue
+            
+            if (x - off_x, y - off_y) not in sight.visited_tiles and (x - off_x + 1, y - off_y) not in sight.visited_tiles:
+                continue
+
+            top_tile = in_loc.dungeon.map[x - off_x][y - off_y]
+            if len(in_loc.dungeon.map) == x - off_x + 1:
+                btm_tile = Tile.EMPTY
+            else:
+                btm_tile = in_loc.dungeon.map[x - off_x + 1][y - off_y]
+
+            if top_tile == Tile.EMPTY and btm_tile == Tile.EMPTY:
+                rendered_map[x//2][y] = Tile.EMPTY
+                continue
+
+            top_d = distance((x - off_x, y - off_y), (x0, y0))
+            top_marker, top_fg, _ = get_tile_info(top_tile)
+            btm_d = distance((x - off_x + 1, y - off_y), (x0, y0))             
+            btm_marker, btm_fg, _ = get_tile_info(btm_tile)
+            top_a = MIN_ALPHA
+            btm_a = MIN_ALPHA
+
+            if top_d == 0:
+                top_fg = in_loc.own_fg
+                top_a = 255
+            elif btm_d == 0:
+                btm_fg = in_loc.own_fg
+                btm_a = 255
+            else:
+                if (x - off_x, y - off_y) in sight.visible_tiles:
+                    top_a = max(MIN_ALPHA, 255 - int((255-MIN_ALPHA)/sight.radius * top_d))
+                    top_fg = sight.color
+                if (x - off_x + 1, y - off_y) in sight.visible_tiles:
+                    btm_a = max(MIN_ALPHA, 255 - int((255-MIN_ALPHA)/sight.radius * btm_d))
+                    btm_fg = sight.color
+
+            top_r, top_g, top_b = RGBA_to_RGB(*top_fg, top_a)
+            top_attr = f"#{top_r:02x}{top_g:02x}{top_b:02x}"
+            btm_r, btm_g, btm_b = RGBA_to_RGB(*btm_fg, btm_a)
+            btm_attr = f"#{btm_r:02x}{btm_g:02x}{btm_b:02x}"
+
+            # Two floor tiles are rendered together as a single floor tile
+            # Assumption: Tile.FLOOR and Tile.EMPTY can not be adjacent
+            if top_marker == btm_marker == Tile.FLOOR:
+                if top_d < btm_d:
+                    rendered_map[x//2][y] = (urwid.AttrSpec(top_attr, ""), top_marker)
+                else:
+                    rendered_map[x//2][y] = (urwid.AttrSpec(btm_attr, ""), btm_marker)   
+            # else both will be rendered
+            elif top_marker not in (Tile.EMPTY, Tile.FLOOR) and btm_marker in (Tile.EMPTY, Tile.FLOOR):
+                rendered_map[x//2][y] = (urwid.AttrSpec(top_attr, ""), "▀")
+            elif top_marker in (Tile.EMPTY, Tile.FLOOR) and btm_marker not in (Tile.EMPTY, Tile.FLOOR):
+                rendered_map[x//2][y] = (urwid.AttrSpec(btm_attr, ""), "▄")
+            else:
+                rendered_map[x//2][y] = (urwid.AttrSpec(btm_attr, top_attr), "▄")
+    
+    return rendered_map
+
+def single_buffer_rendered_map(camera_offset: tuple[int, int], screen_size: tuple[int, int]) -> list[list[str | tuple[urwid.AttrSpec, str]]]:
+    off_y, off_x = camera_offset
+    max_y, max_x = screen_size
+    rendered_map = [[Tile.EMPTY for _ in range(max_y)] for _ in range(max_x)]
+    x0, y0, _ = self.position
+
+    for x in range(max_x):
+        if x - off_x >= len(self.dungeon.map):
+            break
+        if x < off_x:
+            continue
+        for y in range(max_y):
+            if y - off_y >= len(self.dungeon.map[0]):
+                break
+            if y < off_y:
+                continue
+
+            if (x - off_x, y - off_y) not in self.visited_tiles: #in visited_tiles:
+                continue
+
+            tile = self.dungeon.map[x - off_x][y - off_y]
+            if tile is not Tile.EMPTY:
+                d = distance((x - off_x, y - off_y), (x0, y0))
+                a = max(MIN_ALPHA, 255 - int((255-MIN_ALPHA)/self.sight.radius * d))
+                marker, fg, bg = get_tile_info(tile)
+
+                if d == 0:
+                    marker, fg, bg = self.marker, self.own_fg, self.bg
+                elif (x - off_x, y - off_y) in self.visible_tiles:
+                    fg = self.sight.color
+                    # a = 255 #debug
+            
+                rendered_map[x][y] = marker_to_urwid_text(marker, fg, bg, a)
+                    
+                
+                    
+    return rendered_map
+
+def get_tile_info(tile: tuple[urwid.AttrSpec, str]) -> tuple[str, tuple[int, int, int], tuple[int, int, int] | None]:
+    if tile is Tile.EMPTY:
+        return Tile.EMPTY, (255, 255, 255), None
+    marker = tile[1]
+    rgb_values = tile[0].get_rgb_values()
+    fg, bg = rgb_values[:3], rgb_values[3:]
+    if fg == (None, None, None):
+        fg = None
+    if bg == (None, None, None):
+        bg = None
+    return marker, fg, bg
 
 
     
@@ -190,6 +373,36 @@ def _AStar(start: tuple[int, int], goal: tuple[int, int]) -> list[tuple[int, int
                     open.add(neighbor)
     return []
 
+def is_tile_shadowed_by_walls(x_y0: tuple[int, int], x_y: tuple[int, int], walls: list[tuple[int, int]]) -> bool:
+    #FIXME: for the love of god i don't know why it doesnt work
+    if x_y == x_y0:
+        return False
+    x0, y0 = x_y0
+    x, y = x_y
+    if x0 == x:
+        for yi in range(min(y0, y) + 1, max(y0, y)):
+            if (x, yi) in walls:
+                return True
+        return False
+    
+    # if y0 == y:
+    #     for xi in range(min(x0, x) + 1, max(x0, x)):
+    #         if (xi, y) in walls:
+    #             return True
+    #     return False
+
+    m = (y0 - y) / (x0 - x)
+    for xi in range(min(x0, x) + 1, max(x0, x)):
+        yi = int(m * (xi - x0) + y0)
+        if (xi, yi) in walls:
+            return True
+
+    for yi in range(min(y0, y) + 1, max(y0, y)):
+        xi = int((yi - y0) / m + x0)
+        if (xi, yi) in walls:
+            return True
+
+    return False
 
 def generate_dungeon(cells_x: int, cells_y: int, cell_size: int=6) -> tuple[int, int, dict[tuple[int, int], Tile]]:
     # 1. Divide the map into a grid of evenly sized cells.

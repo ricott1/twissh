@@ -1,6 +1,7 @@
 from __future__ import annotations
 import esper
-from hacknslassh.components.characteristics import Characteristics
+from hacknslassh.components.characteristics import RGB
+from hacknslassh.components.sight import Sight
 from hacknslassh.components.user import User
 from hacknslassh.processors.action import Action
 from hacknslassh.utils import distance
@@ -10,7 +11,7 @@ from hacknslassh.constants import *
 
 class Move(Action):
     name = "move"
-    recoil_cost = Recoil.SHORT
+    recoil_cost = Recoil.MINIMUM
     description = "Move forward"
     direction = None
 
@@ -23,9 +24,11 @@ class Move(Action):
             in_location.direction = cls.direction
             in_location.marker = Markers.USER[cls.direction]
             in_location.dungeon.set_renderable_entity(ent_id)
+            if user := world.try_component(ent_id, User):
+                user.mind.process_event("player_status_changed")
         else:
             acting = world.try_component(ent_id, Acting)
-            if not acting and acting.movement_recoil == 0:
+            if not acting or acting.movement_recoil > 0:
                 return
             target_is_free = in_location.dungeon.get_at(in_location.forward) is None
             if not target_is_free:
@@ -38,16 +41,21 @@ class Move(Action):
                 in_location.dungeon.remove_renderable_entity(ent_id)
                 in_location.position = new_position
                 in_location.dungeon.set_renderable_entity(ent_id)
-                dex = world.component_for_entity(ent_id, Characteristics).DEXTERITY
-                acting.movement_recoil = cls.recoil_cost * 10 / (1 + dex)
-                # in_location.update_visible_and_visited_tiles()
-                user = world.try_component(ent_id, User)
-                if user:
+                dex = world.component_for_entity(ent_id, RGB).dexterity
+                acting.movement_recoil = cls.recoil_cost * (10 / dex)
+                 
+                if user := world.try_component(ent_id, User):
                     user.mind.process_event("player_movement")
-                
-        for ent_id, (other_user, other_in_loc) in world.get_components(User, InLocation):
-            if other_in_loc.dungeon == in_location.dungeon:
-                other_user.mind.process_event("redraw_local_ui_next_cycle")
+
+        sight = world.component_for_entity(ent_id, Sight)
+        x0, y0, _ = in_location.position
+        sight.update_visible_and_visited_tiles((x0, y0), in_location.direction, in_location.dungeon)
+        
+        if user := world.try_component(ent_id, User):
+                user.mind.process_event("redraw_local_ui")
+        for other_ent_id, (other_user, other_in_loc, other_sight) in world.get_components(User, InLocation, Sight):
+            if other_ent_id != ent_id and other_in_loc.dungeon == in_location.dungeon and distance(in_location.position, other_in_loc.position) <= other_sight.radius:
+                other_user.mind.process_event("redraw_local_ui")
     
     
 

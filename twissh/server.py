@@ -56,7 +56,7 @@ from twisted.conch.error import ConchError
 from twisted.conch import interfaces
 from twisted.python.components import Componentized, Adapter
 from twisted.internet.task import LoopingCall
-from twisted.internet import defer, reactor
+from twisted.internet import defer
 
 class UrwidUi(object):
     def __init__(self, mind: UrwidMind, toplevel: Type[urwid.Widget]) -> None:
@@ -181,10 +181,10 @@ class UrwidMind(Adapter):
         self.master = master
         self.master.register_mind(self)
         # we ask to redraw as soon as a change from the ui is registered
-        self.register_callback("redraw_local_ui", self.draw)
-        self.register_callback("redraw_local_ui_next_cycle", self.set_ui_redraw)
-        self.register_callback("redraw_global_ui", lambda: self.master.dispatch_event("redraw_local_ui_next_cycle"), priority=1)
-        self.register_callback("chat_message_sent", lambda _from, msg: self.master.dispatch_event("chat_message_received", _from, msg))
+        self.register_callback("redraw_local_ui", self.set_ui_redraw)
+        # self.register_callback("redraw_local_ui", self.set_ui_redraw)
+        # self.register_callback("redraw_global_ui", lambda: self.master.dispatch_event("redraw_local_ui"), priority=1)
+        self.register_callback("chat_message_sent", lambda _from_name, _from_id, msg, attr, language: self.master.dispatch_event("chat_message_received", _from_name, _from_id, msg, attr, language))
 
     def push(self, data):
         if self.ui:
@@ -486,12 +486,12 @@ class UrwidRealm(TerminalRealm):
         from mathclassh import MathClassH
 
         self.hacknslassh = HackNSlassh()
-        self.mathclassh = MathClassH()
+        # self.mathclassh = MathClassH()
 
         self.minds: dict[bytes, UrwidMind] = {}
 
         LoopingCall(self.hacknslassh.update).start(self.hacknslassh.UPDATE_STEP)
-        LoopingCall(self.mathclassh.update).start(self.mathclassh.UPDATE_STEP)
+        # LoopingCall(self.mathclassh.update).start(self.mathclassh.UPDATE_STEP)
         LoopingCall(self.update_minds).start(self.UPDATE_STEP)
 
     def requestAvatar(self, avatarId, mind, *interfaces):

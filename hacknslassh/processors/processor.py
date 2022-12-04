@@ -1,10 +1,13 @@
 import esper
-from hacknslassh.components.tokens import IncreasedSightToken
+from hacknslassh.components.tokens import IncreasedSightToken, TransformedToken
+from hacknslassh.processors.transform_actions import TransformingToken
+from hacknslassh.utils import distance
 import pygame as pg
 from hacknslassh.components.image import ImageTransition, ImageTransitionStyle
 from hacknslassh.components.in_location import InLocation
+from hacknslassh.components.sight import Sight
 from ..gui.utils import combine_RGB_colors
-from ..components import Image, DelayCallback, Health, HealthRegeneration, Mana, ManaRegeneration, Acting, User, DeathCallback
+from ..components import Image, DelayCallback, RGB, RedRegeneration, BlueRegeneration, GreenRegeneration, Acting, User, DeathCallback
 
 
 class UserInputProcessor(esper.Processor):
@@ -16,27 +19,32 @@ class UserInputProcessor(esper.Processor):
 
 class SightTokenProcessor(esper.Processor):
     def process(self, dt: float) -> None:
-        for ent_id, (in_loc, sight_token) in self.world.get_components(InLocation, IncreasedSightToken):
-            user: User = self.world.try_component(ent_id, User)
-            reduction_signalled = False
-            for i in range(len(sight_token.values)):
-                sight_token.values[i] -= dt
-                if sight_token.values[i] <= 0:
-                    in_loc.sight_radius -= 1
-                    if user and not reduction_signalled:
-                        user.mind.process_event("redraw_local_ui")
+        for ent_id, (sight, token) in self.world.get_components(Sight, IncreasedSightToken):
+            if token.on_processor:
+                token.on_processor(self.world, ent_id, dt)
+            for i in range(len(token.values)):
+                token.values[i] -= dt
+                if token.values[i] <= 0:
+                    sight.radius -= 1
+                    if user := self.world.try_component(ent_id, User):
                         user.mind.process_event("player_status_changed")
-                        reduction_signalled = True
+                        user.mind.process_event("redraw_local_ui")
 
-            sight_token.values = [x for x in sight_token.values if x > 0]
-            if not sight_token.values:
+            token.values = [x for x in token.values if x > 0]
+            if not token.values:
                 self.world.remove_component(ent_id, IncreasedSightToken)
+
+class TransformedTokenProcessor(esper.Processor):
+    def process(self, dt: float) -> None:
+        for ent_id, (token, ) in self.world.get_components(TransformedToken):
+            if token.on_processor:
+                token.on_processor(self.world, ent_id, dt)
             
 
 class DeathProcessor(esper.Processor):
     def process(self, dt: float) -> None:
-        for ent_id, (health, _) in self.world.get_components(Health, Acting):
-            if health.value <= 0 and not self.world.try_component(ent_id, DeathCallback):
+        for ent_id, (rgb, _) in self.world.get_components(RGB, Acting):
+            if rgb.alpha <= 0 and not self.world.try_component(ent_id, DeathCallback):
                 death_counter = DeathCallback(lambda: self.world.delete_entity(ent_id))
                 self.world.add_component(ent_id, death_counter)
                 self.world.component_for_entity(ent_id, Acting).selected_action = None
@@ -63,8 +71,16 @@ class DelayCallbackProcessor(esper.Processor):
         for ent, (delay_cb, ) in self.world.get_components(DelayCallback):
             delay_cb.delay -= deltatime
             if delay_cb.delay <= 0:
-                delay_cb.callback(ent)
+                delay_cb.callback(self.world, ent)
                 self.world.remove_component(ent, DelayCallback)
+
+class TransformingTokenProcessor(esper.Processor):
+    def process(self, deltatime: float) -> None:
+        for ent, (delay_cb, ) in self.world.get_components(TransformingToken):
+            delay_cb.delay -= deltatime
+            if delay_cb.delay <= 0:
+                delay_cb.callback(self.world, ent)
+                self.world.remove_component(ent, TransformingToken)
                 
 class ImageTransitionProcessor(esper.Processor):
     def process(self, deltatime: float) -> None:
@@ -110,32 +126,69 @@ class ImageTransitionProcessor(esper.Processor):
 
 class RegenerationProcessor(esper.Processor):
     def process(self, deltatime: float):
-        for ent, (health, health_reg) in self.world.get_components(Health, HealthRegeneration):
-            health_reg.frame += 1
-            if health_reg.frame >= health_reg.frames_to_regenerate:
-                health.value += 1
+        for ent, (rgb, red_reg) in self.world.get_components(RGB, RedRegeneration):
+            red = rgb.red
+            red_reg.frame += 1
+            if red_reg.frame >= red_reg.frames_to_regenerate:
+                red.value += 1
                 if self.world.has_component(ent, User):
                     self.world.component_for_entity(ent, User).mind.emit_event("player_hp_changed")
-                health_reg.value -= 1
-                health_reg.frame = 0
-                if health.value >= health.max_value or health_reg.value <= 0:
-                    health.value = health.max_value
-                    self.world.remove_component(ent, HealthRegeneration)
+                red_reg.value -= 1
+                red_reg.frame = 0
+                if red_reg.value <= 0:
+                    self.world.remove_component(ent, RedRegeneration)
         
-        for ent, (mana, mana_reg) in self.world.get_components(Mana, ManaRegeneration):
-            mana_reg.frame += 1
-            if mana_reg.frame >= mana_reg.frames_to_regenerate:
-                mana.value += 1
+        for ent, (rgb, blue_reg) in self.world.get_components(RGB, BlueRegeneration):
+            blue = rgb.blue
+            blue_reg.frame += 1
+            if blue_reg.frame >= blue_reg.frames_to_regenerate:
+                blue.value += 1
                 if self.world.has_component(ent, User):
                     self.world.component_for_entity(ent, User).mind.emit_event("player_mp_changed")
-                mana_reg.value -= 1
-                mana_reg.frame = 0
-                if mana.value >= mana.max_value or mana_reg.value <= 0:
-                    mana.value = mana.max_value
-                    self.world.remove_component(ent, ManaRegeneration)
+                blue_reg.value -= 1
+                blue_reg.frame = 0
+                if blue_reg.value <= 0:
+                    self.world.remove_component(ent, BlueRegeneration)
+
+        for ent, (rgb, green_reg) in self.world.get_components(RGB, GreenRegeneration):
+            green = rgb.green
+            green_reg.frame += 1
+            if green_reg.frame >= green_reg.frames_to_regenerate:
+                green.value += 1
+                if self.world.has_component(ent, User):
+                    self.world.component_for_entity(ent, User).mind.emit_event("player_green_changed")
+                green_reg.value -= 1
+                green_reg.frame = 0
+                if green_reg.value <= 0:
+                    self.world.remove_component(ent, GreenRegeneration)
 
 
-# class DungeonRendererProcessor(esper.Processor):
-#     def process(self, deltatime: float):
-#         for ent, (in_loc) in self.world.get_components(InLocation):
+class SightProcessor(esper.Processor):
+    def process(self, deltatime: float):
+        for ent_id, (in_loc, sight, rgb) in self.world.get_components(InLocation, Sight, RGB):
+            red = rgb.red
+            green = rgb.green
+            blue = rgb.blue
+
+            # We rescale to keep luminosity up, although the color changes
+            rescale = 255/max(red.value, green.value, blue.value, 1)
+            new_sight_color = (int(rescale * red.value), int(rescale * green.value), int(rescale * blue.value))
+            updated = False
+            if new_sight_color != sight.color:
+                sight.color = new_sight_color
+                in_loc.fg = sight.color
+                updated = True
             
+            new_sight_radius = rgb.acumen
+            if new_sight_radius != sight.radius:
+                sight.radius = new_sight_radius
+                updated = True
+            
+            if updated:
+                if user := self.world.try_component(ent_id, User):
+                    user.mind.process_event("player_status_changed")
+                    user.mind.process_event("redraw_local_ui")
+                
+                for other_ent_id, (other_user, other_in_loc, other_sight) in self.world.get_components(User, InLocation, Sight):
+                    if other_ent_id != ent_id and other_in_loc.dungeon == in_loc.dungeon and distance(in_loc.position, other_in_loc.position) <= other_sight.radius:
+                        other_user.mind.process_event("redraw_local_ui")

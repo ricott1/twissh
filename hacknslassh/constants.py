@@ -1,3 +1,4 @@
+from __future__ import annotations
 from enum import Enum
 
 
@@ -25,7 +26,6 @@ EXP_PER_LEVEL = 1000
 EXP_PER_KILL = 100
 
 BASE_ATTACK_SPEED = 0.75
-HEALTH_BARS_LENGTH = RECOIL_BARS_LENGTH = 15
 
 INVENTORY_SIZE = 12
 MAX_NUM_QUICK_ITEMS = 5
@@ -44,12 +44,20 @@ class MapSize(object):
     LARGE = (80, 20)
 
 ###DEFAULT KEY MAP
+
+class ChatKeyMap(str, Enum):
+    SEND = "enter"
+    DELETE = "backspace"
+    CLEAR = "ctrl k"
+    CARRIAGE_RETURN = "ctrl a"
+
 class KeyMap(str, Enum):
     INVENTORY_MENU = "I"
     STATUS_MENU = "S"
     HELP_MENU = "H"
     EQUIPMENT_MENU = "E"
     EXPLORER_MENU = "X"
+    CHAT_MENU = "C"
     QUICK_MENU = "Q"
     TOGGLE_FULL_MENU = "tab"
     CENTER_CAMERA = "c"
@@ -59,7 +67,8 @@ class KeyMap(str, Enum):
     RIGHT = "right"
 
 
-MenuKeyMap = [KeyMap.STATUS_MENU, KeyMap.INVENTORY_MENU, KeyMap.EQUIPMENT_MENU, KeyMap.HELP_MENU]
+
+MenuKeyMap = [KeyMap.STATUS_MENU, KeyMap.INVENTORY_MENU, KeyMap.EQUIPMENT_MENU, KeyMap.HELP_MENU, KeyMap.CHAT_MENU]
 
 class Tile:
     EMPTY = " "

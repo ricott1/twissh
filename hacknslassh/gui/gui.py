@@ -14,9 +14,9 @@ class GUI(urwid.Frame):
         super().__init__(self.active_body)
         self.mind.register_callback("new_player", self.start_game_frame)
 
-    def handle_input(self, _input):
+    def handle_input(self, _input: str) -> None:
         self.active_body.handle_input(_input)
 
-    def start_game_frame(self):
+    def start_game_frame(self) -> None:
         self.active_body = NetHackFrame(self.mind)
         self.contents["body"] = (self.active_body, None)
