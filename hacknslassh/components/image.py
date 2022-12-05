@@ -33,7 +33,7 @@ class ImageTransitionStyle(str, Enum):
 class ImageTransition(Component):
     old_surface: pg.Surface
     new_surface: pg.Surface
-    delay: float = 2.0
+    delay: float
     current_delay: float = 0.0
     transition: ImageTransitionStyle = ImageTransitionStyle.LINEAR
     reversed: bool = False
@@ -74,12 +74,6 @@ class HPBottleImageCollection(object):
     L4 = Image(pg.image.load(f"{file_dir}/assets/bottles/hp4.png"))
     L5 = Image(pg.image.load(f"{file_dir}/assets/bottles/hp5.png"))
     L6 = Image(pg.image.load(f"{file_dir}/assets/bottles/hp6.png"))
-    R0 = Image(pg.image.load(f"{file_dir}/assets/bottles/hp_reg0.png"))
-    R1 = Image(pg.image.load(f"{file_dir}/assets/bottles/hp_reg1.png"))
-    R2 = Image(pg.image.load(f"{file_dir}/assets/bottles/hp_reg2.png"))
-    R3 = Image(pg.image.load(f"{file_dir}/assets/bottles/hp_reg3.png"))
-    R4 = Image(pg.image.load(f"{file_dir}/assets/bottles/hp_reg4.png"))
-    R5 = Image(pg.image.load(f"{file_dir}/assets/bottles/hp_reg5.png"))
 
 
 class MPBottleImageCollection(object):
@@ -90,12 +84,6 @@ class MPBottleImageCollection(object):
     L4 = Image(pg.image.load(f"{file_dir}/assets/bottles/mp4.png"))
     L5 = Image(pg.image.load(f"{file_dir}/assets/bottles/mp5.png"))
     L6 = Image(pg.image.load(f"{file_dir}/assets/bottles/mp6.png"))
-    R0 = Image(pg.image.load(f"{file_dir}/assets/bottles/mp_reg0.png"))
-    R1 = Image(pg.image.load(f"{file_dir}/assets/bottles/mp_reg1.png"))
-    R2 = Image(pg.image.load(f"{file_dir}/assets/bottles/mp_reg2.png"))
-    R3 = Image(pg.image.load(f"{file_dir}/assets/bottles/mp_reg3.png"))
-    R4 = Image(pg.image.load(f"{file_dir}/assets/bottles/mp_reg4.png"))
-    R5 = Image(pg.image.load(f"{file_dir}/assets/bottles/mp_reg5.png"))
 
 class SPBottleImageCollection(object):
     L0 = Image(pg.image.load(f"{file_dir}/assets/bottles/sp0.png"))
@@ -105,17 +93,19 @@ class SPBottleImageCollection(object):
     L4 = Image(pg.image.load(f"{file_dir}/assets/bottles/sp4.png"))
     L5 = Image(pg.image.load(f"{file_dir}/assets/bottles/sp5.png"))
     L6 = Image(pg.image.load(f"{file_dir}/assets/bottles/sp6.png"))
-    R0 = Image(pg.image.load(f"{file_dir}/assets/bottles/sp_reg0.png"))
-    R1 = Image(pg.image.load(f"{file_dir}/assets/bottles/sp_reg1.png"))
-    R2 = Image(pg.image.load(f"{file_dir}/assets/bottles/sp_reg2.png"))
-    R3 = Image(pg.image.load(f"{file_dir}/assets/bottles/sp_reg3.png"))
-    R4 = Image(pg.image.load(f"{file_dir}/assets/bottles/sp_reg4.png"))
-    R5 = Image(pg.image.load(f"{file_dir}/assets/bottles/sp_reg5.png"))
+
+class RegenerationBottleImageCollection(object):
+    L0 = Image(pg.image.load(f"{file_dir}/assets/bottles/reg0.png"))
+    L1 = Image(pg.image.load(f"{file_dir}/assets/bottles/reg1.png"))
+    L2 = Image(pg.image.load(f"{file_dir}/assets/bottles/reg2.png"))
+    L3 = Image(pg.image.load(f"{file_dir}/assets/bottles/reg3.png"))
+    L4 = Image(pg.image.load(f"{file_dir}/assets/bottles/reg4.png"))
+    L5 = Image(pg.image.load(f"{file_dir}/assets/bottles/reg5.png"))
 
 
 class ImageCollection(object):
     EMPTY = Image(pg.Surface((0, 0), pg.SRCALPHA))
-    BACKGROUND_NONE = Image(pg.image.load(f"{file_dir}/assets/background_none.png"))
+    BACKGROUND_NONE = Image(pg.Surface((20, 38), pg.SRCALPHA))
     BACKGROUND_SELECTED = Image(pg.image.load(f"{file_dir}/assets/background_selected.png"))
     BACKGROUND_UNSELECTED = Image(pg.image.load(f"{file_dir}/assets/background_unselected.png"))
     CHARACTERS = {
@@ -123,9 +113,10 @@ class ImageCollection(object):
         GenderType.MALE: {k: Image(pg.image.load(f"{file_dir}/assets/characters/{k.lower()}_male.png")) for k in GameClassName},
     }
 
-    HP_BOTTLE = HPBottleImageCollection()
-    MP_BOTTLE = MPBottleImageCollection()
-    SP_BOTTLE = SPBottleImageCollection()
+    RED_BOTTLE = HPBottleImageCollection()
+    BLUE_BOTTLE = MPBottleImageCollection()
+    GREEN_BOTTLE = SPBottleImageCollection()
+    REGEN_BOTTLE = RegenerationBottleImageCollection()
     HP_POTION = HPPotionImageCollection()
     MP_POTION = MPPotionImageCollection()
     REJUVENATION_POTION = RejuvenationPotionImageCollection()

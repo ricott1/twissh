@@ -22,6 +22,7 @@ class HackNSlassh(UrwidMaster):
         self.world.add_processor(processor.DelayCallbackProcessor())
         self.world.add_processor(processor.UserInputProcessor(), priority=2)
         self.world.add_processor(processor.DeathProcessor(), priority=3)
+        self.world.add_processor(processor.DeathCallbackProcessor(), priority=2)
         self.world.add_processor(processor.ImageTransitionProcessor(), priority=1)
         self.world.add_processor(processor.SightTokenProcessor(), priority=1)
         self.world.add_processor(processor.TransformedTokenProcessor(), priority=1)
@@ -49,9 +50,12 @@ class HackNSlassh(UrwidMaster):
         if mind.avatar.uuid.bytes in self.player_ids:
             ent_id = self.player_ids[mind.avatar.uuid.bytes]
             self.world.component_for_entity(ent_id, RGB).kill()
+            print("disconnect", mind.avatar.uuid.bytes, "from", self.minds)
+            print("ENT ID", ent_id, "RGB", self.world.component_for_entity(ent_id, RGB))
+            
             # comment next line to keep disconnected bodies in (maybe set them dead)
-            self.world.delete_entity(self.player_ids[mind.avatar.uuid.bytes])
-            del self.player_ids[mind.avatar.uuid.bytes]
+            
+            # del self.player_ids[mind.avatar.uuid.bytes]
         if mind.avatar.uuid.bytes in self.minds:
             del self.minds[mind.avatar.uuid.bytes]
 

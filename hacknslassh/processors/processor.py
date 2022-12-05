@@ -12,7 +12,7 @@ from ..components import Image, DelayCallback, RGB, RedRegeneration, BlueRegener
 
 class UserInputProcessor(esper.Processor):
     def process(self, dt: float) -> None:
-        for ent_id, (user, acting) in self.world.get_components(User, Acting):
+        for _, (user, acting) in self.world.get_components(User, Acting):
             if user.last_input in acting.actions:
                 acting.selected_action = acting.actions[user.last_input]
                 user.last_input = ""
@@ -45,7 +45,7 @@ class DeathProcessor(esper.Processor):
     def process(self, dt: float) -> None:
         for ent_id, (rgb, _) in self.world.get_components(RGB, Acting):
             if rgb.alpha <= 0 and not self.world.try_component(ent_id, DeathCallback):
-                death_counter = DeathCallback(lambda: self.world.delete_entity(ent_id))
+                death_counter = DeathCallback()
                 self.world.add_component(ent_id, death_counter)
                 self.world.component_for_entity(ent_id, Acting).selected_action = None
                 in_location = self.world.component_for_entity(ent_id, InLocation)
@@ -55,6 +55,24 @@ class DeathProcessor(esper.Processor):
                 in_location.marker = "X"
                 in_location.dungeon.set_renderable_entity(ent_id)
 
+class DeathCallbackProcessor(esper.Processor):
+    def process(self, deltatime: float) -> None:
+        for ent_id, (delay_cb, ) in self.world.get_components(DeathCallback):
+            delay_cb.delay -= deltatime
+            if delay_cb.delay <= 0:
+                self.world.remove_component(ent_id, DeathCallback)
+                in_loc = self.world.component_for_entity(ent_id, InLocation)
+                in_loc.dungeon.remove_renderable_entity(ent_id)
+                
+                if user := self.world.try_component(ent_id, User):
+                    user.mind.process_event("redraw_local_ui")
+                for other_ent_id, (other_user, other_in_loc, other_sight) in self.world.get_components(User, InLocation, Sight):
+                    if other_ent_id != ent_id and other_in_loc.dungeon == in_loc.dungeon and distance(in_loc.position, other_in_loc.position) <= other_sight.radius:
+                        other_user.mind.process_event("redraw_local_ui")
+                
+                self.world.delete_entity(ent_id)
+        
+
 class ActionProcessor(esper.Processor):
     def process(self, deltatime: float) -> None:
         for ent_id, (acting,) in self.world.get_components(Acting):
@@ -63,8 +81,12 @@ class ActionProcessor(esper.Processor):
                 acting.selected_action = None
             if acting.action_recoil > 0:
                 acting.action_recoil = max(0, acting.action_recoil - deltatime)
+                if user := self.world.try_component(ent_id, User):
+                    user.mind.process_event("player_acting_changed")
             if acting.movement_recoil > 0:
                 acting.movement_recoil = max(0, acting.movement_recoil - deltatime)
+                if user := self.world.try_component(ent_id, User):
+                    user.mind.process_event("player_acting_changed")
 
 class DelayCallbackProcessor(esper.Processor):
     def process(self, deltatime: float) -> None:
@@ -84,11 +106,11 @@ class TransformingTokenProcessor(esper.Processor):
                 
 class ImageTransitionProcessor(esper.Processor):
     def process(self, deltatime: float) -> None:
-        for ent, (image, image_mod,) in self.world.get_components(Image, ImageTransition):
+        for ent_id, (image_mod,) in self.world.get_components(ImageTransition):
             image_mod.current_delay += deltatime
             if image_mod.current_delay >= image_mod.delay:
-                self.world.add_component(ent, Image(image_mod.new_surface))
-                self.world.remove_component(ent, ImageTransition) 
+                self.world.add_component(ent_id, Image(image_mod.new_surface))
+                self.world.remove_component(ent_id, ImageTransition) 
                 continue
             
             if image_mod.transition == ImageTransitionStyle.LINEAR:
@@ -109,7 +131,7 @@ class ImageTransitionProcessor(esper.Processor):
                         if a > 0:
                             r, g, b = combine_RGB_colors((r, g, b), (255, 255, 255), 2*d-1, 2-2*d)
                             srf.set_at((x, y), (r, g, b, a))
-                self.world.add_component(ent, Image(srf))
+                self.world.add_component(ent_id, Image(srf))
             else:
                 srf = old_surface
                 for x in range(srf.get_width()):
@@ -118,11 +140,16 @@ class ImageTransitionProcessor(esper.Processor):
                         if a > 0:
                             r, g, b = combine_RGB_colors((r, g, b), (255, 255, 255), 1-2*d, 2*d)
                             srf.set_at((x, y), (r, g, b, a))
-                self.world.add_component(ent, Image(srf))
+                self.world.add_component(ent_id, Image(srf))
 
 
-            if user := self.world.try_component(ent, User):
+            if user := self.world.try_component(ent_id, User):
                 user.mind.process_event("player_image_changed")
+                in_loc = self.world.component_for_entity(ent_id, InLocation)
+                for other_ent_id, (other_user, other_in_loc, other_sight) in self.world.get_components(User, InLocation, Sight):
+                    if other_ent_id != ent_id and other_in_loc.dungeon == in_loc.dungeon and distance(in_loc.position, other_in_loc.position) <= other_sight.radius:
+                        other_user.mind.process_event("other_player_image_changed")
+                        other_user.mind.process_event("redraw_local_ui")
 
 class RegenerationProcessor(esper.Processor):
     def process(self, deltatime: float):
@@ -171,7 +198,8 @@ class SightProcessor(esper.Processor):
             blue = rgb.blue
 
             # We rescale to keep luminosity up, although the color changes
-            rescale = 255/max(red.value, green.value, blue.value, 1)
+            MAX_ALPHA = 255
+            rescale = MAX_ALPHA/max(red.value, green.value, blue.value, 1)
             new_sight_color = (int(rescale * red.value), int(rescale * green.value), int(rescale * blue.value))
             updated = False
             if new_sight_color != sight.color:
@@ -179,9 +207,8 @@ class SightProcessor(esper.Processor):
                 in_loc.fg = sight.color
                 updated = True
             
-            new_sight_radius = rgb.acumen
-            if new_sight_radius != sight.radius:
-                sight.radius = new_sight_radius
+            if rgb.acumen != sight.radius:
+                sight.radius = rgb.acumen
                 updated = True
             
             if updated:

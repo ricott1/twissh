@@ -3,7 +3,6 @@ from __future__ import annotations
 from dataclasses import dataclass
 import random
 
-from ..utils import roll3d6
 from .base import Component
 
 @dataclass
@@ -31,32 +30,6 @@ class RGB(Component):
     @classmethod
     def random(cls) -> RGB:
         return RGB(ColorCharacteristic(random.randint(0, 255)), ColorCharacteristic(random.randint(0, 255)), ColorCharacteristic(random.randint(0, 255)))
-
-    @classmethod
-    def human(cls) -> RGB:
-        return RGB(ColorCharacteristic(255, 255), ColorCharacteristic(255, 255), ColorCharacteristic(255, 255))
-
-    @classmethod
-    def elf(cls) -> RGB:
-        return RGB(ColorCharacteristic(185, 185), ColorCharacteristic(215, 215), ColorCharacteristic(255, 255))
-
-    @classmethod
-    def cat(cls) -> RGB:
-        return RGB(ColorCharacteristic(155, 155), ColorCharacteristic(255, 255), ColorCharacteristic(155, 155))
-    
-    @classmethod
-    def devil(cls) -> RGB:
-        return RGB(ColorCharacteristic(255, 255), ColorCharacteristic(0, 0), ColorCharacteristic(0, 0))
-
-    @classmethod
-    def orc(cls) -> RGB:
-        return RGB(ColorCharacteristic(215, 215), ColorCharacteristic(255, 255), ColorCharacteristic(155, 155))
-    
-    @classmethod
-    def dwarf(cls) -> RGB:
-        return RGB(ColorCharacteristic(255, 255), ColorCharacteristic(155, 155), ColorCharacteristic(215, 215))
-
-
     
     def kill(self) -> None:
         self.red.value = 0

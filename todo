@@ -20,14 +20,8 @@ add suggested min screen size
 
 
 
-come fare incantesimi? mana?
-world map give also data, like connections and loot probabilities
-move player recoil and life and action to footer, levae just other stuff in header
-
 
 ##BUGs
 
-
-- DisplayMathematician also has buttons to explore other structures
-
-- Umano a seconda del valore piu alto si trasforma tra bardo (rosso), nerd (blu) e guerriero (verde)
+- Shadowed_tiles in dungeon do not work. No idea why.
+- Umano a seconda del valore piu alto si trasforma tra bardo (rosso), nerd (blu) e guerriero (verde). Umano e' l'unico che puo' recuperare tutti RGB

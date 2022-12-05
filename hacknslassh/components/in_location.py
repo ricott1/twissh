@@ -2,11 +2,11 @@ from __future__ import annotations
 from dataclasses import dataclass
 from enum import Enum
 from typing import TYPE_CHECKING
+
+import esper
 if TYPE_CHECKING:
     from hacknslassh.dungeon import Dungeon
 from hacknslassh.components.base import Component
-
-MIN_ALPHA = 55
 
 class Direction(str, Enum):
     UP = "up"
@@ -85,7 +85,7 @@ class InLocation(Component):
         delta_y = int(self.direction == Direction.RIGHT) - int(self.direction == Direction.LEFT)
         x, y, z = self.position
         return (x + delta_y, y + delta_x, z)
-
+    
 
 if __name__ == "__main__":
     from dungeon import is_tile_shadowed_by_walls

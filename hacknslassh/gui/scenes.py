@@ -1,5 +1,6 @@
 # encoding: utf-8
 
+import random
 from typing import Callable, Type
 
 import esper
@@ -12,7 +13,7 @@ if TYPE_CHECKING:
 import urwid
 
 from hacknslassh.components.characteristics import RGB
-from hacknslassh.components.in_location import MIN_ALPHA, InLocation
+from hacknslassh.components.in_location import InLocation
 from hacknslassh.components.description import Info, Language
 from hacknslassh.components.user import User
 from hacknslassh.components.sight import Sight
@@ -109,7 +110,8 @@ class CharacterSelectionFrame(Scene, urwid.Pile):
         max_width = max([len(opt) for opt in self.options], default=1)
         self.buttons = [
             attr_button(
-                opt.center(max_width),
+                f"<- {opt.center(max_width)} ->",
+                on_press = self.select_character,
             )
             for opt in self.options
         ]
@@ -131,14 +133,23 @@ class CharacterSelectionFrame(Scene, urwid.Pile):
         
     def handle_input(self, _input, pressed_since=0):
         if _input == "enter":
-            row_index = self.menu.focus_position
-            column_index = self.main.focus_position
-            selection = self.options_keys[row_index]
-            gender = GenderType.FEMALE if column_index == 0 else GenderType.MALE
-            player_id = self.master.register_new_player(self.mind, selection, gender)
-            self.emit_event("new_player")
+            self.select_character()
         elif _input in ("up", "down", "left", "right"):
             self.update()
+        
+    def select_character(self, btn=None):
+        row_index = self.menu.focus_position
+        column_index = self.main.focus_position
+        selection = self.options_keys[row_index]
+        print("column_index", column_index)
+        if column_index == 0:
+            gender = GenderType.FEMALE
+        elif column_index == 2:
+            gender = GenderType.MALE
+        else:
+            gender = random.choice([GenderType.FEMALE, GenderType.MALE])
+        player_id = self.master.register_new_player(self.mind, selection, gender)
+        self.emit_event("new_player")
     
     def keypress(self, size, key):
         key = super().keypress(size, key)
@@ -262,14 +273,14 @@ class BottlesAndQuickItemFrame(Scene, urwid.Columns):
                 urwid.Text(f""),
             ]
         )
-        self.update_status_walker()
+        
         self.status_columns = [urwid.LineBox(urwid.ListBox(self.status_walker))]
         self.menu_view = self.status_columns
         super().__init__(
             mind,
-            [(self.BOTTLE_WIDTH, frames.ImageFrame(ImageCollection.HP_BOTTLE.L0))]
-            + [(self.BOTTLE_WIDTH + 2, frames.ImageFrame(ImageCollection.SP_BOTTLE.L0, x_offset=1))]
-            + [(self.BOTTLE_WIDTH, frames.ImageFrame(ImageCollection.MP_BOTTLE.L0))]
+            [(self.BOTTLE_WIDTH, frames.ImageFrame(ImageCollection.RED_BOTTLE.L0))]
+            + [(self.BOTTLE_WIDTH + 2, frames.ImageFrame(ImageCollection.GREEN_BOTTLE.L0, x_offset=1))]
+            + [(self.BOTTLE_WIDTH, frames.ImageFrame(ImageCollection.BLUE_BOTTLE.L0))]
             + self.menu_view,
         )
         self.update_red_bottle()
@@ -280,11 +291,13 @@ class BottlesAndQuickItemFrame(Scene, urwid.Columns):
         self.register_callback("player_blue_changed", self.update_status_walker)
         self.register_callback("player_green_changed", self.update_status_walker)
         self.register_callback("player_status_changed", self.update_status_walker)
+        self.register_callback("player_acting_changed", self.update_status_walker)
         self.register_callback("player_red_changed", self.update_red_bottle)
         self.register_callback("player_blue_changed", self.update_blue_bottle)
         self.register_callback("player_green_changed", self.update_green_bottle)
         self.register_callback("player_used_quick_item", self.remove_quick_item)
         self.register_callback("player_add_quick_item", self.add_quick_item)
+        self.update_status_walker()
 
     def input_handler(self, _input: str) -> bool:
         if _input.isnumeric() and QuickItemSlots.BASE_SLOTS <= int(_input) <= QuickItemSlots.MAX_SLOTS:
@@ -292,19 +305,18 @@ class BottlesAndQuickItemFrame(Scene, urwid.Columns):
         return False
 
     def update_status_walker(self) -> None:
-        rgb = self.get_player_component(RGB)
-        red = rgb.red
-        green = rgb.green
-        blue = rgb.blue
-        self.status_walker[0].set_text(f"R:{red.value:03d} G:{green.value:03d} B:{blue.value:03d}")
+        recoil = self.get_player_component(Acting).action_recoil
+        max_bars = 22
+        recoil_bars = max_bars - int((max_bars * recoil) // Recoil.MAX)
+        self.status_walker[0].set_text(["▰" * recoil_bars, "▱" * (max_bars - recoil_bars)])
         in_loc: InLocation = self.get_player_component(InLocation)
         sight: Sight = self.get_player_component(Sight)
         sight_blocks = []
-        for d in range(sight.radius + 1):
+        for d in range(1, sight.radius + 1):
             block_a = max(MIN_ALPHA, 255 - int((255-MIN_ALPHA)/sight.radius * d))
             r, g, b = RGBA_to_RGB(*sight.color, block_a)
             sight_blocks.append((urwid.AttrSpec(f"#{r:02x}{g:02x}{b:02x}", ""), "█"))
-        self.status_walker[1].set_text([f"{in_loc.marker} {sight.icon.value} "] + sight_blocks)
+        self.status_walker[1].set_text([f"{in_loc.marker}{sight.icon.value}"] + sight_blocks)
 
     def toggle_view(self) -> None:
         if self.menu_view == self.quick_items_columns:
@@ -341,38 +353,38 @@ class BottlesAndQuickItemFrame(Scene, urwid.Columns):
         red_percentage = red.value / red.max_value
         match red_percentage:
             case x if x == 1:
-                red_bottle_image = ImageCollection.HP_BOTTLE.L0
+                red_bottle_image = ImageCollection.RED_BOTTLE.L0
             case x if x >= 0.8:
-                red_bottle_image = ImageCollection.HP_BOTTLE.L1
+                red_bottle_image = ImageCollection.RED_BOTTLE.L1
             case x if x >= 0.6:
-                red_bottle_image = ImageCollection.HP_BOTTLE.L2
+                red_bottle_image = ImageCollection.RED_BOTTLE.L2
             case x if x >= 0.4:
-                red_bottle_image = ImageCollection.HP_BOTTLE.L3
+                red_bottle_image = ImageCollection.RED_BOTTLE.L3
             case x if x >= 0.2:
-                red_bottle_image = ImageCollection.HP_BOTTLE.L4
+                red_bottle_image = ImageCollection.RED_BOTTLE.L4
             case x if x > 0:
-                red_bottle_image = ImageCollection.HP_BOTTLE.L5
+                red_bottle_image = ImageCollection.RED_BOTTLE.L5
             case _:
-                red_bottle_image = ImageCollection.HP_BOTTLE.L6
+                red_bottle_image = ImageCollection.RED_BOTTLE.L6
 
         if red_reg := self.get_player_component(RedRegeneration):
             red_reg_percentage = min(1, (red.value + red_reg.value)/ red.max_value)
             match red_reg_percentage:
                 case x if x == 1:
-                    red_reg_bottle_image = ImageCollection.HP_BOTTLE.R0
+                    reg_bottle_image = ImageCollection.REGEN_BOTTLE.L0
                 case x if x >= 0.8:
-                    red_reg_bottle_image = ImageCollection.HP_BOTTLE.R1
+                    reg_bottle_image = ImageCollection.REGEN_BOTTLE.L1
                 case x if x >= 0.6:
-                    red_reg_bottle_image = ImageCollection.HP_BOTTLE.R2
+                    reg_bottle_image = ImageCollection.REGEN_BOTTLE.L2
                 case x if x >= 0.4:
-                    red_reg_bottle_image = ImageCollection.HP_BOTTLE.R3
+                    reg_bottle_image = ImageCollection.REGEN_BOTTLE.L3
                 case x if x >= 0.2:
-                    red_reg_bottle_image = ImageCollection.HP_BOTTLE.R4
+                    reg_bottle_image = ImageCollection.REGEN_BOTTLE.L4
                 case x if x > 0:
-                    red_reg_bottle_image = ImageCollection.HP_BOTTLE.R5
+                    reg_bottle_image = ImageCollection.REGEN_BOTTLE.L5
                 case _:
-                    red_reg_bottle_image = ImageCollection.HP_BOTTLE.L6
-            red_bottle_image = red_reg_bottle_image.surface.copy().blit(red_bottle_image.surface, (0, 0))
+                    reg_bottle_image = ImageCollection.REGEN_BOTTLE.L0
+            red_bottle_image = reg_bottle_image.surface.copy().blit(red_bottle_image.surface, (0, 0))
 
         self.contents[0] = (frames.ImageFrame(red_bottle_image), ("given", self.BOTTLE_WIDTH, None))
         self.emit_event("redraw_local_ui")
@@ -382,38 +394,38 @@ class BottlesAndQuickItemFrame(Scene, urwid.Columns):
         blue_percentage = blue.value / blue.max_value
         match blue_percentage:
             case x if x == 1:
-                blue_bottle_image = ImageCollection.MP_BOTTLE.L0
+                blue_bottle_image = ImageCollection.BLUE_BOTTLE.L0
             case x if x >= 0.8:
-                blue_bottle_image = ImageCollection.MP_BOTTLE.L1
+                blue_bottle_image = ImageCollection.BLUE_BOTTLE.L1
             case x if x >= 0.6:
-                blue_bottle_image = ImageCollection.MP_BOTTLE.L2
+                blue_bottle_image = ImageCollection.BLUE_BOTTLE.L2
             case x if x >= 0.4:
-                blue_bottle_image = ImageCollection.MP_BOTTLE.L3
+                blue_bottle_image = ImageCollection.BLUE_BOTTLE.L3
             case x if x >= 0.2:
-                blue_bottle_image = ImageCollection.MP_BOTTLE.L4
+                blue_bottle_image = ImageCollection.BLUE_BOTTLE.L4
             case x if x > 0:
-                blue_bottle_image = ImageCollection.MP_BOTTLE.L5
+                blue_bottle_image = ImageCollection.BLUE_BOTTLE.L5
             case _:
-                blue_bottle_image = ImageCollection.MP_BOTTLE.L6
+                blue_bottle_image = ImageCollection.BLUE_BOTTLE.L6
         
         if blue_reg := self.get_player_component(BlueRegeneration):
             blue_reg_percentage = min(1, (blue.value + blue_reg.value)/ blue.max_value)
             match blue_reg_percentage:
                 case x if x == 1:
-                    blue_reg_bottle_image = ImageCollection.MP_BOTTLE.R0
+                    reg_bottle_image = ImageCollection.REGEN_BOTTLE.L0
                 case x if x >= 0.8:
-                    blue_reg_bottle_image = ImageCollection.MP_BOTTLE.R1
+                    reg_bottle_image = ImageCollection.REGEN_BOTTLE.L1
                 case x if x >= 0.6:
-                    blue_reg_bottle_image = ImageCollection.MP_BOTTLE.R2
+                    reg_bottle_image = ImageCollection.REGEN_BOTTLE.L2
                 case x if x >= 0.4:
-                    blue_reg_bottle_image = ImageCollection.MP_BOTTLE.R3
+                    reg_bottle_image = ImageCollection.REGEN_BOTTLE.L3
                 case x if x >= 0.2:
-                    blue_reg_bottle_image = ImageCollection.MP_BOTTLE.R4
+                    reg_bottle_image = ImageCollection.REGEN_BOTTLE.L4
                 case x if x > 0:
-                    blue_reg_bottle_image = ImageCollection.MP_BOTTLE.R5
+                    reg_bottle_image = ImageCollection.REGEN_BOTTLE.L5
                 case _:
-                    blue_reg_bottle_image = ImageCollection.MP_BOTTLE.L6
-            blue_bottle_image = blue_reg_bottle_image.surface.copy().blit(blue_bottle_image.surface, (0, 0))
+                    reg_bottle_image = ImageCollection.REGEN_BOTTLE.L0
+            blue_bottle_image = reg_bottle_image.surface.copy().blit(blue_bottle_image.surface, (0, 0))
 
         self.contents[2] = (frames.ImageFrame(blue_bottle_image), ("given", self.BOTTLE_WIDTH, None))
         self.emit_event("redraw_local_ui")
@@ -423,38 +435,38 @@ class BottlesAndQuickItemFrame(Scene, urwid.Columns):
         green_percentage = green.value / green.max_value
         match green_percentage:
             case x if x == 1:
-                green_bottle_image = ImageCollection.SP_BOTTLE.L0
+                green_bottle_image = ImageCollection.GREEN_BOTTLE.L0
             case x if x >= 0.8:
-                green_bottle_image = ImageCollection.SP_BOTTLE.L1
+                green_bottle_image = ImageCollection.GREEN_BOTTLE.L1
             case x if x >= 0.6:
-                green_bottle_image = ImageCollection.SP_BOTTLE.L2
+                green_bottle_image = ImageCollection.GREEN_BOTTLE.L2
             case x if x >= 0.4:
-                green_bottle_image = ImageCollection.SP_BOTTLE.L3
+                green_bottle_image = ImageCollection.GREEN_BOTTLE.L3
             case x if x >= 0.2:
-                green_bottle_image = ImageCollection.SP_BOTTLE.L4
+                green_bottle_image = ImageCollection.GREEN_BOTTLE.L4
             case x if x > 0:
-                green_bottle_image = ImageCollection.SP_BOTTLE.L5
+                green_bottle_image = ImageCollection.GREEN_BOTTLE.L5
             case _:
-                green_bottle_image = ImageCollection.SP_BOTTLE.L6
+                green_bottle_image = ImageCollection.GREEN_BOTTLE.L6
         
         if green_reg := self.get_player_component(GreenRegeneration):
             green_reg_percentage = min(1, (green.value + green_reg.value)/ green.max_value)
             match green_reg_percentage:
                 case x if x == 1:
-                    green_reg_bottle_image = ImageCollection.SP_BOTTLE.R0
+                    reg_bottle_image = ImageCollection.REGEN_BOTTLE.L0
                 case x if x >= 0.8:
-                    green_reg_bottle_image = ImageCollection.SP_BOTTLE.R1
+                    reg_bottle_image = ImageCollection.REGEN_BOTTLE.L1
                 case x if x >= 0.6:
-                    green_reg_bottle_image = ImageCollection.SP_BOTTLE.R2
+                    reg_bottle_image = ImageCollection.REGEN_BOTTLE.L2
                 case x if x >= 0.4:
-                    green_reg_bottle_image = ImageCollection.SP_BOTTLE.R3
+                    reg_bottle_image = ImageCollection.REGEN_BOTTLE.L3
                 case x if x >= 0.2:
-                    green_reg_bottle_image = ImageCollection.SP_BOTTLE.R4
+                    reg_bottle_image = ImageCollection.REGEN_BOTTLE.L4
                 case x if x > 0:
-                    green_reg_bottle_image = ImageCollection.SP_BOTTLE.R5
+                    reg_bottle_image = ImageCollection.REGEN_BOTTLE.L5
                 case _:
-                    green_reg_bottle_image = ImageCollection.SP_BOTTLE.L6
-            green_bottle_image = green_reg_bottle_image.surface.copy().blit(green_bottle_image.surface, (0, 0))
+                    reg_bottle_image = ImageCollection.REGEN_BOTTLE.L0
+            green_bottle_image = reg_bottle_image.surface.copy().blit(green_bottle_image.surface, (0, 0))
 
         self.contents[1] = (frames.ImageFrame(green_bottle_image, x_offset=1), ("given", self.BOTTLE_WIDTH + 2, None))
         self.emit_event("redraw_local_ui")
@@ -723,10 +735,10 @@ class StatusFrame(SubMenu):
         info: Info = self.get_player_component(Info)
         x, y, _ = self.get_player_component(InLocation).position
         rgb: RGB = self.get_player_component(RGB)
-        sight = self.get_player_component(Sight)
         self.description_walker[:] = [
             urwid.Text(f"{info.name:<10s} {info.game_class} @({x},{y})"),
-            urwid.Text(["STR:", color(rgb.strength), " DEX:", color(rgb.dexterity), "ACU:", color(rgb.acumen)]),
+            urwid.Text(f"  RED:{rgb.red.value:03d} GRN:{rgb.green.value:03d} BLU:{rgb.blue.value:03d}"),
+            urwid.Text(["  STR:", color(rgb.strength), "  DEX:", color(rgb.dexterity), "  ACU:", color(rgb.acumen)]),
             # urwid.Text(", ".join(info.languages)),
         ]
         
@@ -736,7 +748,8 @@ class ExplorerFrame(SubMenu):
         super().__init__(mind, [(IMAGE_MAX_HEIGHT, EMPTY_FILL), urwid.ListBox(self.description_walker)])
 
         self.target = None
-        self.register_callback("redraw_local_ui", self.update_target, priority=2)
+        self.register_callback("redraw_local_ui", self.update_target)
+        self.register_callback("other_player_image_changed", self.update_target_image)
         self.update_target()
 
     def update_target(self) -> None:
@@ -790,16 +803,6 @@ class ExplorerFrame(SubMenu):
                     if ent_id != self.player_id and self.world.try_component(ent_id, Info):
                         entities.append(ent_id)
         return entities
-
-        # return sorted(
-        #     [
-        #         ent
-        #         for k, ent in self.player.dungeon.entities.items()
-        #         if distance(self.player.position, ent.position) <= 3 and ent.status
-        #     ],
-        #     key=lambda ent: distance(self.player.position, ent.position),
-        # )
-
 
 
 class EquipmentFrame(SubMenu):
@@ -860,6 +863,8 @@ class HelpFrame(SubMenu):
             f"tab: open/close",
             f"S: status",
             f"H: help",
+            f"X: explorer",
+            f"C: chat",
         ]
         
         super().__init__(mind, [

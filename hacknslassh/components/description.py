@@ -43,29 +43,4 @@ class Info(Component):
     gender: GenderType
     languages: list[Language]
 
-    @classmethod
-    def merge_info(cls, old: Info, new: Info) -> Info:
-        _name = new.name if hasattr(new, "name") else old.name
-        _description = new.description if hasattr(new, "description") else old.description
-        _game_class = new.game_class if hasattr(new, "game_class") else old.game_class
-        _gender = new.gender if hasattr(new, "gender") else old.gender
-        _languages = new.languages if hasattr(new, "languages") else old.languages
-        return Info(_name, _description, _game_class, _gender, _languages)
-
-@dataclass
-class CatInfo(Info):
-    description = "A serious cat."
-    game_class = GameClassName.CAT.value
-    languages = [Language.GATTESE, Language.COMMON]
-
-@dataclass
-class DevilInfo(Info):
-    description = "A serious devil."
-    game_class = GameClassName.DEVIL.value
-
-@dataclass
-class DwarvilInfo(Info):
-    description = "A serious, small devil."
-    game_class = GameClassName.DWARVIL.value
-
     

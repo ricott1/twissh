@@ -21,5 +21,4 @@ class DeathCallback(Component):
     Component for delaying a callback.
     """
 
-    callback: Callable
-    delay = Recoil.LONG
+    delay = 5

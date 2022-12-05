@@ -10,12 +10,14 @@ from .in_location import Direction
 
 @dataclass
 class Acting(Component):
-    action_recoil: float = 0
-    movement_recoil: float = 0
-    selected_action: Action | None = None
-    actions = {
-        Direction.UP: MoveUp,
-        Direction.DOWN: MoveDown,
-        Direction.LEFT: MoveLeft,
-        Direction.RIGHT: MoveRight
-    }
+
+    def __post_init__(self) -> None:
+        self.action_recoil = 0
+        self.movement_recoil = 0
+        self.selected_action = None
+        self.actions = {
+            Direction.UP: MoveUp,
+            Direction.DOWN: MoveDown,
+            Direction.LEFT: MoveLeft,
+            Direction.RIGHT: MoveRight
+        }

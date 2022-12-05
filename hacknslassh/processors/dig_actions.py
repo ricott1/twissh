@@ -31,6 +31,7 @@ class Dig(Action):
             return
 
         acting.action_recoil = cls.recoil_cost
+        
         dungeon.destroy_wall_at(in_location.forward)
         x0, y0, _ = in_location.forward
         if in_location.direction == Direction.UP:
@@ -51,11 +52,12 @@ class Dig(Action):
         for x in range(x0 - MAX_SIGHT_RADIUS, x0 + MAX_SIGHT_RADIUS + 1):
             for y in range(y0 - MAX_SIGHT_RADIUS, y0 + MAX_SIGHT_RADIUS + 1):
                 if distance((x0, y0), (x, y)) <= MAX_SIGHT_RADIUS:
-                    if (x, y) in dungeon.visible_cache:
-                        del dungeon.visible_cache[(x, y)]
+                    if (x, y) in dungeon.shadow_cache:
+                        del dungeon.shadow_cache[(x, y)]
             
         if user := world.try_component(ent_id, User):
                 user.mind.process_event("redraw_local_ui")
+                user.mind.process_event("player_acting_changed")
         for other_ent_id, (other_user, other_in_loc, other_sight) in world.get_components(User, InLocation, Sight):
             if other_ent_id != ent_id and other_in_loc.dungeon == in_location.dungeon and in_location.position in other_sight.visible_tiles:
                 other_user.mind.process_event("redraw_local_ui")

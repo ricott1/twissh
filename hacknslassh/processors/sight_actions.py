@@ -42,6 +42,7 @@ class ChangeSightShape(Action):
             user.mind.process_event("player_green_changed")
             user.mind.process_event("player_status_changed")
             user.mind.process_event("redraw_local_ui")
+            user.mind.process_event("player_acting_changed")
 
 
 class IncreaseSightRadius(Action):

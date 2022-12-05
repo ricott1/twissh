@@ -1,6 +1,6 @@
 
 from hacknslassh.processors.dig_actions import Dig
-from hacknslassh.processors.transform_actions import TransformIntoCat, TransformIntoDevil
+from hacknslassh.processors.transform_actions import TransformIntoRandom
 from hacknslassh.utils import random_name
 
 from .base import *
@@ -23,29 +23,24 @@ def get_components_for_game_class(mind: UrwidMind, dungeon, gender: GenderType, 
     if game_class == GameClassName.ELF:
         _sight = Sight.true_sight()
     else:
-        _sight = Sight()
+        _sight = Sight(SightShape.CONE)
 
     _in_location = InLocation(dungeon, (x, y, 1), fg=(255, 0, 0))
     _sight.update_visible_and_visited_tiles((x, y), _in_location.direction, dungeon)
 
-    if game_class == GameClassName.HUMAN:
-        _acting.actions["t"] = TransformIntoDevil()
-        _rgb = characteristics.RGB.human()
-    elif game_class == GameClassName.DWARF:
+    # if game_class == GameClassName.HUMAN:
+    #     _acting.actions["t"] = TransformIntoDevil()
+    if game_class == GameClassName.DWARF:
         _acting.actions["d"] = Dig()
-        _rgb = characteristics.RGB.dwarf()
     # elif game_class == GameClassName.DEVIL:
     #     _acting.actions["r"] = IncreaseSightRadius()
     #     _rgb = characteristics.RGB.devil()
     elif game_class == GameClassName.ORC:
-        _acting.actions["t"] = TransformIntoCat()
-        _rgb = characteristics.RGB.orc()
-    elif game_class == GameClassName.ELF:
-        _rgb = characteristics.RGB.elf()
+        _acting.actions["t"] = TransformIntoRandom()
 
     _components = [
         ImageCollection.CHARACTERS[gender][game_class],
-        _rgb,
+        characteristics.RGB.random(),
         Info(random_name(), "description", game_class, gender, [Language.COMMON]),
         _in_location,
         _sight,

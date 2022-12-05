@@ -1,8 +1,8 @@
 from __future__ import annotations
-from hacknslassh.constants import Tile
+from hacknslassh.constants import Tile, MIN_ALPHA
 from hacknslassh.gui.utils import RGBA_to_RGB, marker_to_urwid_text
 from hacknslassh.utils import distance, nested_dict
-from .components import InLocation, MAX_SIGHT_RADIUS, MIN_ALPHA, Sight
+from .components import InLocation, MAX_SIGHT_RADIUS, Sight
 import urwid
 import esper
 import random
@@ -44,8 +44,8 @@ class Dungeon(object):
         self.max_z = max_z
         self.content = nested_dict()
         #stores cache of shadowed tiles at a certain position for quick access, to be used in inlocation.update_visited_and_visible_tiles
+        self.shadow_cache: dict[tuple[int, int], list[int, int, float]] = {} 
         self.visible_cache: dict[tuple[int, int], list[int, int, float]] = {} 
-        self.tile_cache: dict[tuple[int, int], list[int, int, float]] = {} 
         self.urwid_text: list[tuple[urwid.AttrSpec, str] | str] = []
 
         self.max_x, self.max_y, self.tiles = generate_dungeon(cells_x, cells_y, cell_size)
@@ -84,35 +84,35 @@ class Dungeon(object):
                 self.floor_tiles.remove((x, y))
             self.wall_tiles.append((x, y))
 
+    def non_shadowed_tiles_at(self, x0: int, y0: int) -> list[tuple[int, int, float]]:
+        # If shadows are cached, get them from cache
+        if (x0, y0) in self.shadow_cache:
+            return self.shadow_cache[(x0, y0)]
+
+        # Otherwise calculate shadows for MAX_SIGHT_RADIUS and store in cache
+        walls = [t for t in self.wall_tiles if distance(t, (x0, y0)) <= MAX_SIGHT_RADIUS]
+        max_visible_tiles = []
+        for x, y, d in self.visible_tiles_at(x0, y0):
+            if not is_tile_shadowed_by_walls((x0, y0), (x, y), walls):
+                max_visible_tiles.append((x, y, d))
+        
+        self.shadow_cache[(x0, y0)] = sorted(max_visible_tiles, key=lambda t: t[2])
+        return self.shadow_cache[(x0, y0)]
+    
     def visible_tiles_at(self, x0: int, y0: int) -> list[tuple[int, int, float]]:
         # If shadows are cached, get them from cache
         if (x0, y0) in self.visible_cache:
             return self.visible_cache[(x0, y0)]
 
         # Otherwise calculate shadows for MAX_SIGHT_RADIUS and store in cache
-        walls = [t for t in self.wall_tiles if distance(t, (x0, y0)) <= MAX_SIGHT_RADIUS]
-        max_visible_tiles = []
-        for x, y, d in self.all_visible_tiles_at(x0, y0):
-            if not is_tile_shadowed_by_walls((x0, y0), (x, y), walls):
-                max_visible_tiles.append((x, y, d))
-        
-        self.visible_cache[(x0, y0)] = sorted(max_visible_tiles, key=lambda t: t[2])
-        return self.visible_cache[(x0, y0)]
-    
-    def all_visible_tiles_at(self, x0: int, y0: int) -> list[tuple[int, int, float]]:
-        # If shadows are cached, get them from cache
-        if (x0, y0) in self.tile_cache:
-            return self.tile_cache[(x0, y0)]
-
-        # Otherwise calculate shadows for MAX_SIGHT_RADIUS and store in cache
         max_visible_tiles = []
         for x in range(x0 - MAX_SIGHT_RADIUS, x0 + MAX_SIGHT_RADIUS+1):
             for y in range(y0 - MAX_SIGHT_RADIUS, y0 + MAX_SIGHT_RADIUS+1):
-                if d := distance((x0, y0), (x, y)) <= MAX_SIGHT_RADIUS:
+                if (d := distance((x0, y0), (x, y))) <= MAX_SIGHT_RADIUS:
                     max_visible_tiles.append((x, y, d))
         
-        self.tile_cache[(x0, y0)] = sorted(max_visible_tiles, key=lambda t: t[2])
-        return self.tile_cache[(x0, y0)]
+        self.visible_cache[(x0, y0)] = sorted(max_visible_tiles, key=lambda t: t[2])
+        return self.visible_cache[(x0, y0)]
         
     def is_in_bound(self, position: tuple[int, int, int]) -> bool:
         x, y, z = position
@@ -188,6 +188,8 @@ class Dungeon(object):
                 self.map[x][y] = marker_to_urwid_text(top.marker, top.fg, top.bg, top.visibility)
             else:
                 self.map[x][y] = marker_to_urwid_text(Tile.FLOOR, (255, 255, 255), None, 255)
+        
+        print(f"Removed {ent_id} from {position}. Now there is {self.map[x][y]}")
 
     def remove_renderable_entity_at(self, position: tuple[int, int, int]) -> None:
         ent_id = self.get_at(position)
@@ -204,7 +206,7 @@ def render_dungeon_map(in_loc: InLocation, sight: Sight, camera_offset: tuple[in
     x0, y0, _ = in_loc.position
 
     for x in range(0, max_x, 2):
-        if x - off_x >= 2*len(in_loc.dungeon.map):
+        if x - off_x >= len(in_loc.dungeon.map):
             break
         if x < off_x:
             continue

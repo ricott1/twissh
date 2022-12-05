@@ -480,12 +480,13 @@ class UrwidRealm(TerminalRealm):
     """Custom terminal realm class-configured to use our custom Terminal User
     Terminal Session.
     """
-    UPDATE_STEP = 0.025
+    FPS = 30
+    UPDATE_STEP = 1 / FPS
     def __init__(self):
         from hacknslassh import HackNSlassh
-        from mathclassh import MathClassH
-
         self.hacknslassh = HackNSlassh()
+
+        # from mathclassh import MathClassH
         # self.mathclassh = MathClassH()
 
         self.minds: dict[bytes, UrwidMind] = {}
@@ -508,22 +509,18 @@ class UrwidRealm(TerminalRealm):
         comp.setComponent(IConchUser, user)
         sess = UrwidTerminalSession(comp)
         comp.setComponent(ISession, sess)
+        mind = UrwidMind(comp)
 
         if avatarId in self.minds:
-            mind = UrwidMind(comp)
             mind.connection_error = CONNECTION_ERROR.AVATAR_ALREADY_CONNECTED
         elif avatarId in self.hacknslassh.player_ids:
-            mind = UrwidMind(comp)
             mind.set_master(self.hacknslassh)
             mind.avatar.uuid = avatarId
         elif avatarId == b"hns":
-            mind = UrwidMind(comp)
             mind.set_master(self.hacknslassh)
-        elif avatarId == b"new":
-            mind = UrwidMind(comp)
-            mind.set_master(self.mathclassh)
+        # elif avatarId == b"new":
+        #     mind.set_master(self.mathclassh)
         else:
-            mind = UrwidMind(comp)
             mind.connection_error = CONNECTION_ERROR.INVALID_AVATAR_ID
         comp.setComponent(IUrwidMind, mind)
         self.minds[mind.avatar.uuid.bytes] = mind
