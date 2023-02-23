@@ -1,6 +1,9 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from enum import Enum
+
+import esper
 
 from ..processors.move_actions import (Action, MoveDown, MoveLeft, MoveRight,
                                        MoveUp)
@@ -21,3 +24,15 @@ class Acting(Component):
             Direction.LEFT: MoveLeft,
             Direction.RIGHT: MoveRight
         }
+
+    def get_action(self, world: esper.World, ent_id: int) -> Action | None:
+        return None
+
+class AiAlignment(str, Enum):
+    HOSTILE = "hostile"
+    NEUTRAL = "neutral"
+    FRIENDLY = "friendly"
+
+@dataclass
+class Ai(Component):
+    alignment: int = 0

@@ -25,3 +25,10 @@ add suggested min screen size
 
 - Shadowed_tiles in dungeon do not work. No idea why.
 - Umano a seconda del valore piu alto si trasforma tra bardo (rosso), nerd (blu) e guerriero (verde). Umano e' l'unico che puo' recuperare tutti RGB
+- add transform to slime
+- add cats to dungeon. Use cat factory that takes model and applies random colors to it
+- change language with chat command
+- elf can change name with chat command
+- cats follow "owner" using a catAI component, otherwise they are normal entities. Orc displays how many cats are following them
+- Orc abilities sacrifice cats to be used
+- 

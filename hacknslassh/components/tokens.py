@@ -20,3 +20,7 @@ class TransformedToken(Component):
 class IncreasedSightToken(Component):
     values: list[int]
     on_processor: Callable[[esper.World, int, float], None] | None = None
+
+@dataclass
+class CatchableToken(Component):
+    pass

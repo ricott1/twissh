@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import os
 from dataclasses import dataclass
 from enum import Enum, auto
@@ -21,6 +23,9 @@ class Image(Component):
 
     def get_at(self, x_y: Sequence[int]) -> _RgbaOutput:
         return self.surface.get_at(x_y)
+    
+    def copy(self) -> Image:
+        return Image(self.surface.copy())
 
 
 class ImageTransitionStyle(str, Enum):
@@ -112,6 +117,7 @@ class ImageCollection(object):
         GenderType.FEMALE: {k: Image(pg.image.load(f"{file_dir}/assets/characters/{k.lower()}_female.png")) for k in GameClassName},
         GenderType.MALE: {k: Image(pg.image.load(f"{file_dir}/assets/characters/{k.lower()}_male.png")) for k in GameClassName},
     }
+    CAT_TEMPLATE = Image(pg.image.load(f"{file_dir}/assets/characters/cat_template.png"))
 
     RED_BOTTLE = HPBottleImageCollection()
     BLUE_BOTTLE = MPBottleImageCollection()

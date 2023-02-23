@@ -1,5 +1,6 @@
 import time
 import esper
+from hacknslassh.factories.cat_factory import create_cat
 from hacknslassh.processors import processor
 
 from hacknslassh.utils import random_name
@@ -21,8 +22,9 @@ class HackNSlassh(UrwidMaster):
         self.world.add_processor(processor.ActionProcessor())
         self.world.add_processor(processor.DelayCallbackProcessor())
         self.world.add_processor(processor.UserInputProcessor(), priority=2)
-        self.world.add_processor(processor.DeathProcessor(), priority=3)
-        self.world.add_processor(processor.DeathCallbackProcessor(), priority=2)
+        self.world.add_processor(processor.AiProcessor(), priority=2)
+        self.world.add_processor(processor.DeathProcessor(), priority=4)
+        self.world.add_processor(processor.DeathCallbackProcessor(), priority=3)
         self.world.add_processor(processor.ImageTransitionProcessor(), priority=1)
         self.world.add_processor(processor.SightTokenProcessor(), priority=1)
         self.world.add_processor(processor.TransformedTokenProcessor(), priority=1)
@@ -32,6 +34,10 @@ class HackNSlassh(UrwidMaster):
         # self.clock = pg.time.Clock()
         self.toplevel = GUI
         self.time = time.time()
+
+        for _ in range(15):
+            cat_id = create_cat(self.world, self.base_dungeon)
+            self.base_dungeon.set_renderable_entity(cat_id)
 
     def register_new_player(
         self, mind: UrwidMind, game_class: GameClassName, gender: GenderType

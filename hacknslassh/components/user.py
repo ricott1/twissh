@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from hacknslassh.constants import Color
 
 from twissh.server import UrwidMind
 
@@ -9,4 +10,4 @@ from .base import Component
 class User(Component):
     mind: None | UrwidMind
     last_input: str = ""
-    color: tuple[int, int, int] = (255, 0, 0)
+    color: tuple[int, int, int] = Color.RED

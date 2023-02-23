@@ -4,6 +4,7 @@ from enum import Enum
 from typing import TYPE_CHECKING
 
 import esper
+from hacknslassh.constants import Color
 if TYPE_CHECKING:
     from hacknslassh.dungeon import Dungeon
 from hacknslassh.components.base import Component
@@ -38,9 +39,9 @@ class InLocation(Component):
     position: tuple[int, int, int] = (0, 0, 0)
     direction: Direction = Direction.UP
     marker: str = Markers.USER[Direction.UP]
-    fg: tuple[int, int, int] = (255, 255, 255)
+    fg: tuple[int, int, int] = Color.WHITE
     bg: tuple[int, int, int] | None = None
-    own_fg: tuple[int, int, int] = (255, 255, 255)
+    own_fg: tuple[int, int, int] = Color.WHITE
     visibility: int = 255
 
     @property

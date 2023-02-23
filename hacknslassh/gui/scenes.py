@@ -6,7 +6,7 @@ from typing import Callable, Type
 import esper
 from typing import TYPE_CHECKING
 from hacknslassh.components.acting import Acting
-from hacknslassh.dungeon import render_dungeon_map
+from hacknslassh.dungeon import render_dungeon_map, render_dungeon_minimap
 if TYPE_CHECKING:
     from hacknslassh.master import HackNSlassh
 
@@ -141,7 +141,6 @@ class CharacterSelectionFrame(Scene, urwid.Pile):
         row_index = self.menu.focus_position
         column_index = self.main.focus_position
         selection = self.options_keys[row_index]
-        print("column_index", column_index)
         if column_index == 0:
             gender = GenderType.FEMALE
         elif column_index == 2:
@@ -201,12 +200,18 @@ class NetHackFrame(Scene, urwid.Frame):
         self.input_handlers = []
         self.add_input_handler(0, self.bottom_menu.input_handler)
         self.add_input_handler(2, self.input_handler)
-        self.add_input_handler(1, self.menu.input_handler_full_view)
+        self.add_input_handler(1, self.menu_input_handler)
     
     def add_input_handler(self, priority: int, callback: Callable) -> None:
         self.input_handlers.append({"priority": priority, "callback": callback})
-        self.input_handlers.sort(key=lambda x: x["priority"], reverse=True)
+        self.input_handlers.sort(key=lambda x: x["priority"])
 
+    def menu_input_handler(self, _input: str) -> bool:
+        if self.menu.input_handler_full_view(_input) and not self.full_menu_view:
+            self.toggle_menu_view()
+            return True
+        return False
+    
     def input_handler(self, _input: str) -> bool:
         if _input == KeyMap.TOGGLE_FULL_MENU:
             self.toggle_menu_view()
@@ -219,16 +224,17 @@ class NetHackFrame(Scene, urwid.Frame):
             if not self.full_menu_view:
                 self.toggle_menu_view()
                 return self.menu.input_handler_select_submenu(_input)
-        return False
+        if _input == KeyMap.CENTER_CAMERA:
+            self.center_map_camera()
+            return True
+        
+        self.get_player_component(User).last_input = _input
+        return True
 
     def handle_input(self, _input: str) -> None:
         for handler in self.input_handlers:
             if handler["callback"](_input):
                 return
-        if _input == KeyMap.CENTER_CAMERA:
-            self.center_map_camera()
-        else:
-            self.get_player_component(User).last_input = _input
         
     def center_map_camera(self) -> None:
         max_y, max_x = self.mind.screen_size
@@ -502,6 +508,7 @@ class MenuFrame(Scene, urwid.Frame):
             "Chat": ChatFrame(mind),
             "Help": HelpFrame(mind),
             "Explorer": ExplorerFrame(mind),
+            "Minimap": MinimapFrame(mind)
         }
         initial_submenu = "Help"
         self.active_body = self.bodies[initial_submenu]
@@ -511,8 +518,8 @@ class MenuFrame(Scene, urwid.Frame):
         return False
 
     def input_handler_full_view(self, _input: str) -> bool:
-        if self.active_body == self.bodies["Chat"]:
-            return self.active_body.input_handler(_input)
+        if self.active_body.input_handler(_input):
+            return True
         return self.input_handler_select_submenu(_input)
 
     def input_handler_select_submenu(self, _input: str) -> bool:
@@ -528,6 +535,9 @@ class MenuFrame(Scene, urwid.Frame):
         elif _input == KeyMap.CHAT_MENU:
             self.update_body("Chat")
             return True
+        elif _input == KeyMap.MINIMAP_MENU:
+            self.update_body("Minimap")
+            return True
         return False
 
     def update_body(self, _title: str) -> None:
@@ -538,6 +548,20 @@ class MenuFrame(Scene, urwid.Frame):
 class SubMenu(Scene, urwid.Pile):
     pass
 
+
+class MinimapFrame(SubMenu):
+    def __init__(self, mind):
+        self.map_walker = urwid.SimpleListWalker([urwid.Text("")])
+        map_box = urwid.ListBox(self.map_walker)
+        super().__init__(mind, [map_box])
+        self.register_callback("player_sight_changed", self.draw, priority = 1)
+        self.draw()
+    
+    def draw(self) -> None:
+        in_location: InLocation = self.get_player_component(InLocation)
+        sight: Sight = self.get_player_component(Sight)
+        map_with_attr = [urwid.Text(line, wrap="clip") for line in render_dungeon_minimap(in_location, sight)]
+        self.map_walker[:] = map_with_attr
 
 class ChatMessageAttribute(str, Enum):
     SELF = "self"
@@ -732,32 +756,69 @@ class StatusFrame(SubMenu):
             else:
                 return ("cyan", f"{char:02d}")
 
+        
+        in_loc: InLocation = self.get_player_component(InLocation)
+        x, y, _ = in_loc.position
         info: Info = self.get_player_component(Info)
-        x, y, _ = self.get_player_component(InLocation).position
         rgb: RGB = self.get_player_component(RGB)
         self.description_walker[:] = [
-            urwid.Text(f"{info.name:<10s} {info.game_class} @({x},{y})"),
+            urwid.Text(f"{info.name:<10s} {info.game_class} @({y},{x})"),
             urwid.Text(f"  RED:{rgb.red.value:03d} GRN:{rgb.green.value:03d} BLU:{rgb.blue.value:03d}"),
             urwid.Text(["  STR:", color(rgb.strength), "  DEX:", color(rgb.dexterity), "  ACU:", color(rgb.acumen)]),
             # urwid.Text(", ".join(info.languages)),
         ]
         
 class ExplorerFrame(SubMenu):
+    NO_TARGET_TEXT = "There's no one around.".center(MENU_WIDTH)
     def __init__(self, mind):
-        self.description_walker = urwid.SimpleListWalker([urwid.Text("")])
+        self.description_walker = urwid.SimpleListWalker([urwid.Text(self.NO_TARGET_TEXT)])
         super().__init__(mind, [(IMAGE_MAX_HEIGHT, EMPTY_FILL), urwid.ListBox(self.description_walker)])
 
         self.target = None
         self.register_callback("redraw_local_ui", self.update_target)
         self.register_callback("other_player_image_changed", self.update_target_image)
         self.update_target()
+        self.nearest_index = 0
+        self.nearby_entities = []
 
     def update_target(self) -> None:
-        target = self.nearby_entities_list()[0] if self.nearby_entities_list() else None
+        self.nearby_entities = self.nearby_entities_list()
+        target = self.nearby_entities[0] if self.nearby_entities else None
         if target is not self.target:
             self.target = target
             self.update_target_info()
             self.update_target_image()
+    
+    def input_handler(self, _input: str) -> bool:
+        if _input not in (ExplorerKeyMap.NEXT, ExplorerKeyMap.PREVIOUS):
+            return False
+        if not self.nearby_entities:
+            return True
+        if _input == ExplorerKeyMap.NEXT:
+            self.nearest_index = (self.nearest_index + 1) % len(self.nearby_entities)
+        elif _input == ExplorerKeyMap.PREVIOUS:
+            self.nearest_index = (self.nearest_index - 1) % len(self.nearby_entities)
+        
+        target = self.nearby_entities[self.nearest_index]
+        if target is not self.target:
+            self.target = target
+            self.update_target_info()
+            self.update_target_image()
+        return True
+    
+
+    def nearby_entities_list(self) -> list[int]:
+        in_location: InLocation = self.get_player_component(InLocation)
+        sight: Sight = self.get_player_component(Sight)
+
+        entities = []
+        # entities will be sorted by distance because visible tiles is sorted by distance.
+        for x, y in sight.visible_tiles:
+            for z in (1, 0, 2): #first creatures layer, than items, than flyers
+                if ent_id := in_location.dungeon.get_at((x, y, z)):
+                    if ent_id != self.player_id and self.world.try_component(ent_id, Info):
+                        entities.append(ent_id)
+        return entities
 
     def update_target_image(self) -> None:
         if not self.target:
@@ -778,31 +839,18 @@ class ExplorerFrame(SubMenu):
 
     def update_target_info(self) -> None:
         if not self.target:
-            self.description_walker[:] = [urwid.Text("")]
+            self.description_walker[:] = [urwid.Text(self.NO_TARGET_TEXT)]
             return
 
         info: Info = self.world.try_component(self.target, Info)
         if not info:
-            self.description_walker[:] = [urwid.Text("")]
+            self.description_walker[:] = [urwid.Text("A mysterious entity.")]
             return
 
         x, y, _ = self.world.try_component(self.target, InLocation).position
         self.description_walker[:] = [
             urwid.Text(f"{info.name:<10s} {info.game_class} @({x},{y})")
         ]
-
-    def nearby_entities_list(self) -> list[int]:
-        in_location: InLocation = self.get_player_component(InLocation)
-        sight: Sight = self.get_player_component(Sight)
-
-        entities = []
-        # entities will be sorted by distance because visible tiles is sorted by distance.
-        for x, y in sight.visible_tiles:
-            for z in range(3):
-                if ent_id := in_location.dungeon.get_at((x, y, z)):
-                    if ent_id != self.player_id and self.world.try_component(ent_id, Info):
-                        entities.append(ent_id)
-        return entities
 
 
 class EquipmentFrame(SubMenu):
@@ -865,6 +913,7 @@ class HelpFrame(SubMenu):
             f"H: help",
             f"X: explorer",
             f"C: chat",
+            f"M: map",
         ]
         
         super().__init__(mind, [

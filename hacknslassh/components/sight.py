@@ -4,6 +4,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from enum import Enum
 from typing import TYPE_CHECKING
+
+from hacknslassh.constants import Color
 if TYPE_CHECKING:
     from hacknslassh.dungeon import Dungeon
 
@@ -31,7 +33,7 @@ class Sight(Component):
 
     def __post_init__(self) -> None:
         self._radius = 1
-        self.color = (255, 255, 255)
+        self.color = Color.WHITE
         self.visited_tiles = {}
         self.visible_tiles = {}
 
@@ -53,6 +55,14 @@ class Sight(Component):
     @classmethod
     def true_sight(cls) -> Sight:
         return cls(SightShape.TRUE)
+
+    @classmethod
+    def cone_sight(cls) -> Sight:
+        return cls(SightShape.CONE)
+    
+    @classmethod
+    def circle_sight(cls) -> Sight:
+        return cls(SightShape.CIRCLE)
 
     def update_visible_and_visited_tiles(self, x_y0: tuple[int, int], direction: Direction, dungeon: Dungeon) -> None:
         x0, y0 = x_y0

@@ -1,5 +1,6 @@
 
 from hacknslassh.processors.dig_actions import Dig
+from hacknslassh.processors.catch_action import Catch
 from hacknslassh.processors.transform_actions import TransformIntoRandom
 from hacknslassh.utils import random_name
 
@@ -17,7 +18,7 @@ from .sight import *
 
 
 def get_components_for_game_class(mind: UrwidMind, dungeon, gender: GenderType, game_class: GameClassName) -> list[Component]:
-    x, y = dungeon.random_floor_tile()
+    x, y = dungeon.random_free_floor_tile()
     _acting = acting.Acting()
     
     if game_class == GameClassName.ELF:
@@ -38,8 +39,10 @@ def get_components_for_game_class(mind: UrwidMind, dungeon, gender: GenderType, 
     elif game_class == GameClassName.ORC:
         _acting.actions["t"] = TransformIntoRandom()
 
+    _acting.actions["z"] = Catch()
+
     _components = [
-        ImageCollection.CHARACTERS[gender][game_class],
+        ImageCollection.CHARACTERS[gender][game_class].copy(),
         characteristics.RGB.random(),
         Info(random_name(), "description", game_class, gender, [Language.COMMON]),
         _in_location,

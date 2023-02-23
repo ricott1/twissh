@@ -1,5 +1,5 @@
 from __future__ import annotations
-from hacknslassh.constants import Tile, MIN_ALPHA
+from hacknslassh.constants import Color, Tile, MIN_ALPHA
 from hacknslassh.gui.utils import RGBA_to_RGB, marker_to_urwid_text
 from hacknslassh.utils import distance, nested_dict
 from .components import InLocation, MAX_SIGHT_RADIUS, Sight
@@ -39,7 +39,7 @@ class Cell(object):
     
 
 class Dungeon(object):
-    def __init__(self, world: esper.World, max_z: int = 5, cells_x: int = 4, cells_y: int = 5, cell_size: int = 24) -> None:
+    def __init__(self, world: esper.World, max_z: int = 5) -> None:
         self.world = world
         self.max_z = max_z
         self.content = nested_dict()
@@ -48,8 +48,8 @@ class Dungeon(object):
         self.visible_cache: dict[tuple[int, int], list[int, int, float]] = {} 
         self.urwid_text: list[tuple[urwid.AttrSpec, str] | str] = []
 
-        self.max_x, self.max_y, self.tiles = generate_dungeon(cells_x, cells_y, cell_size)
-        self.map = [[Tile.EMPTY for _ in range(self.max_y)] for _ in range(self.max_x)]
+        self.max_x, self.max_y, self.tiles = generate_dungeon(compactness=2)
+        self.map = [[Tile.EMPTY for _ in range(self.max_y + 1)] for _ in range(self.max_x + 1)]
         # self.empty_map = [[Tile.EMPTY for _ in range(self.max_y)] for _ in range(self.max_x)]
 
         self.floor_tiles = [pos for pos, tile in self.tiles.items() if tile == Tile.FLOOR]
@@ -57,13 +57,16 @@ class Dungeon(object):
 
         for tile in self.wall_tiles:
             self.set_renderable_entity(self.world.create_entity(InLocation(self, (tile[0], tile[1], 1), marker=Tile.WALL)))
-            # self.empty_map[tile[0]][tile[1]] = marker_to_urwid_text(Tile.WALL, (255, 255, 255), None, 255)
+            # self.empty_map[tile[0]][tile[1]] = marker_to_urwid_text(Tile.WALL, Color.WHITE, None, 255)
         for tile in self.floor_tiles:
-            self.map[tile[0]][tile[1]] = marker_to_urwid_text(Tile.FLOOR, (255, 255, 255), None, 255)
-            # self.empty_map[tile[0]][tile[1]] = marker_to_urwid_text(Tile.FLOOR, (255, 255, 255), None, 255)
+            self.map[tile[0]][tile[1]] = marker_to_urwid_text(Tile.FLOOR, Color.WHITE, None, 255)
+            # self.empty_map[tile[0]][tile[1]] = marker_to_urwid_text(Tile.FLOOR, Color.WHITE, None, 255)
 
     def random_floor_tile(self) -> tuple[int, int]:
         return random.choice(self.floor_tiles)
+    
+    def random_free_floor_tile(self) -> tuple[int, int]:
+        return random.choice([t for t in self.floor_tiles if not self.get_at((*t, 1))])
     
     def destroy_wall_at(self, position: tuple[int, int, int]) -> None:
         wall_id = self.get_at(position)
@@ -187,14 +190,15 @@ class Dungeon(object):
                 top = self.world.component_for_entity(self.get_top_at(position), InLocation)
                 self.map[x][y] = marker_to_urwid_text(top.marker, top.fg, top.bg, top.visibility)
             else:
-                self.map[x][y] = marker_to_urwid_text(Tile.FLOOR, (255, 255, 255), None, 255)
-        
-        print(f"Removed {ent_id} from {position}. Now there is {self.map[x][y]}")
+                self.map[x][y] = marker_to_urwid_text(Tile.FLOOR, Color.WHITE, None, 255)
 
     def remove_renderable_entity_at(self, position: tuple[int, int, int]) -> None:
         ent_id = self.get_at(position)
         if ent_id is not None:
             self.remove_renderable_entity(ent_id)
+
+
+minimap_reduction = 3
 
 def render_dungeon_map(in_loc: InLocation, sight: Sight, camera_offset: tuple[int, int], screen_size: tuple[int, int]) -> list[list[str | tuple[urwid.AttrSpec, str]]]:
     max_y, max_x = screen_size
@@ -226,7 +230,7 @@ def render_dungeon_map(in_loc: InLocation, sight: Sight, camera_offset: tuple[in
                 btm_tile = in_loc.dungeon.map[x - off_x + 1][y - off_y]
 
             if top_tile == Tile.EMPTY and btm_tile == Tile.EMPTY:
-                rendered_map[x//2][y] = Tile.EMPTY
+                # rendered_map[x//2][y] = Tile.EMPTY
                 continue
 
             top_d = distance((x - off_x, y - off_y), (x0, y0))
@@ -272,47 +276,84 @@ def render_dungeon_map(in_loc: InLocation, sight: Sight, camera_offset: tuple[in
     
     return rendered_map
 
-def single_buffer_rendered_map(camera_offset: tuple[int, int], screen_size: tuple[int, int]) -> list[list[str | tuple[urwid.AttrSpec, str]]]:
-    off_y, off_x = camera_offset
-    max_y, max_x = screen_size
-    rendered_map = [[Tile.EMPTY for _ in range(max_y)] for _ in range(max_x)]
-    x0, y0, _ = self.position
+def render_dungeon_minimap(in_loc: InLocation, sight: Sight) -> list[list[str | tuple[urwid.AttrSpec, str]]]:
+    cf = minimap_reduction
+    max_y, max_x = (len(in_loc.dungeon.map[0]), len(in_loc.dungeon.map))
+    rendered_map = [[Tile.EMPTY for _ in range((max_y//cf)+1)] for _ in range((max_x//(2*cf))+1)]
+    x0, y0, _ = in_loc.position 
 
-    for x in range(max_x):
-        if x - off_x >= len(self.dungeon.map):
-            break
-        if x < off_x:
-            continue
-        for y in range(max_y):
-            if y - off_y >= len(self.dungeon.map[0]):
-                break
-            if y < off_y:
+    for x in range(0, max_x, 2*cf):
+        for y in range(0, max_y, cf):
+            top_range = [(x + j, y + i) for j in range(cf) for i in range(cf)]
+            btm_range = [(x + cf + j, y + i) for j in range(cf) for i in range(cf)]
+
+            visited_top = any([tile in sight.visited_tiles and tile in in_loc.dungeon.floor_tiles for tile in top_range])
+            visited_btm = any([tile in sight.visited_tiles and tile in in_loc.dungeon.floor_tiles for tile in btm_range])
+
+            if not visited_top and not visited_btm:
                 continue
 
-            if (x - off_x, y - off_y) not in self.visited_tiles: #in visited_tiles:
-                continue
+            top_attr = f"#ffffff"
+            btm_attr = f"#ffffff"
+            if (x0, y0) in top_range:
+                r, g, b = sight.color
+                top_attr = f"#{r:02x}{g:02x}{b:02x}" 
+            elif (x0, y0) in btm_range:
+                r, g, b = sight.color
+                btm_attr = f"#{r:02x}{g:02x}{b:02x}" 
 
-            tile = self.dungeon.map[x - off_x][y - off_y]
-            if tile is not Tile.EMPTY:
-                d = distance((x - off_x, y - off_y), (x0, y0))
-                a = max(MIN_ALPHA, 255 - int((255-MIN_ALPHA)/self.sight.radius * d))
-                marker, fg, bg = get_tile_info(tile)
+            if visited_top and not visited_btm:
+                rendered_map[x//(2*cf)][y//cf] = (urwid.AttrSpec(top_attr, ""), "▀")
+            elif not visited_top and visited_btm:
+                rendered_map[x//(2*cf)][y//cf] = (urwid.AttrSpec(btm_attr, ""), "▄")
+            elif visited_top and visited_btm:
+                rendered_map[x//(2*cf)][y//cf] = (urwid.AttrSpec(btm_attr, top_attr), "▄")
+    
+    return rendered_map
 
-                if d == 0:
-                    marker, fg, bg = self.marker, self.own_fg, self.bg
-                elif (x - off_x, y - off_y) in self.visible_tiles:
-                    fg = self.sight.color
-                    # a = 255 #debug
+
+
+# def single_buffer_rendered_map(camera_offset: tuple[int, int], screen_size: tuple[int, int]) -> list[list[str | tuple[urwid.AttrSpec, str]]]:
+#     off_y, off_x = camera_offset
+#     max_y, max_x = screen_size
+#     rendered_map = [[Tile.EMPTY for _ in range(max_y)] for _ in range(max_x)]
+#     x0, y0, _ = self.position
+
+#     for x in range(max_x):
+#         if x - off_x >= len(self.dungeon.map):
+#             break
+#         if x < off_x:
+#             continue
+#         for y in range(max_y):
+#             if y - off_y >= len(self.dungeon.map[0]):
+#                 break
+#             if y < off_y:
+#                 continue
+
+#             if (x - off_x, y - off_y) not in self.visited_tiles: #in visited_tiles:
+#                 continue
+
+#             tile = self.dungeon.map[x - off_x][y - off_y]
+#             if tile is not Tile.EMPTY:
+#                 d = distance((x - off_x, y - off_y), (x0, y0))
+#                 a = max(MIN_ALPHA, 255 - int((255-MIN_ALPHA)/self.sight.radius * d))
+#                 marker, fg, bg = get_tile_info(tile)
+
+#                 if d == 0:
+#                     marker, fg, bg = self.marker, self.own_fg, self.bg
+#                 elif (x - off_x, y - off_y) in self.visible_tiles:
+#                     fg = self.sight.color
+#                     # a = 255 #debug
             
-                rendered_map[x][y] = marker_to_urwid_text(marker, fg, bg, a)
+#                 rendered_map[x][y] = marker_to_urwid_text(marker, fg, bg, a)
                     
                 
                     
-    return rendered_map
+#     return rendered_map
 
 def get_tile_info(tile: tuple[urwid.AttrSpec, str]) -> tuple[str, tuple[int, int, int], tuple[int, int, int] | None]:
     if tile is Tile.EMPTY:
-        return Tile.EMPTY, (255, 255, 255), None
+        return Tile.EMPTY, Color.WHITE, None
     marker = tile[1]
     rgb_values = tile[0].get_rgb_values()
     fg, bg = rgb_values[:3], rgb_values[3:]
@@ -322,8 +363,6 @@ def get_tile_info(tile: tuple[urwid.AttrSpec, str]) -> tuple[str, tuple[int, int
         bg = None
     return marker, fg, bg
 
-
-    
 
 def _AStar(start: tuple[int, int], goal: tuple[int, int]) -> list[tuple[int, int]]:
     def heuristic(a: tuple[int, int], b: tuple[int, int]) -> float:
@@ -406,7 +445,14 @@ def is_tile_shadowed_by_walls(x_y0: tuple[int, int], x_y: tuple[int, int], walls
 
     return False
 
-def generate_dungeon(cells_x: int, cells_y: int, cell_size: int=6) -> tuple[int, int, dict[tuple[int, int], Tile]]:
+def generate_dungeon(compactness = 0) -> tuple[int, int, dict[tuple[int, int], Tile]]:
+    cell_size = 7 + (4 + random.randint(-1, 1)) * compactness
+    extraConnections = 3 * compactness - random.randint(compactness, 2*compactness)
+    ISOLATE_ROOM_PROB = max(0, 0.1 - 0.01 * compactness)
+
+    cells_y = (28*minimap_reduction)//cell_size #to fit horizontally into the minimap width
+    cells_x = (38*minimap_reduction)//cell_size #to fit vertically into the minimap height
+
     # 1. Divide the map into a grid of evenly sized cells.
     cells: dict[tuple[int, int], Cell] = {}
     for y in range(cells_y):
@@ -439,10 +485,10 @@ def generate_dungeon(cells_x: int, cells_y: int, cell_size: int=6) -> tuple[int,
         current = last_cell = neighbor
 
     # 4. While there are unconnected cells:
-    while True:
-        unconnected = list(filter(lambda x: not x.connected, cells.values()))
-        if not unconnected:
-            break
+    while unconnected := list(filter(lambda x: not x.connected, cells.values())):
+        # unconnected = list(filter(lambda x: not x.connected, cells.values()))
+        # if not unconnected:
+        #     break
 
         # 4a. Pick a random connected cell with unconnected neighbors and connect to one of them.
         candidates: tuple[Cell, list[Cell]] = []
@@ -458,7 +504,6 @@ def generate_dungeon(cells_x: int, cells_y: int, cell_size: int=6) -> tuple[int,
                 cell.connect(random.choice(neighbors))
 
     # 5. Pick 0 or more pairs of adjacent cells that are not connected and connect them.
-    extraConnections = random.randint(int((cells_x + cells_y) / 4), int((cells_x + cells_y) / 1.2))
     maxRetries = 10
     while extraConnections > 0 and maxRetries > 0:
         cell = random.choice(list(cells.values()))
@@ -470,7 +515,6 @@ def generate_dungeon(cells_x: int, cells_y: int, cell_size: int=6) -> tuple[int,
         extraConnections -= 1
 
     # 6. Within each cell, create a room of random shape
-    cell_size = max(6, cell_size)
     rooms = []
     for cell in cells.values():
         width = random.randint(4, cell_size - 2)
@@ -494,6 +538,9 @@ def generate_dungeon(cells_x: int, cells_y: int, cell_size: int=6) -> tuple[int,
     corridors = []
     connections: dict[tuple[int, int], tuple[list[tuple[int, int]], list[tuple[int, int]]]] = {}
     for c in cells.values():
+        # Isolate a room with a small probability.
+        if random.random() < ISOLATE_ROOM_PROB:
+            continue
         for other in c.connected_to:
             connections[tuple(sorted((c.id, other.id)))] = (c.floor_tiles, other.floor_tiles)
     for a, b in connections.values():
@@ -509,16 +556,17 @@ def generate_dungeon(cells_x: int, cells_y: int, cell_size: int=6) -> tuple[int,
                 corridor.append((tile[0], tile[1] + 1))
         rooms.append(corridor)
 
-    # 8. Place staircases in the cell picked in step 2 and the lest cell visited in step 3b.
-    # stairs_up = random.choice(first_cell.floor_tiles)
-    # stairs_down = random.choice(last_cell.floor_tiles)
+    # 8. Place staircases in the cell picked in step 2 and the last cell visited in step 3b.
+    stairs_up = random.choice(first_cell.floor_tiles)
+    stairs_down = random.choice(last_cell.floor_tiles)
 
     # create tiles
     tiles = {}
-    tiles_x = cells_x * cell_size
-    tiles_y = cells_y * cell_size
-    for x in range(tiles_x):
-        for y in range(tiles_y):
+    max_x = cells_x * cell_size
+    max_y = cells_y * cell_size
+    
+    for x in range(max_x):
+        for y in range(max_y):
             tiles[(x, y)] = Tile.EMPTY
     for xy in itertools.chain.from_iterable(rooms):
         tiles[xy] = Tile.FLOOR
@@ -545,11 +593,11 @@ def generate_dungeon(cells_x: int, cells_y: int, cell_size: int=6) -> tuple[int,
         for xy in corridor:
             tiles[xy] = Tile.EMPTY
 
-    return (tiles_x, tiles_y, tiles)
+    return (max_x, max_y, tiles)
 
 
 if __name__ == "__main__":
-    dungeon = generate_dungeon(6, 3, 20)
+    dungeon = generate_dungeon()
     for y in range(dungeon.tiles_y):
         for x in range(dungeon.tiles_x):
             sys.stdout.write(dungeon.tiles[(x, y)])

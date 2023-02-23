@@ -42,7 +42,7 @@ class Move(Action):
                 in_location.position = new_position
                 in_location.dungeon.set_renderable_entity(ent_id)
                 dex = world.component_for_entity(ent_id, RGB).dexterity
-                acting.movement_recoil = cls.recoil_cost * (10 / dex)
+                acting.movement_recoil = cls.recoil_cost * (25 / (10 + dex))
                  
                 if user := world.try_component(ent_id, User):
                     user.mind.process_event("player_movement")
@@ -52,7 +52,8 @@ class Move(Action):
         sight.update_visible_and_visited_tiles((x0, y0), in_location.direction, in_location.dungeon)
         
         if user := world.try_component(ent_id, User):
-                user.mind.process_event("redraw_local_ui")
+            user.mind.process_event("redraw_local_ui")
+            user.mind.process_event("player_sight_changed")
         for other_ent_id, (other_user, other_in_loc, other_sight) in world.get_components(User, InLocation, Sight):
             if other_ent_id != ent_id and other_in_loc.dungeon == in_location.dungeon and distance(in_location.position, other_in_loc.position) <= other_sight.radius:
                 other_user.mind.process_event("redraw_local_ui")
