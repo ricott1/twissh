@@ -2,7 +2,7 @@ import esper
 from hacknslassh.components.acting import Ai
 from hacknslassh.components.description import Info
 from hacknslassh.components.tokens import IncreasedSightToken, TransformedToken
-from hacknslassh.constants import Color
+from hacknslassh.color_utils import Color
 from hacknslassh.dungeon import Dungeon
 from hacknslassh.processors.move_actions import MoveDown, MoveLeft, MoveRight, MoveUp
 from hacknslassh.processors.transform_actions import TransformingToken
@@ -154,6 +154,7 @@ class ImageTransitionProcessor(esper.Processor):
                 for other_ent_id, (other_user, other_in_loc, other_sight) in self.world.get_components(User, InLocation, Sight):
                     if other_ent_id != ent_id and other_in_loc.dungeon == in_loc.dungeon and distance(in_loc.position, other_in_loc.position) <= other_sight.radius:
                         other_user.mind.process_event("other_player_image_changed")
+                        other_user.mind.process_event("other_player_info_changed")
                         other_user.mind.process_event("redraw_local_ui")
 
 class RegenerationProcessor(esper.Processor):

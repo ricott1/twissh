@@ -1,5 +1,6 @@
 from __future__ import annotations
-from hacknslassh.constants import Color, Tile, MIN_ALPHA
+from hacknslassh.constants import Tile, MIN_ALPHA
+from hacknslassh.color_utils import Color
 from hacknslassh.gui.utils import RGBA_to_RGB, marker_to_urwid_text
 from hacknslassh.utils import distance, nested_dict
 from .components import InLocation, MAX_SIGHT_RADIUS, Sight
@@ -198,14 +199,58 @@ class Dungeon(object):
             self.remove_renderable_entity(ent_id)
 
 
-minimap_reduction = 3
+minimap_reduction = 2
 
-def render_dungeon_map(in_loc: InLocation, sight: Sight, camera_offset: tuple[int, int], screen_size: tuple[int, int]) -> list[list[str | tuple[urwid.AttrSpec, str]]]:
+def render_dungeon_map(in_loc: InLocation, sight: Sight, camera_offset: tuple[int, int], screen_size: tuple[int, int], double_buffer: bool = True) -> list[list[str | tuple[urwid.AttrSpec, str]]]:
+    if double_buffer:
+        return render_map_double_buffer(in_loc, sight, camera_offset, screen_size)
+    else:
+        return render_map_single_buffer(in_loc, sight, camera_offset, screen_size)
+
+def render_map_single_buffer(in_loc: InLocation, sight: Sight, camera_offset: tuple[int, int], screen_size: tuple[int, int]) -> list[list[str | tuple[urwid.AttrSpec, str]]]:
+    max_y, max_x = screen_size
+    off_y, off_x = camera_offset
+    rendered_map = [[Tile.EMPTY for _ in range(max_y)] for _ in range(max_x)]
+    x0, y0, _ = in_loc.position
+
+    for x in range(max_x):
+        if x - off_x >= len(in_loc.dungeon.map):
+            break
+        if x < off_x:
+            continue
+        for y in range(max_y):
+            if y - off_y >= len(in_loc.dungeon.map[0]):
+                break
+            if y < off_y:
+                continue
+
+            if (x - off_x, y - off_y) not in sight.visited_tiles:
+                continue
+
+            tile = in_loc.dungeon.map[x - off_x][y - off_y]
+            if tile == Tile.EMPTY:
+                continue
+            d = distance((x - off_x, y - off_y), (x0, y0))
+            a = MIN_ALPHA
+            marker, fg, bg = get_tile_info(tile)
+
+            if d == 0:
+                marker, fg, bg = in_loc.marker, in_loc.own_fg, in_loc.bg
+                a = 255
+            elif (x - off_x, y - off_y) in sight.visible_tiles:
+                a = max(MIN_ALPHA, 255 - int((255-MIN_ALPHA)/sight.radius * d))
+            elif marker not in (Tile.WALL, Tile.FLOOR):
+                marker = Tile.FLOOR
+        
+            rendered_map[x][y] = marker_to_urwid_text(marker, fg, bg, a)
+                
+    return rendered_map
+
+def render_map_double_buffer(in_loc: InLocation, sight: Sight, camera_offset: tuple[int, int], screen_size: tuple[int, int]) -> list[list[str | tuple[urwid.AttrSpec, str]]]:
     max_y, max_x = screen_size
     # Double height since we are double buffering
     max_x *= 2
     off_y, off_x = camera_offset
-    # off_x //= 2
     rendered_map = [[Tile.EMPTY for _ in range(max_y)] for _ in range(max_x)]
     x0, y0, _ = in_loc.position
 
@@ -230,7 +275,6 @@ def render_dungeon_map(in_loc: InLocation, sight: Sight, camera_offset: tuple[in
                 btm_tile = in_loc.dungeon.map[x - off_x + 1][y - off_y]
 
             if top_tile == Tile.EMPTY and btm_tile == Tile.EMPTY:
-                # rendered_map[x//2][y] = Tile.EMPTY
                 continue
 
             top_d = distance((x - off_x, y - off_y), (x0, y0))
@@ -249,11 +293,15 @@ def render_dungeon_map(in_loc: InLocation, sight: Sight, camera_offset: tuple[in
             else:
                 if (x - off_x, y - off_y) in sight.visible_tiles:
                     top_a = max(MIN_ALPHA, 255 - int((255-MIN_ALPHA)/sight.radius * top_d))
-                    top_fg = sight.color
+                    # top_fg = sight.color
+                elif top_marker not in (Tile.WALL, Tile.FLOOR):
+                    top_marker = Tile.FLOOR
                 if (x - off_x + 1, y - off_y) in sight.visible_tiles:
                     btm_a = max(MIN_ALPHA, 255 - int((255-MIN_ALPHA)/sight.radius * btm_d))
-                    btm_fg = sight.color
-
+                    # btm_fg = sight.color
+                elif btm_marker not in (Tile.WALL, Tile.FLOOR):
+                    btm_marker = Tile.FLOOR
+                
             top_r, top_g, top_b = RGBA_to_RGB(*top_fg, top_a)
             top_attr = f"#{top_r:02x}{top_g:02x}{top_b:02x}"
             btm_r, btm_g, btm_b = RGBA_to_RGB(*btm_fg, btm_a)
@@ -287,8 +335,8 @@ def render_dungeon_minimap(in_loc: InLocation, sight: Sight) -> list[list[str | 
             top_range = [(x + j, y + i) for j in range(cf) for i in range(cf)]
             btm_range = [(x + cf + j, y + i) for j in range(cf) for i in range(cf)]
 
-            visited_top = any([tile in sight.visited_tiles and tile in in_loc.dungeon.floor_tiles for tile in top_range])
-            visited_btm = any([tile in sight.visited_tiles and tile in in_loc.dungeon.floor_tiles for tile in btm_range])
+            visited_top = any([(tile in sight.visited_tiles) and (tile in in_loc.dungeon.floor_tiles) for tile in top_range])
+            visited_btm = any([(tile in sight.visited_tiles) and (tile in in_loc.dungeon.floor_tiles) for tile in btm_range])
 
             if not visited_top and not visited_btm:
                 continue
@@ -312,44 +360,6 @@ def render_dungeon_minimap(in_loc: InLocation, sight: Sight) -> list[list[str | 
     return rendered_map
 
 
-
-# def single_buffer_rendered_map(camera_offset: tuple[int, int], screen_size: tuple[int, int]) -> list[list[str | tuple[urwid.AttrSpec, str]]]:
-#     off_y, off_x = camera_offset
-#     max_y, max_x = screen_size
-#     rendered_map = [[Tile.EMPTY for _ in range(max_y)] for _ in range(max_x)]
-#     x0, y0, _ = self.position
-
-#     for x in range(max_x):
-#         if x - off_x >= len(self.dungeon.map):
-#             break
-#         if x < off_x:
-#             continue
-#         for y in range(max_y):
-#             if y - off_y >= len(self.dungeon.map[0]):
-#                 break
-#             if y < off_y:
-#                 continue
-
-#             if (x - off_x, y - off_y) not in self.visited_tiles: #in visited_tiles:
-#                 continue
-
-#             tile = self.dungeon.map[x - off_x][y - off_y]
-#             if tile is not Tile.EMPTY:
-#                 d = distance((x - off_x, y - off_y), (x0, y0))
-#                 a = max(MIN_ALPHA, 255 - int((255-MIN_ALPHA)/self.sight.radius * d))
-#                 marker, fg, bg = get_tile_info(tile)
-
-#                 if d == 0:
-#                     marker, fg, bg = self.marker, self.own_fg, self.bg
-#                 elif (x - off_x, y - off_y) in self.visible_tiles:
-#                     fg = self.sight.color
-#                     # a = 255 #debug
-            
-#                 rendered_map[x][y] = marker_to_urwid_text(marker, fg, bg, a)
-                    
-                
-                    
-#     return rendered_map
 
 def get_tile_info(tile: tuple[urwid.AttrSpec, str]) -> tuple[str, tuple[int, int, int], tuple[int, int, int] | None]:
     if tile is Tile.EMPTY:

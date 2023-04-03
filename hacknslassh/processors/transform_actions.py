@@ -44,10 +44,14 @@ class TransformInto(Action):
             return
 
         transformed_token: TransformedToken = world.try_component(ent_id, TransformedToken)
-        
+        # print("transformed_token", transformed_token)
+         
         if not transformed_token:
+
             rgb: RGB = world.component_for_entity(ent_id, RGB)
-            if rgb.red.value < cls.red_mod or rgb.green.value < cls.green_mod or rgb.blue.value < cls.blue_mod:
+            # print("rgb", rgb.red.value, rgb.green.value, rgb.blue.value)
+            # print("cost", cls.red_mod, cls.green_mod, cls.blue_mod)
+            if (rgb.red.value == 0 and  cls.red_mod < 0) or (rgb.green.value == 0 and cls.green_mod < 0) or (rgb.blue.value == 0 and cls.blue_mod < 0):
                 return
         
         if not transformed_token:  

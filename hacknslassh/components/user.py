@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from hacknslassh.constants import Color
+from hacknslassh.color_utils import Color
 
 from twissh.server import UrwidMind
 

@@ -1,4 +1,4 @@
-import uuid, random, collections
+import uuid, random, collections, datetime
 
 RANDOM_NAMES = (
     "Gorbacioff",
@@ -107,3 +107,5 @@ def get_time():
 
 def new_id():
     return uuid.uuid4()
+
+

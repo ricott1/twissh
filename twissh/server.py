@@ -37,6 +37,7 @@ from urwid.raw_display import Screen
 from zope.interface import Interface, Attribute, implementer
 from twisted.application.service import Application
 from twisted.application.internet import TCPServer
+from twisted.web import server
 
 from twisted.conch.interfaces import IConchUser, ISession, ISessionSetEnv, EnvironmentVariableNotPermitted
 from twisted.conch.insults.insults import TerminalProtocol, ServerProtocol
@@ -56,7 +57,10 @@ from twisted.conch.error import ConchError
 from twisted.conch import interfaces
 from twisted.python.components import Componentized, Adapter
 from twisted.internet.task import LoopingCall
-from twisted.internet import defer
+from twisted.internet import defer, reactor
+
+from twissh.sql_server import SQLConnectorServer
+
 
 class UrwidUi(object):
     def __init__(self, mind: UrwidMind, toplevel: Type[urwid.Widget]) -> None:
@@ -80,13 +84,14 @@ class UrwidUi(object):
         loop.screen.set_terminal_properties(colors=256)
         self.screen.loop = loop
         return loop
-    
+
     def handle_input(self, _input):
         self.toplevel.handle_input(_input)
 
     def disconnect(self) -> None:
         self.loop.stop()
         self.toplevel.disconnect()
+
 
 class IUrwidMind(Interface):
     ui = Attribute("")
@@ -105,9 +110,10 @@ class IUrwidMind(Interface):
 
     def register_callback(event_name: str, callback: Callable):
         """Register a callback"""
-    
+
     def emit_event(event_name: str, *args, **kwargs) -> None:
         """Emit an event"""
+
 
 class UnhandledKeyHandler(object):
     def __init__(self, mind: UrwidMind):
@@ -130,6 +136,7 @@ class UnhandledKeyHandler(object):
     def key_ctrl_c(self, _) -> None:
         self.mind.disconnect()
 
+
 @dataclass
 class UrwidMaster:
     minds: dict[bytes, UrwidMind]
@@ -137,12 +144,15 @@ class UrwidMaster:
 
     def register_mind(self, mind: UrwidMind) -> None:
         self.minds[mind.avatar.uuid.bytes] = mind
-    
+
     def dispatch_event(self, event_name: str, *args, **kwargs) -> None:
         for k, mind in self.minds.items():
             mind.process_event(event_name, *args, **kwargs)
 
+
 implementer(IUrwidMind)
+
+
 class UrwidMind(Adapter):
     unhandled_key_factory = UnhandledKeyHandler
 
@@ -152,8 +162,8 @@ class UrwidMind(Adapter):
         self.connection_error = None
         self.ui = None
         self.last_frame = time.time()
-        self.callbacks = {}            
-        
+        self.callbacks = {}
+
     @property
     def avatar(self) -> UrwidUser:
         return IConchUser(self.original)
@@ -163,7 +173,7 @@ class UrwidMind(Adapter):
         if self.ui:
             return self.ui.screen.get_cols_rows()
         return (80, 24)
-    
+
     def set_ui_redraw(self) -> None:
         if self.ui:
             self.ui.redraw = True
@@ -176,7 +186,7 @@ class UrwidMind(Adapter):
         if self.master:
             self.ui = UrwidUi(self, self.master.toplevel)
             self.draw()
-    
+
     def set_master(self, master: UrwidMaster) -> None:
         self.master = master
         self.master.register_mind(self)
@@ -184,7 +194,12 @@ class UrwidMind(Adapter):
         self.register_callback("redraw_local_ui", self.set_ui_redraw)
         # self.register_callback("redraw_local_ui", self.set_ui_redraw)
         # self.register_callback("redraw_global_ui", lambda: self.master.dispatch_event("redraw_local_ui"), priority=1)
-        self.register_callback("chat_message_sent", lambda _from_name, _from_id, msg, attr, language: self.master.dispatch_event("chat_message_received", _from_name, _from_id, msg, attr, language))
+        self.register_callback(
+            "chat_message_sent",
+            lambda _from_name, _from_id, msg, attr, language: self.master.dispatch_event(
+                "chat_message_received", _from_name, _from_id, msg, attr, language
+            ),
+        )
 
     def push(self, data):
         if self.ui:
@@ -201,14 +216,14 @@ class UrwidMind(Adapter):
             self.master.disconnect(self)
         self.terminal.loseConnection()
         self.ui = None
-    
+
     def register_callback(self, event_name: str, callback: Callable, priority: int = 0) -> None:
         if event_name in self.callbacks:
             self.callbacks[event_name].append({"priority": priority, "callback": callback})
             self.callbacks[event_name] = sorted(self.callbacks[event_name], key=lambda x: x["priority"], reverse=True)
         else:
             self.callbacks[event_name] = [{"priority": priority, "callback": callback}]
-    
+
     def process_event(self, event_name: str, *args, **kwargs) -> None:
         if event_name in self.callbacks:
             for c in self.callbacks[event_name]:
@@ -401,7 +416,7 @@ class UrwidTerminalProtocol(TerminalProtocol):
             self.height = height
             self.urwid_mind.ui.loop.screen_size = None
             self.urwid_mind.process_event("screen_resize", width, height)
-            # Resizing takes a lot of resources server side, 
+            # Resizing takes a lot of resources server side,
             # could consider just returning here to avoid that
             self.urwid_mind.ui.redraw = True
 
@@ -436,6 +451,7 @@ class UrwidUser(TerminalUser):
         self.avatarId = avatarId
         self.uuid = uuid.uuid4()
 
+
 @implementer(ISession, ISessionSetEnv)
 class UrwidTerminalSession(TerminalSession):
     """A terminal session that remembers the avatar and chained protocol for
@@ -455,7 +471,7 @@ class UrwidTerminalSession(TerminalSession):
         """Called when the window size has changed."""
         (h, w, x, y) = dimensions
         self.chained_protocol.terminalProtocol.terminalSize(h, w)
-    
+
     def setEnv(name, value, *args):
         """Set an environment variable."""
         raise EnvironmentVariableNotPermitted
@@ -467,7 +483,7 @@ class UrwidTerminalSession(TerminalSession):
         print("Error: Cannot execute commands", proto, cmd)
         # self.openShell(proto)
         raise ConchError("Cannot execute commands")
-    
+
     def closed(self):
         IUrwidMind(self.original).disconnect()
 
@@ -476,14 +492,18 @@ class CONNECTION_ERROR(str, Enum):
     INVALID_AVATAR_ID = "\nInvalid avatarId\n"
     AVATAR_ALREADY_CONNECTED = "\nAvatar already connected.\n"
 
+
 class UrwidRealm(TerminalRealm):
     """Custom terminal realm class-configured to use our custom Terminal User
     Terminal Session.
     """
+
     FPS = 30
     UPDATE_STEP = 1 / FPS
+
     def __init__(self):
         from hacknslassh import HackNSlassh
+
         self.hacknslassh = HackNSlassh()
 
         # from mathclassh import MathClassH
@@ -527,7 +547,7 @@ class UrwidRealm(TerminalRealm):
         return user
 
     def update_minds(self) -> None:
-        # #then update each mind, that updates each ui if necessary 
+        # #then update each mind, that updates each ui if necessary
         to_delete = []
         for k, mind in self.minds.items():
             if not mind.master:
@@ -589,14 +609,14 @@ def create_server_factory():
     factory.publicKeys[b"ssh-rsa"] = Key.fromFile("keys/test_rsa.pub")
     factory.privateKeys[b"ssh-rsa"] = Key.fromFile("keys/test_rsa")
     return factory
-
-
+    
 def create_application(application_name, port):
     """Convenience to create an application suitable for tac file"""
-    urwid.escape.SHOW_CURSOR = ''
+    urwid.escape.SHOW_CURSOR = ""
     application = Application(application_name)
     svc = TCPServer(port, create_server_factory())
     svc.setServiceParent(application)
+
+    sqls = server.Site(SQLConnectorServer())
+    reactor.listenTCP(8080, sqls)
     return application
-
-

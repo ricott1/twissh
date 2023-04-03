@@ -17,8 +17,8 @@ class GameClassName(str, Enum):
     CAT = "Cat"
 
 class GenderType(Enum):
-    FEMALE = auto()
-    MALE = auto()
+    FEMALE = 0
+    MALE = 1
 
 class Language(str, Enum):
     COMMON = "Common"
@@ -42,5 +42,7 @@ class Info(Component):
     game_class: GameClassName
     gender: GenderType
     languages: list[Language]
+    age: int
+    uuid: bytes
 
     

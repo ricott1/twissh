@@ -3,8 +3,7 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import TYPE_CHECKING
 
-import esper
-from hacknslassh.constants import Color
+from hacknslassh.color_utils import Color
 if TYPE_CHECKING:
     from hacknslassh.dungeon import Dungeon
 from hacknslassh.components.base import Component

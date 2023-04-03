@@ -1,4 +1,5 @@
 
+import uuid
 from hacknslassh.processors.dig_actions import Dig
 from hacknslassh.processors.catch_action import Catch
 from hacknslassh.processors.transform_actions import TransformIntoRandom
@@ -44,7 +45,7 @@ def get_components_for_game_class(mind: UrwidMind, dungeon, gender: GenderType, 
     _components = [
         ImageCollection.CHARACTERS[gender][game_class].copy(),
         characteristics.RGB.random(),
-        Info(random_name(), "description", game_class, gender, [Language.COMMON]),
+        Info(random_name(), "description", game_class, gender, [Language.COMMON], random.randint(16, 48), uuid.uuid4().bytes[:12]),
         _in_location,
         _sight,
         _acting,

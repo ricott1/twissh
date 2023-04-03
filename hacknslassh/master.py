@@ -1,9 +1,9 @@
 import time
 import esper
-from hacknslassh.factories.cat_factory import create_cat
+from hacknslassh.factories.cat_factory import load_cat, generate_cats
 from hacknslassh.processors import processor
+from .db_connector import insert_cat, get_all_cats, delete_all_cats
 
-from hacknslassh.utils import random_name
 from hacknslassh.constants import GAME_SPEED
 from twissh.server import UrwidMaster, UrwidMind
 from .components import *
@@ -34,14 +34,39 @@ class HackNSlassh(UrwidMaster):
         # self.clock = pg.time.Clock()
         self.toplevel = GUI
         self.time = time.time()
-
-        for _ in range(15):
-            cat_id = create_cat(self.world, self.base_dungeon)
+        delete_all_cats()
+        cats = get_all_cats()
+        if len(cats) == 0:
+            self.init_cat()
+            cats = get_all_cats()
+        for cat_data in cats:
+            cat_id = load_cat(self.world, self.base_dungeon, cat_data)
             self.base_dungeon.set_renderable_entity(cat_id)
 
-    def register_new_player(
-        self, mind: UrwidMind, game_class: GameClassName, gender: GenderType
-    ) -> int:
+    def init_cat(self) -> None:
+        cats = generate_cats()
+        for data in cats:
+            info = data["info"]
+            rgb = data["rgb"]
+            catchable_token = data["catchableToken"]
+            color_descriptor = data["ColorDescriptor"]
+            body_parts = data["BodyPartsDescriptor"]
+            insert_cat(
+                info.uuid.hex(),
+                info.name,
+                info.age,
+                info.gender.value,
+                info.description,
+                rgb.red.value,
+                rgb.green.value,
+                rgb.blue.value,
+                "null",
+                catchable_token.rarity,
+                color_descriptor.hex(),
+                body_parts.hex(),
+            )
+
+    def register_new_player(self, mind: UrwidMind, game_class: GameClassName, gender: GenderType) -> int:
         _components = get_components_for_game_class(mind, self.base_dungeon, gender, game_class)
         player_id = self.world.create_entity(*_components)
         print("register_new_player", player_id, "for", mind.avatar.uuid.bytes)
@@ -58,9 +83,9 @@ class HackNSlassh(UrwidMaster):
             self.world.component_for_entity(ent_id, RGB).kill()
             print("disconnect", mind.avatar.uuid.bytes, "from", self.minds)
             print("ENT ID", ent_id, "RGB", self.world.component_for_entity(ent_id, RGB))
-            
+
             # comment next line to keep disconnected bodies in (maybe set them dead)
-            
+
             # del self.player_ids[mind.avatar.uuid.bytes]
         if mind.avatar.uuid.bytes in self.minds:
             del self.minds[mind.avatar.uuid.bytes]

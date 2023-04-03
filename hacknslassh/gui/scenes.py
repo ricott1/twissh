@@ -6,6 +6,7 @@ from typing import Callable, Type
 import esper
 from typing import TYPE_CHECKING
 from hacknslassh.components.acting import Acting
+from hacknslassh.components.tokens import ColorDescriptor
 from hacknslassh.dungeon import render_dungeon_map, render_dungeon_minimap
 if TYPE_CHECKING:
     from hacknslassh.master import HackNSlassh
@@ -220,11 +221,23 @@ class NetHackFrame(Scene, urwid.Frame):
                     self.bottom_menu.toggle_view()
             return True
         
+        if _input == KeyMap.EXIT_CHAT_MENU:
+            self.full_menu_view = False
+            self.menu.update_body("Help")
+            self.contents["body"] = (urwid.WidgetDisable(self.partial_view_body), None)
+            self.map.draw()
+            return True
+        
         if _input in MenuKeyMap:
             if not self.full_menu_view:
                 self.toggle_menu_view()
                 return self.menu.input_handler_select_submenu(_input)
         if _input == KeyMap.CENTER_CAMERA:
+            self.center_map_camera()
+            return True
+        
+        if _input == KeyMap.CHANGE_RESOLUTION:
+            self.map.change_resolution()
             self.center_map_camera()
             return True
         
@@ -486,16 +499,24 @@ class MapFrame(Scene, urwid.Frame):
         super().__init__(mind, map_box)
         self.camera_offset = (0, 0)
         self.register_callback("redraw_local_ui", self.draw, priority = 1)
+        self.render_double_buffer = True
     
     def center_camera(self, max_x: int, max_y: int) -> None:
         in_location: InLocation = self.get_player_component(InLocation)
         x, y, _ = in_location.position
-        self.camera_offset = (max_y // 2-y, max_x-x)
+        if self.render_double_buffer:
+            self.camera_offset = (max_y // 2-y, max_x-x)
+        else:
+            self.camera_offset = (max_y // 2-y, max_x // 2-x)
+
+    def change_resolution(self) -> None:
+        self.render_double_buffer = not self.render_double_buffer
+        self.draw()
 
     def draw(self) -> None:
         in_location: InLocation = self.get_player_component(InLocation)
         sight: Sight = self.get_player_component(Sight)
-        map_with_attr = [urwid.Text(line, wrap="clip") for line in render_dungeon_map(in_location, sight, self.camera_offset, self.mind.screen_size)]
+        map_with_attr = [urwid.Text(line, wrap="clip") for line in render_dungeon_map(in_location, sight, self.camera_offset, self.mind.screen_size, self.render_double_buffer)]
         self.map_walker[:] = map_with_attr
 
 
@@ -761,6 +782,7 @@ class StatusFrame(SubMenu):
         x, y, _ = in_loc.position
         info: Info = self.get_player_component(Info)
         rgb: RGB = self.get_player_component(RGB)
+        # primary_color = f"{hex(rgb.red.value)[2:]}{hex(rgb.green.value)[2:]}{hex(rgb.blue.value)[2:]}"
         self.description_walker[:] = [
             urwid.Text(f"{info.name:<10s} {info.game_class} @({y},{x})"),
             urwid.Text(f"  RED:{rgb.red.value:03d} GRN:{rgb.green.value:03d} BLU:{rgb.blue.value:03d}"),
@@ -769,7 +791,7 @@ class StatusFrame(SubMenu):
         ]
         
 class ExplorerFrame(SubMenu):
-    NO_TARGET_TEXT = "There's no one around.".center(MENU_WIDTH)
+    NO_TARGET_TEXT = "There's no one around. ".center(MENU_WIDTH)
     def __init__(self, mind):
         self.description_walker = urwid.SimpleListWalker([urwid.Text(self.NO_TARGET_TEXT)])
         super().__init__(mind, [(IMAGE_MAX_HEIGHT, EMPTY_FILL), urwid.ListBox(self.description_walker)])
@@ -777,6 +799,8 @@ class ExplorerFrame(SubMenu):
         self.target = None
         self.register_callback("redraw_local_ui", self.update_target)
         self.register_callback("other_player_image_changed", self.update_target_image)
+        self.register_callback("other_player_info_changed", self.update_target_info)
+
         self.update_target()
         self.nearest_index = 0
         self.nearby_entities = []
@@ -848,9 +872,15 @@ class ExplorerFrame(SubMenu):
             return
 
         x, y, _ = self.world.try_component(self.target, InLocation).position
-        self.description_walker[:] = [
+        description_walker = [
             urwid.Text(f"{info.name:<10s} {info.game_class} @({x},{y})")
         ]
+        # color_descriptor: ColorDescriptor = self.world.try_component(self.target, ColorDescriptor)
+        # if color_descriptor:
+        #     description_walker.append(urwid.Text(color_descriptor.hex()))
+        # else:
+        #     description_walker.append(urwid.Text("No color descriptor."))
+        self.description_walker[:] = description_walker
 
 
 class EquipmentFrame(SubMenu):

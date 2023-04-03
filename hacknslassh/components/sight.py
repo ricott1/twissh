@@ -5,13 +5,12 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import TYPE_CHECKING
 
-from hacknslassh.constants import Color
+from hacknslassh.color_utils import Color
 if TYPE_CHECKING:
     from hacknslassh.dungeon import Dungeon
 
 from hacknslassh.components.in_location import Direction
 from hacknslassh.components.base import Component
-from hacknslassh.utils import distance
 
 MAX_SIGHT_RADIUS = 20
 
