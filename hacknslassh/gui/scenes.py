@@ -6,6 +6,7 @@ from typing import Callable, Type
 import esper
 from typing import TYPE_CHECKING
 from hacknslassh.components.acting import Acting
+from hacknslassh.components.item import ConsumableItem
 from hacknslassh.components.tokens import ColorDescriptor
 from hacknslassh.dungeon import render_dungeon_map, render_dungeon_minimap
 if TYPE_CHECKING:
@@ -15,11 +16,11 @@ import urwid
 
 from hacknslassh.components.characteristics import RGB
 from hacknslassh.components.in_location import InLocation
-from hacknslassh.components.description import Info, Language
+from hacknslassh.components.description import ActorInfo, Language
 from hacknslassh.components.user import User
 from hacknslassh.components.sight import Sight
 from hacknslassh.constants import *
-from twissh.server import UrwidMind
+from web.server import UrwidMind
 
 from ..components import (Component, GenderType, RedRegeneration, GreenRegeneration, Image,
                           ImageCollection, BlueRegeneration, QuickItemSlots)
@@ -276,13 +277,8 @@ class BottlesAndQuickItemFrame(Scene, urwid.Columns):
         #     num_of_slots += 3
         max_num_of_slots = QuickItemSlots.MAX_SLOTS
         quick_items = []
-        for i in range(max_num_of_slots):
-            if i < num_of_slots:
-                slot_frame = urwid.LineBox(
-                    frames.ImageFrame(ImageCollection.REJUVENATION_POTION.LARGE), title=str(i + 1)
-                )
-            else:
-                slot_frame = urwid.LineBox(frames.ImageFrame(ImageCollection.EMPTY))
+        for _ in range(max_num_of_slots):
+            slot_frame = urwid.LineBox(frames.ImageFrame(ImageCollection.EMPTY))
             quick_items.append(slot_frame)
 
         self.quick_items_columns = quick_items
@@ -335,7 +331,7 @@ class BottlesAndQuickItemFrame(Scene, urwid.Columns):
             block_a = max(MIN_ALPHA, 255 - int((255-MIN_ALPHA)/sight.radius * d))
             r, g, b = RGBA_to_RGB(*sight.color, block_a)
             sight_blocks.append((urwid.AttrSpec(f"#{r:02x}{g:02x}{b:02x}", ""), "█"))
-        self.status_walker[1].set_text([f"{in_loc.marker}{sight.icon.value}"] + sight_blocks)
+        self.status_walker[1].set_text([f"{in_loc.marker}{sight.icon}"] + sight_blocks)
 
     def toggle_view(self) -> None:
         if self.menu_view == self.quick_items_columns:
@@ -356,16 +352,15 @@ class BottlesAndQuickItemFrame(Scene, urwid.Columns):
                 urwid.LineBox(frames.ImageFrame(ImageCollection.EMPTY), title=str(slot + 1)),
                 ("weight", 1),
             )
-        # self.emit_event("redraw_local_ui")
+        self.emit_event("redraw_local_ui")
 
     def add_quick_item(self, slot: int, item_id: int) -> None:
-        return
-        if item.has_component(Image):
+        if (item := self.world.try_component(item_id, ConsumableItem)) and (image := self.world.try_component(item_id, Image)):
             self.quick_items_columns.contents[slot] = (
-                urwid.LineBox(frames.ImageFrame(item.image), title=str(slot + 1)),
+                urwid.LineBox(frames.ImageFrame(image), title=str(slot + 1)),
                 ("weight", 1),
             )
-        # self.emit_event("redraw_local_ui")
+        self.emit_event("redraw_local_ui")
 
     def update_red_bottle(self) -> None:
         red = self.get_player_component(RGB).red
@@ -599,12 +594,12 @@ class ChatFrame(SubMenu):
         self.user_input = urwid.Text("_")
         super().__init__(mind, [self.log_widget, (4, urwid.LineBox(urwid.ListBox(urwid.SimpleListWalker([self.user_input]))))])
         self.register_callback("chat_message_received", self.receive_chat_message)
-        description:Info = self.get_player_component(Info)
+        description:ActorInfo = self.get_player_component(ActorInfo)
         self.chat_id = self.mind.avatar.uuid.hex
         self.chat_name = f"{description.name}#{self.mind.avatar.uuid.hex[:2]}"
 
     def receive_chat_message(self, _from_name: str, _from_id: str, msg: str, attribute: ChatMessageAttribute, language = Language.COMMON) -> None:
-        languages = self.get_player_component(Info).languages
+        languages = self.get_player_component(ActorInfo).languages
         if language not in languages:
             msg = Language.encrypt(msg, language)
         
@@ -627,7 +622,7 @@ class ChatFrame(SubMenu):
     def send_chat_message(self) -> None:
         msg: str = self.user_input.get_text()[0].strip()[:-1]
         if msg.strip():
-            description:Info = self.get_player_component(Info)
+            description:ActorInfo = self.get_player_component(ActorInfo)
             if not description.languages:
                 self.receive_chat_message("System", self.chat_id, "You don't know any languages!", ChatMessageAttribute.ERROR)
                 return
@@ -758,9 +753,10 @@ class StatusFrame(SubMenu):
         bkg_surface = ImageCollection.BACKGROUND_NONE.surface.copy()
         img: Image = self.get_player_component(Image)
         # round to nearest int: (n + d // 2) // d
-        x_offset = (bkg_surface.get_width() - img.surface.get_width() + 1)//2
+        x_offset = 2#(bkg_surface.get_width() - img.surface.get_width() + 1)//2
         y_offset = bkg_surface.get_height() - img.surface.get_height()
         bkg_surface.blit(img.surface, (x_offset, y_offset))
+        bkg_surface.blit(ImageCollection.SHIRTS["WHITE_MALE"].surface.copy(), (2, y_offset + 10))
         self.contents[0] = (frames.ImageFrame(Image(bkg_surface)), ("given", IMAGE_MAX_HEIGHT))
         self.emit_event("redraw_local_ui")
 
@@ -780,11 +776,11 @@ class StatusFrame(SubMenu):
         
         in_loc: InLocation = self.get_player_component(InLocation)
         x, y, _ = in_loc.position
-        info: Info = self.get_player_component(Info)
+        info: ActorInfo = self.get_player_component(ActorInfo)
         rgb: RGB = self.get_player_component(RGB)
         # primary_color = f"{hex(rgb.red.value)[2:]}{hex(rgb.green.value)[2:]}{hex(rgb.blue.value)[2:]}"
         self.description_walker[:] = [
-            urwid.Text(f"{info.name:<10s} {info.game_class} @({y},{x})"),
+            urwid.Text(f"{info.name}#{self.mind.avatar.uuid.hex} @({y},{x})"),
             urwid.Text(f"  RED:{rgb.red.value:03d} GRN:{rgb.green.value:03d} BLU:{rgb.blue.value:03d}"),
             urwid.Text(["  STR:", color(rgb.strength), "  DEX:", color(rgb.dexterity), "  ACU:", color(rgb.acumen)]),
             # urwid.Text(", ".join(info.languages)),
@@ -797,7 +793,7 @@ class ExplorerFrame(SubMenu):
         super().__init__(mind, [(IMAGE_MAX_HEIGHT, EMPTY_FILL), urwid.ListBox(self.description_walker)])
 
         self.target = None
-        self.register_callback("redraw_local_ui", self.update_target)
+        self.register_callback("redraw_local_ui", self.update_target, priority=1)
         self.register_callback("other_player_image_changed", self.update_target_image)
         self.register_callback("other_player_info_changed", self.update_target_info)
 
@@ -840,7 +836,7 @@ class ExplorerFrame(SubMenu):
         for x, y in sight.visible_tiles:
             for z in (1, 0, 2): #first creatures layer, than items, than flyers
                 if ent_id := in_location.dungeon.get_at((x, y, z)):
-                    if ent_id != self.player_id and self.world.try_component(ent_id, Info):
+                    if ent_id != self.player_id and self.world.try_component(ent_id, ActorInfo):
                         entities.append(ent_id)
         return entities
 
@@ -866,7 +862,7 @@ class ExplorerFrame(SubMenu):
             self.description_walker[:] = [urwid.Text(self.NO_TARGET_TEXT)]
             return
 
-        info: Info = self.world.try_component(self.target, Info)
+        info: ActorInfo = self.world.try_component(self.target, ActorInfo)
         if not info:
             self.description_walker[:] = [urwid.Text("A mysterious entity.")]
             return
@@ -968,13 +964,11 @@ CHARACTERS_SELECTION_FRAMES = {
 
 for c in CharacterSelectionFrame.options:
     for gender in GenderType:
-        for bkg in ("none", "unselected", "selected"):
-            if bkg == "none":
-                bkg_surface = ImageCollection.BACKGROUND_NONE.surface.copy()
-            elif bkg == "selected":
+        for bkg in ("unselected", "selected"):
+            if bkg == "selected":
                 bkg_surface = ImageCollection.BACKGROUND_SELECTED.surface.copy()
             else:
-                bkg_surface = ImageCollection.BACKGROUND_NONE.surface.copy()
+                bkg_surface = ImageCollection.BACKGROUND_UNSELECTED.surface.copy()
             char_img = ImageCollection.CHARACTERS[gender][c].surface
             x_offset = (bkg_surface.get_width() - char_img.get_width()) // 2
             y_offset = bkg_surface.get_height() - char_img.get_height()

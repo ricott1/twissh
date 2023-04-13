@@ -32,17 +32,20 @@ class Language(str, Enum):
             return "miao " * ceil(len(text)/5)
 
 @dataclass
-class Info(Component):
+class ActorInfo(Component):
     """
     A description of the entity.
     """
-
+    
     name: str
     description: str
     game_class: GameClassName
     gender: GenderType
     languages: list[Language]
     age: int
+
+@dataclass
+class ID(Component):  
     uuid: bytes
 
     

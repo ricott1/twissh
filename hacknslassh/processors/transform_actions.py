@@ -6,7 +6,7 @@ from hacknslassh.components.in_location import InLocation
 from hacknslassh.components.sight import Sight, SightShape
 from hacknslassh.components.characteristics import RGB
 from hacknslassh.components.image import Image, ImageCollection, ImageTransition
-from hacknslassh.components.description import Info, GameClassName, Language
+from hacknslassh.components.description import ActorInfo, GameClassName, Language
 from hacknslassh.components.tokens import TransformedToken
 from hacknslassh.components.user import User
 from hacknslassh.components.utils import DelayCallback
@@ -29,8 +29,8 @@ class TransformInto(Action):
     extra_components = {}
 
     @classmethod
-    def target(cls, world: esper.World, ent_id: int) -> Info:
-        _from: Info = world.component_for_entity(ent_id, Info) 
+    def target(cls, world: esper.World, ent_id: int) -> ActorInfo:
+        _from: ActorInfo = world.component_for_entity(ent_id, ActorInfo) 
         return _from
 
     @classmethod
@@ -70,7 +70,7 @@ class TransformInto(Action):
             user.mind.process_event("player_acting_changed")
         
     @classmethod
-    def transform(cls, world: esper.World, ent_id: int, _into: Info) -> None:
+    def transform(cls, world: esper.World, ent_id: int, _into: ActorInfo) -> None:
         transformed_token: TransformedToken = world.try_component(ent_id, TransformedToken) 
         if transformed_token:
             world.remove_component(ent_id, TransformedToken)
@@ -84,7 +84,7 @@ class TransformInto(Action):
                 extra_components[k] = old_comp
                 new_comp = comp_type.merge(old_comp, comp)
                 world.add_component(ent_id, new_comp, comp_type)
-            _from: Info = world.component_for_entity(ent_id, Info)
+            _from: ActorInfo = world.component_for_entity(ent_id, ActorInfo)
             transformed_token = TransformedToken(_from, _into, extra_components, cls.on_processor)
             world.add_component(ent_id, transformed_token)
             world.add_component(ent_id, _into)
@@ -131,12 +131,12 @@ class TransformInto(Action):
             cls.transform(world, ent_id, transformed_token._from)
 
 @dataclass
-class DevilInfo(Info):
+class DevilInfo(ActorInfo):
     description = "A serious devil."
     game_class = GameClassName.DEVIL.value
 
 @dataclass
-class DwarvilInfo(Info):
+class DwarvilInfo(ActorInfo):
     description = "A serious, small devil."
     game_class = GameClassName.DWARVIL.value
 
@@ -148,14 +148,14 @@ class TransformIntoDevil(TransformInto):
     blue_mod = -5
 
     @classmethod
-    def target(cls, world: esper.World, ent_id: int) -> Info:
-        _from: Info = world.component_for_entity(ent_id, Info)
+    def target(cls, world: esper.World, ent_id: int) -> ActorInfo:
+        _from: ActorInfo = world.component_for_entity(ent_id, ActorInfo)
         if _from.game_class == GameClassName.DWARF:
-            return Info.merge(_from, DwarvilInfo) 
-        return Info.merge(_from, DevilInfo)
+            return ActorInfo.merge(_from, DwarvilInfo) 
+        return ActorInfo.merge(_from, DevilInfo)
     
 @dataclass
-class CatInfo(Info):
+class CatInfo(ActorInfo):
     description = "A serious cat."
     game_class = GameClassName.CAT.value
     languages = [Language.GATTESE, Language.COMMON]
@@ -173,13 +173,13 @@ class TransformIntoCat(TransformInto):
     extra_components = {"sight": (Sight, CatSight)}
 
     @classmethod
-    def target(cls, world: esper.World, ent_id: int) -> Info:
-        _from: Info = world.component_for_entity(ent_id, Info)
-        return Info.merge(_from, CatInfo)
+    def target(cls, world: esper.World, ent_id: int) -> ActorInfo:
+        _from: ActorInfo = world.component_for_entity(ent_id, ActorInfo)
+        return ActorInfo.merge(_from, CatInfo)
 
     @classmethod
-    def transform(cls, world: esper.World, ent_id: int, _into: Info) -> None:
-        old_sight: Info = world.component_for_entity(ent_id, Sight)
+    def transform(cls, world: esper.World, ent_id: int, _into: ActorInfo) -> None:
+        old_sight: ActorInfo = world.component_for_entity(ent_id, Sight)
         super().transform(world, ent_id, _into)
         new_sight = world.component_for_entity(ent_id, Sight)
         new_sight.visited_tiles.update(old_sight.visited_tiles)

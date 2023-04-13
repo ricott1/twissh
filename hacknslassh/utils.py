@@ -1,25 +1,6 @@
 import uuid, random, collections, datetime
 
-RANDOM_NAMES = (
-    "Gorbacioff",
-    "Gundam",
-    "Pesca",
-    "Lukiko",
-    "Armando",
-    "Mariella",
-    "Formaggio",
-    "Pancrazio",
-    "Tancredi",
-    "Swallace",
-    "Faminy",
-    "Pertis",
-    "Pericles",
-    "Atheno",
-    "Mastella",
-    "Ciriaco",
-    "Harri",
-    "Pantera",
-)
+
 
 nested_dict = lambda: collections.defaultdict(nested_dict)
 
@@ -56,7 +37,6 @@ def random_stats(_levels={}):
     else:
         data = {k: random_stat(v) for k, v in _levels.items()}
     data["HP"] = random.randint(1, 8)
-    print("ROLLED", _levels, data)
     return data
 
 
@@ -69,11 +49,6 @@ def random_stat(_level=1):
     elif _level == 1:
         rolls = sorted([random.randint(1, 6) for _ in range(4)])
         return sum(rolls[:-1])
-
-
-def random_name():
-    return random.sample(RANDOM_NAMES, 1)[0]
-
 
 def mod(value):
     # return (value-10)//2
@@ -103,9 +78,3 @@ def log(text):
 
 def get_time():
     return datetime.datetime.now().strftime("%H:%M:%S")
-
-
-def new_id():
-    return uuid.uuid4()
-
-

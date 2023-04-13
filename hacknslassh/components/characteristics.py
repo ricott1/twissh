@@ -29,7 +29,11 @@ class RGB(Component):
 
     @classmethod
     def random(cls) -> RGB:
-        return RGB(ColorCharacteristic(random.randint(0, 255)), ColorCharacteristic(random.randint(0, 255)), ColorCharacteristic(random.randint(0, 255)))
+        return RGB(
+            ColorCharacteristic(random.randint(120, 255)), 
+            ColorCharacteristic(random.randint(120, 255)), 
+            ColorCharacteristic(random.randint(120, 255))
+        )
     
     def kill(self) -> None:
         self.red.value = 0
@@ -43,7 +47,7 @@ class ColorCharacteristic(Component):
 
     @property
     def value(self) -> int:
-        return min(self.max_value, max(0, int(self._value)))
+        return int(self._value)
     
     @value.setter
     def value(self, _value: float) -> None:

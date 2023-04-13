@@ -48,7 +48,8 @@ class Sight(Component):
     def icon(self) -> str:
         for shape, icon in zip(SightShape, SightShapeIcons):
             if self.shape == shape:
-                return icon
+                return icon.value
+            #FIXME: not sure but now it doesnt match after factory update
         return "?"
     
     @classmethod

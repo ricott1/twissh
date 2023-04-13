@@ -25,6 +25,7 @@ class Move(Action):
             in_location.marker = Markers.USER[cls.direction]
             in_location.dungeon.set_renderable_entity(ent_id)
             if user := world.try_component(ent_id, User):
+                user.mind.process_event("redraw_local_ui")
                 user.mind.process_event("player_status_changed")
         else:
             acting = world.try_component(ent_id, Acting)

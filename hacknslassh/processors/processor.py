@@ -1,6 +1,6 @@
 import esper
 from hacknslassh.components.acting import Ai
-from hacknslassh.components.description import Info
+from hacknslassh.components.description import ActorInfo
 from hacknslassh.components.tokens import IncreasedSightToken, TransformedToken
 from hacknslassh.color_utils import Color
 from hacknslassh.dungeon import Dungeon

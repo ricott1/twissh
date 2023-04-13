@@ -1,5 +1,8 @@
 from dataclasses import dataclass
 from enum import Enum, auto
+from typing import Callable
+
+import esper
 
 from .base import Component
 
@@ -20,11 +23,33 @@ class ItemRarity(Component):
 
     value: Rarity
 
+    @classmethod
+    def common(cls):
+        return cls(Rarity.COMMON)
+    
+    @classmethod
+    def uncommon(cls):
+        return cls(Rarity.UNCOMMON)
+    
+    @classmethod
+    def rare(cls):
+        return cls(Rarity.RARE)
+    
+    @classmethod
+    def legendary(cls):
+        return cls(Rarity.LEGENDARY)
+    
+    @classmethod
+    def unique(cls):
+        return cls(Rarity.UNIQUE)
 
 @dataclass
-class Item(Component):
-    pass
+class ConsumableItem(Component):
+    effect: Callable[[esper.World, int], None]
 
+@dataclass
+class EquippableItem(Component):
+    requisites: Callable[[esper.World, int], None] | None = None
 
 class QuickItemSlots(int, Enum):
     NO_SLOTS = 0
@@ -36,5 +61,5 @@ class QuickItemSlots(int, Enum):
 
 
 @dataclass
-class Belt(Component):
-    slots: QuickItemSlots
+class ConsumableItemSlots(Component):
+    value: QuickItemSlots

@@ -46,31 +46,6 @@ class ImageTransition(Component):
 
 file_dir = os.path.dirname(os.path.realpath(__file__))
 
-
-class HPPotionImageCollection(object):
-    LARGE = Image(pg.image.load(f"{file_dir}/assets/potions/hp_large.png"))
-    MEDIUM = Image(pg.image.load(f"{file_dir}/assets/potions/hp_medium.png"))
-    SMALL = Image(pg.image.load(f"{file_dir}/assets/potions/hp_small.png"))
-
-
-class MPPotionImageCollection(object):
-    LARGE = Image(pg.image.load(f"{file_dir}/assets/potions/mp_large.png"))
-    MEDIUM = Image(pg.image.load(f"{file_dir}/assets/potions/mp_medium.png"))
-    SMALL = Image(pg.image.load(f"{file_dir}/assets/potions/mp_small.png"))
-
-
-class RejuvenationPotionImageCollection(object):
-    LARGE = Image(pg.image.load(f"{file_dir}/assets/potions/rejuvenation_large.png"))
-    MEDIUM = Image(pg.image.load(f"{file_dir}/assets/potions/rejuvenation_medium.png"))
-    SMALL = Image(pg.image.load(f"{file_dir}/assets/potions/rejuvenation_small.png"))
-
-
-class CurePotionImageCollection(object):
-    LARGE = Image(pg.image.load(f"{file_dir}/assets/potions/cure_large.png"))
-    MEDIUM = Image(pg.image.load(f"{file_dir}/assets/potions/cure_medium.png"))
-    SMALL = Image(pg.image.load(f"{file_dir}/assets/potions/cure_small.png"))
-
-
 class HPBottleImageCollection(object):
     L0 = Image(pg.image.load(f"{file_dir}/assets/bottles/hp0.png"))
     L1 = Image(pg.image.load(f"{file_dir}/assets/bottles/hp1.png"))
@@ -112,7 +87,7 @@ class ImageCollection(object):
     EMPTY = Image(pg.Surface((0, 0), pg.SRCALPHA))
     BACKGROUND_NONE = Image(pg.Surface((28, 38), pg.SRCALPHA))
     BACKGROUND_SELECTED = Image(pg.image.load(f"{file_dir}/assets/background_selected.png"))
-    BACKGROUND_UNSELECTED = Image(pg.image.load(f"{file_dir}/assets/background_unselected.png"))
+    BACKGROUND_UNSELECTED = Image(pg.Surface((20, 38), pg.SRCALPHA))
     CHARACTERS = {
         GenderType.FEMALE: {k: Image(pg.image.load(f"{file_dir}/assets/characters/{k.lower()}_female.png")) for k in GameClassName},
         GenderType.MALE: {k: Image(pg.image.load(f"{file_dir}/assets/characters/{k.lower()}_male.png")) for k in GameClassName},
@@ -125,10 +100,6 @@ class ImageCollection(object):
     BLUE_BOTTLE = MPBottleImageCollection()
     GREEN_BOTTLE = SPBottleImageCollection()
     REGEN_BOTTLE = RegenerationBottleImageCollection()
-    HP_POTION = HPPotionImageCollection()
-    MP_POTION = MPPotionImageCollection()
-    REJUVENATION_POTION = RejuvenationPotionImageCollection()
-    CURE_POTION = CurePotionImageCollection()
 
     CAT_HEADS = {
         f"HEAD{str(i).zfill(2)}": Image(pg.image.load(f"{file_dir}/assets/cats/head{str(i).zfill(2)}.png")) for i in range(10)
@@ -141,4 +112,8 @@ class ImageCollection(object):
     }
     CAT_SITTING_BODIES = {
         f"SITTINGBODY{str(i).zfill(2)}": Image(pg.image.load(f"{file_dir}/assets/cats/sittingbody{str(i).zfill(2)}.png")) for i in range(6)
+    }
+
+    SHIRTS = {
+        "WHITE_MALE": Image(pg.image.load(f"{file_dir}/assets/shirts/white_tight_male.png"))
     }

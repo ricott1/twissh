@@ -7,15 +7,15 @@ import esper
 
 from hacknslassh.color_utils import Color, closest_c256
 if TYPE_CHECKING:
-    from hacknslassh.components import Info
+    from hacknslassh.components import ActorInfo
 
 from .base import Component
 
 
 @dataclass
 class TransformedToken(Component):
-    _from: Info
-    _into: Info
+    _from: ActorInfo
+    _into: ActorInfo
     extra_components: dict[str, Component]
     on_processor: Callable[[esper.World, int, float], None] | None
 
@@ -37,7 +37,6 @@ class ColorDescriptor(Component):
         self.colors = [closest_c256(color) for color in self.colors]
 
     def to_bytes(self) -> bytes:
-        print(len(b"".join([x.to_bytes(1) for color in self.colors for x in color])))
         return b"".join([x.to_bytes(1) for color in self.colors for x in color])
 
     @classmethod

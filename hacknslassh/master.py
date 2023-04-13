@@ -1,11 +1,12 @@
 import time
 import esper
 from hacknslassh.factories.cat_factory import load_cat, generate_cats
+from hacknslassh.factories.player_factory import create_player, load_player
 from hacknslassh.processors import processor
-from .db_connector import insert_cat, get_all_cats, delete_all_cats
+from .db_connector import get_all_cats, delete_all_cats, get_player, get_all_players
 
 from hacknslassh.constants import GAME_SPEED
-from twissh.server import UrwidMaster, UrwidMind
+from web.server import UrwidMaster, UrwidMind
 from .components import *
 from .dungeon import Dungeon
 from .gui.gui import GUI
@@ -16,7 +17,10 @@ class HackNSlassh(UrwidMaster):
     UPDATE_STEP = 1 / FPS
 
     def __init__(self) -> None:
+        all_players = get_all_players()
         self.player_ids: dict[bytes, int] = {}
+        for p in all_players:
+            self.player_ids[bytes.fromhex(p[0])] = None
         self.minds = {}
         self.world = esper.World()
         self.world.add_processor(processor.ActionProcessor())
@@ -34,58 +38,68 @@ class HackNSlassh(UrwidMaster):
         # self.clock = pg.time.Clock()
         self.toplevel = GUI
         self.time = time.time()
-        delete_all_cats()
+        # delete_all_cats()
+        self.initialize_cats()
+
+    def initialize_cats(self) -> None:
         cats = get_all_cats()
         if len(cats) == 0:
-            self.init_cat()
-            cats = get_all_cats()
-        for cat_data in cats:
-            cat_id = load_cat(self.world, self.base_dungeon, cat_data)
+            cats_data = generate_cats()
+        else:
+            cats_data = [load_cat(cat) for cat in cats]
+        for cat_components in cats_data:
+            x, y = self.base_dungeon.random_free_floor_tile()
+            cat_components.append(InLocation(self.base_dungeon, (x, y, 1), fg=(255, 0, 0)))
+            cat_id = self.world.create_entity(*cat_components)
             self.base_dungeon.set_renderable_entity(cat_id)
+            
+    def register_new_player(self, mind: UrwidMind, game_class: GameClassName | None = None, gender: GenderType | None = None) -> int:
+        all_matches = get_player(mind.avatar.uuid.hex)
+        if len(all_matches) == 0:
+            player_components = create_player(mind, gender, game_class)
+            x, y = self.base_dungeon.random_free_floor_tile()
+            _in_location = InLocation(self.base_dungeon, (x, y, 1), fg=(255, 0, 0))
+            player_components.append(_in_location)
+            player_id = self.world.create_entity(*player_components)
+            self.base_dungeon.set_renderable_entity(player_id)
+            self.player_ids[mind.avatar.uuid.bytes] = player_id
+            return player_id
+        
+        if len(all_matches) == 1:
+            player_data = all_matches[0]
+            player_components = load_player(mind, player_data)
+            x, y = self.base_dungeon.random_free_floor_tile()
+            player_components.append(InLocation(self.base_dungeon, (x, y, 1), fg=(255, 0, 0)))
+            player_id = self.world.create_entity(*player_components)
+            self.base_dungeon.set_renderable_entity(player_id)
+            self.player_ids[mind.avatar.uuid.bytes] = player_id
 
-    def init_cat(self) -> None:
-        cats = generate_cats()
-        for data in cats:
-            info = data["info"]
-            rgb = data["rgb"]
-            catchable_token = data["catchableToken"]
-            color_descriptor = data["ColorDescriptor"]
-            body_parts = data["BodyPartsDescriptor"]
-            insert_cat(
-                info.uuid.hex(),
-                info.name,
-                info.age,
-                info.gender.value,
-                info.description,
-                rgb.red.value,
-                rgb.green.value,
-                rgb.blue.value,
-                "null",
-                catchable_token.rarity,
-                color_descriptor.hex(),
-                body_parts.hex(),
-            )
+            
 
-    def register_new_player(self, mind: UrwidMind, game_class: GameClassName, gender: GenderType) -> int:
-        _components = get_components_for_game_class(mind, self.base_dungeon, gender, game_class)
-        player_id = self.world.create_entity(*_components)
-        print("register_new_player", player_id, "for", mind.avatar.uuid.bytes)
-        self.base_dungeon.set_renderable_entity(player_id)
+            return player_id
+        
+        print("Error while loading", mind.avatar.uuid.hex)
+        return self.disconnect(mind)
+        
+        
+        
 
-        self.player_ids[mind.avatar.uuid.bytes] = player_id
-        self.minds[mind.avatar.uuid.bytes] = mind
-        return player_id
+        # item_id = self.world.create_entity(
+        #     ActorInfo("Sword", "A sword", "A sword", "A sword"),
+        #     Item(),
+        #     Damage(2),
+        #     Weight(1),
+        #     Value(10),
+        #     Position(player_id),
+        
 
     def disconnect(self, mind: UrwidMind) -> None:
-        print("disconnect", mind.avatar.uuid.bytes, "from", self.minds)
         if mind.avatar.uuid.bytes in self.player_ids:
             ent_id = self.player_ids[mind.avatar.uuid.bytes]
             self.world.component_for_entity(ent_id, RGB).kill()
-            print("disconnect", mind.avatar.uuid.bytes, "from", self.minds)
-            print("ENT ID", ent_id, "RGB", self.world.component_for_entity(ent_id, RGB))
+            print("disconnect", mind.avatar.uuid.hex, "from", self.minds)
 
             # comment next line to keep disconnected bodies in (maybe set them dead)
-
             # del self.player_ids[mind.avatar.uuid.bytes]
         if mind.avatar.uuid.bytes in self.minds:
             del self.minds[mind.avatar.uuid.bytes]

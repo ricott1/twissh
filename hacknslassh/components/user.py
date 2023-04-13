@@ -1,8 +1,6 @@
 from dataclasses import dataclass
 from hacknslassh.color_utils import Color
-
-from twissh.server import UrwidMind
-
+from web.server import UrwidMind
 from .base import Component
 
 
