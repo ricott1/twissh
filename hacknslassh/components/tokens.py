@@ -27,7 +27,6 @@ class IncreasedSightToken(Component):
 @dataclass
 class CatchableToken(Component):
     owner: int | None = None
-    rarity: int = 0
 
 @dataclass
 class ColorDescriptor(Component):
@@ -41,8 +40,6 @@ class ColorDescriptor(Component):
 
     @classmethod
     def from_bytes(cls, data: bytes) -> ColorDescriptor:
-        input(len(data))
-        input(tuple(tuple(data[i:i+3]) for i in range(0, len(data), 3)))
         return ColorDescriptor(tuple(tuple(data[i:i+3]) for i in range(0, len(data), 3)))
     
     @classmethod

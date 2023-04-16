@@ -26,6 +26,7 @@ PALETTE = [
 
 EMPTY_FILL = urwid.ListBox(urwid.SimpleListWalker([urwid.Text("")]))
 
+
 class SelectableListBox(urwid.ListBox):
     def __init__(self, body):
         super(SelectableListBox, self).__init__(body)
@@ -129,7 +130,10 @@ def create_button(label, align="center", **kwargs):
     btn._label.align = align
     return btn
 
-def marker_to_urwid_text(marker: str, fg: tuple[int, int, int], bg: tuple[int, int, int] | None, a: int = 255) -> tuple[urwid.AttrSpec, str]: 
+
+def marker_to_urwid_text(
+    marker: str, fg: tuple[int, int, int], bg: tuple[int, int, int] | None, a: int = 255
+) -> tuple[urwid.AttrSpec, str]:
     f_r, f_g, f_b = RGBA_to_RGB(*fg, a)
     f_attr = f"#{f_r:02x}{f_g:02x}{f_b:02x}"
     if bg:
@@ -139,14 +143,21 @@ def marker_to_urwid_text(marker: str, fg: tuple[int, int, int], bg: tuple[int, i
         b_attr = ""
     return (urwid.AttrSpec(f_attr, b_attr), marker)
 
+
 def img_to_urwid_text(
-    img: Image, x_offset: int = 0, y_offset: int = 0, x_flip: bool = False, y_flip: bool = False, overlay_text: str = "", overlay_text_row: int = 0
+    img: Image,
+    x_offset: int = 0,
+    y_offset: int = 0,
+    x_flip: bool = False,
+    y_flip: bool = False,
+    overlay_text: str = "",
+    overlay_text_row: int = 0,
 ) -> list[tuple[urwid.AttrSpec, str] | str]:
     text = ["\n" * y_offset]
     surface = pg.transform.flip(img.surface, x_flip, y_flip)
     w, h = surface.get_width(), surface.get_height()
-    
-    overlay_text_x = (w - len(overlay_text))//2
+
+    overlay_text_x = (w - len(overlay_text)) // 2
     overlay_char = 0
 
     # We loop til h-1 to discard last level of odd-height images
@@ -193,7 +204,9 @@ def img_to_urwid_text(
     return text
 
 
-def combine_RGB_colors(color1: tuple[int, int, int], color2: tuple[int, int, int], weight1: float=1, weight2:float=1) -> tuple[int, int, int]:
+def combine_RGB_colors(
+    color1: tuple[int, int, int], color2: tuple[int, int, int], weight1: float = 1, weight2: float = 1
+) -> tuple[int, int, int]:
     return (int((color1[i] * weight1 + color2[i] * weight2) / (weight1 + weight2)) for i in range(3))
 
 

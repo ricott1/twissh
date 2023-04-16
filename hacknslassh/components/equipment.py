@@ -2,6 +2,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 from enum import Enum, auto
 from math import ceil
+from typing import Callable
+
+import esper
 from .base import Component
 
 class EquipmentSlot(str, Enum):
@@ -19,6 +22,11 @@ class EquipmentImageOffset(tuple[int, int], Enum):
     SHOES = (4, 35)
     BELT = (4, 23)
     WEAPON = (0, 5)
+
+@dataclass
+class EquippableItem(Component):
+    slot: EquipmentSlot
+    requisites: Callable[[esper.World, int], None] | None = None
        
 @dataclass
 class Equipment(Component):

@@ -1,34 +1,24 @@
 access to game_class and job screens, access monster status
 
 
-slow time
 costruire muri usando risorse
 enchant weapons al nano
 necromante resuscita morti
 
-item set properties
-add build house, enabling saving
-in house, no updates
-
-use markers central file and constants
 modify mind.key_map from settings
 
 
-world map topology using squares and connectors, topology frame
-
-add suggested min screen size
-
+pick up items action (equip on pick up)
+use consumable action
+current target in explorer is highlighted in map (in blue, for instance)
+target is calculated in acting processor, not in Explorer frame. Explorer frame simply updates once target updates (via event)
 
 
 
 ##BUGs
 
 - Shadowed_tiles in dungeon do not work. No idea why.
-- Umano a seconda del valore piu alto si trasforma tra bardo (rosso), nerd (blu) e guerriero (verde). Umano e' l'unico che puo' recuperare tutti RGB
-- add transform to slime
-- add cats to dungeon. Use cat factory that takes model and applies random colors to it
-- change language with chat command
-- elf can change name with chat command
-- cats follow "owner" using a catAI component, otherwise they are normal entities. Orc displays how many cats are following them
+- a volte lagga un comando/input
 - Orc abilities sacrifice cats to be used
+- 
 - 

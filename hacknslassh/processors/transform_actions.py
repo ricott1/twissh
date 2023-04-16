@@ -68,6 +68,8 @@ class TransformInto(Action):
         world.add_component(ent_id, TransformingToken(lambda w, ent_id: cls.transform(w, ent_id, _into), img_transition.delay))
         if user := world.try_component(ent_id, User):
             user.mind.process_event("player_acting_changed")
+            info = world.component_for_entity(ent_id, ActorInfo)
+            user.mind.process_event("log", ("cyan", f"{info.name} is transforming into {cls.description.lower()}."))
         
     @classmethod
     def transform(cls, world: esper.World, ent_id: int, _into: ActorInfo) -> None:
@@ -91,7 +93,7 @@ class TransformInto(Action):
 
         if user := world.try_component(ent_id, User):
             user.mind.process_event("player_status_changed")
-            user.mind.process_event("redraw_local_ui")
+            user.mind.process_event("redraw_ui")
     
     @classmethod
     def on_processor(cls, world: esper.World, ent_id: int, dt: float) -> None:
@@ -100,19 +102,19 @@ class TransformInto(Action):
         rgb.blue._value += cls.blue_mod * dt
         if user := world.try_component(ent_id, User):
             if blue_int != int(rgb.blue.value):
-                user.mind.process_event("player_blue_changed")
+                user.mind.process_event("player_rgb_changed")
 
         green_int = int(rgb.green.value)
         rgb.green._value += cls.green_mod * dt
         if user := world.try_component(ent_id, User):
             if green_int != int(rgb.green.value):
-                user.mind.process_event("player_green_changed")
+                user.mind.process_event("player_rgb_changed")
         
         red_int = int(rgb.red.value)
         rgb.red._value += cls.red_mod * dt
         if user := world.try_component(ent_id, User):
             if red_int != int(rgb.red.value):
-                user.mind.process_event("player_red_changed")
+                user.mind.process_event("player_rgb_changed")
 
         if rgb.blue.value <= 0 or rgb.green.value <= 0 or rgb.red.value <= 0:
             transformed_token: TransformedToken = world.try_component(ent_id, TransformedToken)
@@ -189,7 +191,7 @@ class TransformIntoCat(TransformInto):
         # new_sight.update_visible_and_visited_tiles((x, y), in_loc.direction, in_loc.dungeon)
 
         if user := world.try_component(ent_id, User):
-            user.mind.process_event("redraw_local_ui")
+            user.mind.process_event("redraw_ui")
 
 
 class TransformIntoRandom(TransformInto):

@@ -18,7 +18,7 @@ class GUI(urwid.Frame):
             self.active_body = CharacterSelectionFrame(self.mind)
             self.mind.register_callback("new_player", self.start_game_frame)
         super().__init__(self.active_body)
-        
+
     def handle_input(self, _input: str) -> None:
         self.active_body.handle_input(_input)
 

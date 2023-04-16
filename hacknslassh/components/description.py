@@ -36,7 +36,7 @@ class ActorInfo(Component):
     """
     A description of the entity.
     """
-    
+
     name: str
     description: str
     game_class: GameClassName

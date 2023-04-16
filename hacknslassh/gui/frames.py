@@ -30,11 +30,7 @@ class UiFrame(urwid.Frame):
 
 class WarningFrame(UiFrame):
     def __init__(self, w: int, h: int) -> None:
-        super().__init__(
-            urwid.ListBox(
-                [urwid.Text(f"Please set terminal size to a minimum of {WIDTH}x{HEIGHT} (currently {w}x{h})")]
-            )
-        )
+        super().__init__(urwid.ListBox([urwid.Text(f"Please set terminal size to a minimum of {WIDTH}x{HEIGHT} (currently {w}x{h})")]))
 
 
 class SplitHorizontalFrame(UiFrame):
@@ -404,10 +400,26 @@ class EntryFrame(UiFrame):
 
 class ImageFrame(UiFrame):
     def __init__(
-        self, image: Image, background_attr=None, x_offset: int = 0, y_offset: int = 0, x_flip: bool = False, y_flip: bool = False, overlay_text: str = "", overlay_text_row: int = 0
+        self,
+        image: Image,
+        background_attr=None,
+        x_offset: int = 0,
+        y_offset: int = 0,
+        x_flip: bool = False,
+        y_flip: bool = False,
+        overlay_text: str = "",
+        overlay_text_row: int = 0,
     ):
         self.background_attr = background_attr
-        text = img_to_urwid_text(image, x_offset=x_offset, y_offset=y_offset, x_flip=x_flip, y_flip=y_flip, overlay_text=overlay_text, overlay_text_row=overlay_text_row)
+        text = img_to_urwid_text(
+            image,
+            x_offset=x_offset,
+            y_offset=y_offset,
+            x_flip=x_flip,
+            y_flip=y_flip,
+            overlay_text=overlay_text,
+            overlay_text_row=overlay_text_row,
+        )
 
         _walker = urwid.SimpleListWalker(
             [

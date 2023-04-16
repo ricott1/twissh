@@ -17,16 +17,6 @@ class Action(object):
         pass
 
     @classmethod
-    def on_start(cls, world: esper.World, ent_id: int) -> None:
-        """On start effects"""
-        pass
-
-    @classmethod
-    def on_end(cls, world: esper.World, ent_id: int) -> None:
-        """On end effects"""
-        pass
-
-    @classmethod
     def target_square(cls, world: esper.World, ent_id: int) -> tuple[int, int, int] | None:
         """Get action target square"""
         in_location = world.try_component(ent_id, InLocation)

@@ -201,13 +201,13 @@ class Dungeon(object):
 
 minimap_reduction = 2
 
-def render_dungeon_map(in_loc: InLocation, sight: Sight, camera_offset: tuple[int, int], screen_size: tuple[int, int], double_buffer: bool = True) -> list[list[str | tuple[urwid.AttrSpec, str]]]:
+def render_dungeon_map(in_loc: InLocation, sight: Sight, camera_offset: tuple[int, int], screen_size: tuple[int, int], target_in_location: InLocation | None, double_buffer: bool = True) -> list[list[str | tuple[urwid.AttrSpec, str]]]:
     if double_buffer:
-        return render_map_double_buffer(in_loc, sight, camera_offset, screen_size)
+        return render_map_double_buffer(in_loc, sight, camera_offset, screen_size, target_in_location)
     else:
-        return render_map_single_buffer(in_loc, sight, camera_offset, screen_size)
+        return render_map_single_buffer(in_loc, sight, camera_offset, screen_size, target_in_location)
 
-def render_map_single_buffer(in_loc: InLocation, sight: Sight, camera_offset: tuple[int, int], screen_size: tuple[int, int]) -> list[list[str | tuple[urwid.AttrSpec, str]]]:
+def render_map_single_buffer(in_loc: InLocation, sight: Sight, camera_offset: tuple[int, int], screen_size: tuple[int, int], target_in_location: InLocation | None) -> list[list[str | tuple[urwid.AttrSpec, str]]]:
     max_y, max_x = screen_size
     off_y, off_x = camera_offset
     rendered_map = [[Tile.EMPTY for _ in range(max_y)] for _ in range(max_x)]
@@ -232,7 +232,13 @@ def render_map_single_buffer(in_loc: InLocation, sight: Sight, camera_offset: tu
                 continue
             d = distance((x - off_x, y - off_y), (x0, y0))
             a = MIN_ALPHA
-            marker, fg, bg = get_tile_info(tile)
+
+            if target_in_location and (target_in_location.position[0] == x - off_x) and (target_in_location.position[1] == y - off_y):
+                marker = target_in_location.marker
+                fg = Color.WHEAT
+                bg = None
+            else:
+                marker, fg, bg = get_tile_info(tile)
 
             if d == 0:
                 marker, fg, bg = in_loc.marker, in_loc.own_fg, in_loc.bg
@@ -241,12 +247,12 @@ def render_map_single_buffer(in_loc: InLocation, sight: Sight, camera_offset: tu
                 a = max(MIN_ALPHA, 255 - int((255-MIN_ALPHA)/sight.radius * d))
             elif marker not in (Tile.WALL, Tile.FLOOR):
                 marker = Tile.FLOOR
-        
+
             rendered_map[x][y] = marker_to_urwid_text(marker, fg, bg, a)
                 
     return rendered_map
 
-def render_map_double_buffer(in_loc: InLocation, sight: Sight, camera_offset: tuple[int, int], screen_size: tuple[int, int]) -> list[list[str | tuple[urwid.AttrSpec, str]]]:
+def render_map_double_buffer(in_loc: InLocation, sight: Sight, camera_offset: tuple[int, int], screen_size: tuple[int, int], target_in_location: InLocation | None) -> list[list[str | tuple[urwid.AttrSpec, str]]]:
     max_y, max_x = screen_size
     # Double height since we are double buffering
     max_x *= 2

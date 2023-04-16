@@ -15,7 +15,7 @@ class Direction(str, Enum):
     RIGHT = "right"
 
 class Markers(object):
-    USER = {
+    ACTOR = {
         Direction.UP: "▲",
         Direction.DOWN: "▼",
         Direction.LEFT: "◀",
@@ -37,18 +37,25 @@ class InLocation(Component):
     dungeon: Dungeon
     position: tuple[int, int, int] = (0, 0, 0)
     direction: Direction = Direction.UP
-    marker: str = Markers.USER[Direction.UP]
+    marker: str = Markers.ACTOR[Direction.UP]
     fg: tuple[int, int, int] = Color.WHITE
     bg: tuple[int, int, int] | None = None
     own_fg: tuple[int, int, int] = Color.WHITE
     visibility: int = 255
-
+    
     @property
     def forward(self) -> tuple[int, int, int]:
         delta_x = int(self.direction == Direction.DOWN) - int(self.direction == Direction.UP)
         delta_y = int(self.direction == Direction.RIGHT) - int(self.direction == Direction.LEFT)
         x, y, z = self.position
         return (x + delta_x, y + delta_y, z)
+    
+    @property
+    def forward_below(self) -> tuple[int, int, int]:
+        delta_x = int(self.direction == Direction.DOWN) - int(self.direction == Direction.UP)
+        delta_y = int(self.direction == Direction.RIGHT) - int(self.direction == Direction.LEFT)
+        x, y, z = self.position
+        return (x + delta_x, y + delta_y, z-1)
 
     @property
     def above(self) -> tuple[int, int, int]:

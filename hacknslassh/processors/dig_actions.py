@@ -56,9 +56,9 @@ class Dig(Action):
                         del dungeon.shadow_cache[(x, y)]
             
         if user := world.try_component(ent_id, User):
-                user.mind.process_event("redraw_local_ui")
+                user.mind.process_event("redraw_ui")
                 user.mind.process_event("player_acting_changed")
         for other_ent_id, (other_user, other_in_loc, other_sight) in world.get_components(User, InLocation, Sight):
             if other_ent_id != ent_id and other_in_loc.dungeon == in_location.dungeon and in_location.position in other_sight.visible_tiles:
-                other_user.mind.process_event("redraw_local_ui")
+                other_user.mind.process_event("redraw_ui")
     

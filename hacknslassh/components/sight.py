@@ -49,7 +49,6 @@ class Sight(Component):
         for shape, icon in zip(SightShape, SightShapeIcons):
             if self.shape == shape:
                 return icon.value
-            #FIXME: not sure but now it doesnt match after factory update
         return "?"
     
     @classmethod
@@ -63,6 +62,9 @@ class Sight(Component):
     @classmethod
     def circle_sight(cls) -> Sight:
         return cls(SightShape.CIRCLE)
+    
+    def is_visible(self, x: int, y: int) -> bool:
+        return (x, y) in self.visible_tiles
 
     def update_visible_and_visited_tiles(self, x_y0: tuple[int, int], direction: Direction, dungeon: Dungeon) -> None:
         x0, y0 = x_y0

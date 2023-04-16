@@ -5,11 +5,15 @@ from hacknslassh.components.characteristics import RGB, ColorCharacteristic
 from hacknslassh.components.acting import Acting
 from hacknslassh.components.base import Component
 from hacknslassh.components.description import ID, GameClassName, ActorInfo, GenderType, Language
+from hacknslassh.components.equipment import Equipment
 from hacknslassh.components.image import Image, ImageCollection
+from hacknslassh.components.in_location import InLocation
+from hacknslassh.components.item import QuickItems
 from hacknslassh.components.sight import Sight
 from hacknslassh.components.user import User
+from hacknslassh.constants import KeyMap
 from hacknslassh.db_connector import store
-from hacknslassh.processors.catch_action import Catch
+from hacknslassh.dungeon import Dungeon
 from hacknslassh.processors.dig_actions import Dig
 from hacknslassh.processors.transform_actions import TransformIntoRandom
 from web.server import UrwidMind
@@ -43,31 +47,33 @@ female_names = (
 )
 
 
-def create_player(mind: UrwidMind, gender: GenderType, game_class: GameClassName, should_store: bool = True) -> list[Component]:
-    acting = Acting()
+def create_player(mind: UrwidMind, dungeon: Dungeon, gender: GenderType, game_class: GameClassName, should_store: bool = True) -> list[Component]:
+    acting = Acting.default()
     
     if game_class == GameClassName.ELF:
         sight = Sight.true_sight()
     else:
         sight = Sight.cone_sight()
 
+    x, y = dungeon.random_free_floor_tile()
+    in_location = InLocation(dungeon, (x, y, 1), fg=(255, 0, 0))
+    sight.update_visible_and_visited_tiles((x, y), in_location.direction, in_location.dungeon)
     # if game_class == GameClassName.HUMAN:
     #     acting.actions["t"] = TransformIntoDevil()
     if game_class == GameClassName.DWARF:
-        acting.actions["d"] = Dig()
+        acting.actions[KeyMap.DIG] = Dig()
     # elif game_class == GameClassName.DEVIL:
     #     acting.actions["r"] = IncreaseSightRadius()
     #     rgb = characteristics.RGB.devil()
     elif game_class == GameClassName.ORC:
-        acting.actions["t"] = TransformIntoRandom()
-
-    acting.actions["z"] = Catch()
+        acting.actions[KeyMap.TRANSFORM] = TransformIntoRandom()
 
     name = random.sample(male_names, 1)[0] if gender == GenderType.MALE else random.sample(female_names, 1)[0]
     age = random.randint(16, 48)
     rgb = RGB.random()
+    
     if should_store:
-        values = f'("{mind.avatar.uuid.hex()}", "{name}", "{age}", "{gender.value}", "{game_class}", "{rgb.red.value}", "{rgb.green.value}", "{rgb.blue.value}")'
+        values = f'("{mind.avatar.uuid.hex}", "{name}", "{age}", "{gender.value}", "{game_class}", "{rgb.red.value}", "{rgb.green.value}", "{rgb.blue.value}")'
         store("players", values)
     return [
         ImageCollection.CHARACTERS[gender][game_class].copy(),
@@ -76,11 +82,14 @@ def create_player(mind: UrwidMind, gender: GenderType, game_class: GameClassName
         ID(mind.avatar.uuid.bytes),
         sight,
         acting,
-        User(mind)
+        User(mind),
+        QuickItems(),
+        Equipment(),
+        in_location
     ]
 
   
-def load_player(mind: UrwidMind, player_data: tuple) -> list[Component]:
+def load_player(mind: UrwidMind, dungeon: Dungeon, player_data: tuple) -> list[Component]:
     player_id = player_data[0]
     gender = GenderType.MALE if player_data[3] == 1 else GenderType.FEMALE
     game_class = GameClassName(player_data[4])
@@ -90,25 +99,27 @@ def load_player(mind: UrwidMind, player_data: tuple) -> list[Component]:
         ColorCharacteristic(player_data[6]),
         ColorCharacteristic(player_data[7])
     )
-    acting = Acting()
+    acting = Acting.default()
     
     if game_class == GameClassName.ELF:
         sight = Sight.true_sight()
     else:
         sight = Sight.cone_sight()
 
+    x, y = dungeon.random_free_floor_tile()    
+    in_location = InLocation(dungeon, (x, y, 1), fg=(255, 0, 0))
+    sight.update_visible_and_visited_tiles((x, y), in_location.direction, in_location.dungeon)
     # if game_class == GameClassName.HUMAN:
     #     acting.actions["t"] = TransformIntoDevil()
     if game_class == GameClassName.DWARF:
-        acting.actions["d"] = Dig()
+        acting.actions[KeyMap.DIG] = Dig()
     # elif game_class == GameClassName.DEVIL:
     #     acting.actions["r"] = IncreaseSightRadius()
     #     rgb = characteristics.RGB.devil()
     elif game_class == GameClassName.ORC:
-        acting.actions["t"] = TransformIntoRandom()
+        acting.actions[KeyMap.TRANSFORM] = TransformIntoRandom()
 
-    acting.actions["z"] = Catch()
-
+    
     return [
         ImageCollection.CHARACTERS[gender][game_class].copy(),
         rgb,
@@ -116,5 +127,8 @@ def load_player(mind: UrwidMind, player_data: tuple) -> list[Component]:
         ID(player_id),
         sight,
         acting,
-        User(mind)
+        User(mind),
+        QuickItems(),
+        Equipment(),
+        in_location
     ]

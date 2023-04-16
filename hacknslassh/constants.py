@@ -15,12 +15,8 @@ COUNTER_MAX = 10
 MAX_NUM_QUICK_ITEMS = 5
 MIN_ALPHA = 55
 
-
-
-    
-
-
 class Recoil(float, Enum):
+    ZERO = 0
     MINIMUM = 0.15
     SHORT = 0.25
     MEDIUM = 0.5
@@ -39,10 +35,7 @@ class ChatKeyMap(str, Enum):
     DELETE = "backspace"
     CLEAR = "ctrl k"
     CARRIAGE_RETURN = "ctrl a"
-
-class ExplorerKeyMap(str, Enum):
-    NEXT = "l"
-    PREVIOUS = "k"
+    TOGGLE_WRITE = "ctrl w"
 
 class KeyMap(str, Enum):
     INVENTORY_MENU = "I"
@@ -51,7 +44,8 @@ class KeyMap(str, Enum):
     EQUIPMENT_MENU = "E"
     EXPLORER_MENU = "X"
     CHAT_MENU = "C"
-    EXIT_CHAT_MENU = "esc"
+    LOG_MENU = "L"
+    # EXIT_CHAT_MENU = "esc"
     MINIMAP_MENU = "M"
     QUICK_MENU = "Q"
     TOGGLE_FULL_MENU = "tab"
@@ -61,8 +55,24 @@ class KeyMap(str, Enum):
     DOWN = "down"
     LEFT = "left"
     RIGHT = "right"
-
-
+    PICK_UP = "p"
+    CATCH = "c"
+    DROP_1 = "!"
+    DROP_2 = "@"
+    DROP_3 = "#"
+    DROP_4 = "$"
+    DROP_5 = "%"
+    USE_1 = "1"
+    USE_2 = "2"
+    USE_3 = "3"
+    USE_4 = "4"
+    USE_5 = "5"
+    TARGET_NEXT = "l"
+    TARGET_PREVIOUS = "k"
+    TARGET_SELF = "s"
+    TOGGLE_AUTO_TARGET = "j"
+    DIG = "d"
+    TRANSFORM = "t"
 
 MenuKeyMap = [KeyMap.STATUS_MENU, KeyMap.INVENTORY_MENU, KeyMap.EQUIPMENT_MENU, KeyMap.HELP_MENU, KeyMap.CHAT_MENU]
 

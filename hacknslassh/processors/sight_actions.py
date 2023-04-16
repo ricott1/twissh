@@ -39,9 +39,9 @@ class ChangeSightShape(Action):
         sight.update_visible_and_visited_tiles((x0, y0), in_location.direction, in_location.dungeon)
         
         if user := world.try_component(ent_id, User):
-            user.mind.process_event("player_green_changed")
+            user.mind.process_event("player_rgb_changed")
             user.mind.process_event("player_status_changed")
-            user.mind.process_event("redraw_local_ui")
+            user.mind.process_event("redraw_ui")
             user.mind.process_event("player_acting_changed")
             user.mind.process_event("player_sight_changed")
 
@@ -76,7 +76,7 @@ class IncreaseSightRadius(Action):
         sight.update_visible_and_visited_tiles((x0, y0), in_location.direction, in_location.dungeon)
         
         if user := world.try_component(ent_id, User):
-            user.mind.process_event("player_blue_changed")
+            user.mind.process_event("player_rgb_changed")
             user.mind.process_event("player_status_changed")
             user.mind.process_event("player_sight_changed")
-            user.mind.process_event("redraw_local_ui")
+            user.mind.process_event("redraw_ui")

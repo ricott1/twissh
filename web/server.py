@@ -90,9 +90,8 @@ class UrwidUi(object):
         self.toplevel.handle_input(_input)
 
     def disconnect(self) -> None:
-        self.loop.stop()
-        self.toplevel.disconnect()
-
+        self.loop.screen.unhook_event_loop(self.loop.event_loop)
+        self.loop.screen.stop()
 
 class IUrwidMind(Interface):
     ui = Attribute("")
@@ -152,8 +151,6 @@ class UrwidMaster:
 
 
 implementer(IUrwidMind)
-
-
 class UrwidMind(Adapter):
     unhandled_key_factory = UnhandledKeyHandler
 
@@ -192,9 +189,9 @@ class UrwidMind(Adapter):
         self.master = master
         self.master.register_mind(self)
         # we ask to redraw as soon as a change from the ui is registered
-        self.register_callback("redraw_local_ui", self.set_ui_redraw, -1)
-        # self.register_callback("redraw_local_ui", self.set_ui_redraw)
-        # self.register_callback("redraw_global_ui", lambda: self.master.dispatch_event("redraw_local_ui"), priority=1)
+        self.register_callback("redraw_ui", self.set_ui_redraw, -1)
+        # self.register_callback("redraw_ui", self.set_ui_redraw)
+        # self.register_callback("redraw_global_ui", lambda: self.master.dispatch_event("redraw_ui"), priority=1)
         self.register_callback(
             "chat_message_sent",
             lambda _from_name, _from_id, msg, attr, language: self.master.dispatch_event(
@@ -213,10 +210,17 @@ class UrwidMind(Adapter):
             self.ui.redraw = False
 
     def disconnect(self):
+        self.terminal.write(f"\nGood bye!\n")
         if self.master:
+            if self.avatar.uuid.bytes in self.master.player_ids:
+                self.terminal.write(f"Your player ID is {self.avatar.uuid.hex}\n")
             self.master.disconnect(self)
-        self.terminal.loseConnection()
-        self.ui = None
+        if self.ui:
+            self.ui.disconnect()
+            self.ui = None
+        
+        self.terminal.transport.loseConnection()
+        
 
     def register_callback(self, event_name: str, callback: Callable, priority: int = 0) -> None:
         if event_name in self.callbacks:
@@ -478,6 +482,7 @@ class UrwidTerminalSession(TerminalSession):
         raise EnvironmentVariableNotPermitted
 
     def eofReceived(self):
+        print("Session eofReceived")
         IUrwidMind(self.original).disconnect()
 
     def execCommand(self, proto, cmd):
@@ -486,12 +491,13 @@ class UrwidTerminalSession(TerminalSession):
         raise ConchError("Cannot execute commands")
 
     def closed(self):
+        print("Session closed")
         IUrwidMind(self.original).disconnect()
 
 
 class CONNECTION_ERROR(str, Enum):
-    INVALID_AVATAR_ID = "\nInvalid player id\nTo create a new game connect with gatti@hostname\nTo recover an existing session connect with [player_id]@hostname\n\n"
-    AVATAR_ALREADY_CONNECTED = "\nPlayer id already connected.\nTo create a new game connect with gatti@hostname\nTo recover an existing session connect with [player_id]@hostname\n\n"
+    INVALID_AVATAR_ID = "\nInvalid player ID\nTo create a new game connect with gatti@hostname\nTo recover an existing session connect with [player_id]@hostname\n\n"
+    AVATAR_ALREADY_CONNECTED = "\nPlayer ID already connected.\nTo create a new game connect with gatti@hostname\nTo recover an existing session connect with [player_id]@hostname\n\n"
 
 
 class UrwidRealm(TerminalRealm):
