@@ -1,7 +1,6 @@
 import uuid, random, collections, datetime
 
 
-
 nested_dict = lambda: collections.defaultdict(nested_dict)
 
 
@@ -49,6 +48,7 @@ def random_stat(_level=1):
     elif _level == 1:
         rolls = sorted([random.randint(1, 6) for _ in range(4)])
         return sum(rolls[:-1])
+
 
 def mod(value):
     # return (value-10)//2

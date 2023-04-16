@@ -93,6 +93,7 @@ class UrwidUi(object):
         self.loop.screen.unhook_event_loop(self.loop.event_loop)
         self.loop.screen.stop()
 
+
 class IUrwidMind(Interface):
     ui = Attribute("")
     terminalProtocol = Attribute("")
@@ -151,6 +152,8 @@ class UrwidMaster:
 
 
 implementer(IUrwidMind)
+
+
 class UrwidMind(Adapter):
     unhandled_key_factory = UnhandledKeyHandler
 
@@ -218,9 +221,8 @@ class UrwidMind(Adapter):
         if self.ui:
             self.ui.disconnect()
             self.ui = None
-        
+
         self.terminal.transport.loseConnection()
-        
 
     def register_callback(self, event_name: str, callback: Callable, priority: int = 0) -> None:
         if event_name in self.callbacks:
@@ -510,7 +512,7 @@ class UrwidRealm(TerminalRealm):
 
     def __init__(self) -> None:
         from hacknslassh import HackNSlassh
-        
+
         self.hacknslassh = HackNSlassh()
         self.minds: dict[bytes, UrwidMind] = {}
 
@@ -527,6 +529,7 @@ class UrwidRealm(TerminalRealm):
 
     def _getAvatar(self, avatarId: bytes) -> UrwidUser:
         from hacknslassh.db_connector import get_all_players
+
         comp = Componentized()
         user = UrwidUser(comp, avatarId)
         comp.setComponent(IConchUser, user)
@@ -552,7 +555,7 @@ class UrwidRealm(TerminalRealm):
                     break
             else:
                 mind.connection_error = CONNECTION_ERROR.INVALID_AVATAR_ID
-        
+
         comp.setComponent(IUrwidMind, mind)
         self.minds[mind.avatar.uuid.bytes] = mind
         return user
@@ -621,6 +624,7 @@ def create_server_factory():
     factory.privateKeys[b"ssh-rsa"] = Key.fromFile("keys/test_rsa")
     return factory
 
+
 def create_application(application_name, port):
     """Convenience to create an application suitable for tac file"""
     urwid.escape.SHOW_CURSOR = ""
@@ -633,7 +637,6 @@ def create_application(application_name, port):
     # factory.protocol = SQLConnectorServer
     # sqls = server.Site(factory)
     # reactor.listenTCP(8080, sqls)
-
 
     # resource = File('/static')
     # factory = Site(resource)

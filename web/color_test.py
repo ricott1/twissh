@@ -30,7 +30,7 @@ import sys
 import urwid
 import urwid.raw_display
 
-CHART_TRUE="""
+CHART_TRUE = """
 #e50000#e51000#e52000#e53000#e54000#e55000#e56000#e57000#e58000#e59000\
 #e5a000#e5b100#e5c100#e5d100#e5e100#d9e500#c9e500#b9e500#a9e500#99e500\
 #89e500#79e500#68e500#58e500#48e500#38e500#28e500#18e500#08e500#00e507\
@@ -249,10 +249,8 @@ black_______    dark_gray___    light_gray__    white_______
 
 ATTR_RE = re.compile("(?P<whitespace>[ \n]*)(?P<entry>(?:#[0-9A-Fa-f]{6})|(?:#[0-9A-Fa-f]{3})|(?:[^ \n]+))")
 LONG_ATTR = 7
-SHORT_ATTR = 4 # length of short high-colour descriptions which may
+SHORT_ATTR = 4  # length of short high-colour descriptions which may
 # be packed one after the next
-
-
 
 
 def parse_chart(chart, convert):
@@ -265,9 +263,9 @@ def parse_chart(chart, convert):
     """
     out = []
     for match in re.finditer(ATTR_RE, chart):
-        if match.group('whitespace'):
-            out.append(match.group('whitespace'))
-        entry = match.group('entry')
+        if match.group("whitespace"):
+            out.append(match.group("whitespace"))
+        entry = match.group("entry")
         entry = entry.replace("_", " ")
         while entry:
             if chart == CHART_TRUE and len(entry) == LONG_ATTR:
@@ -279,19 +277,19 @@ def parse_chart(chart, convert):
             # try the first four characters
             if attrtext:
                 entry = entry[elen:].strip()
-            else: # try the whole thing
+            else:  # try the whole thing
                 attrtext = convert(entry.strip())
                 assert attrtext, "Invalid palette entry: %r" % entry
                 elen = len(entry)
                 entry = ""
             attr, text = attrtext
             if chart == CHART_TRUE:
-                out.append((attr, u"\u2584"))
+                out.append((attr, "\u2584"))
             else:
                 out.append((attr, text.ljust(elen)))
-            with open('./l', 'a') as f:
+            with open("./l", "a") as f:
                 f.write(f"{attr.get_rgb_values()} \n")
-    
+
     return out
 
 
@@ -303,13 +301,16 @@ def foreground_chart(chart, background, colors):
     background -- colour to use for background of chart
     colors -- number of colors (88 or 256)
     """
+
     def convert_foreground(entry):
         try:
             attr = urwid.AttrSpec(entry, background, colors)
         except urwid.AttrSpecError:
             return None
         return attr, entry
+
     return parse_chart(chart, convert_foreground)
+
 
 def background_chart(chart, foreground, colors):
     """
@@ -322,31 +323,29 @@ def background_chart(chart, foreground, colors):
     This will remap 8 <= colour < 16 to high-colour versions
     in the hopes of greater compatibility
     """
+
     def convert_background(entry):
         try:
             attr = urwid.AttrSpec(foreground, entry, colors)
         except urwid.AttrSpecError:
             return None
         # fix 8 <= colour < 16
-        if colors > 16 and attr.background_basic and \
-            attr.background_number >= 8:
+        if colors > 16 and attr.background_basic and attr.background_number >= 8:
             # use high-colour with same number
-            entry = 'h%d'%attr.background_number
+            entry = "h%d" % attr.background_number
             attr = urwid.AttrSpec(foreground, entry, colors)
-            
+
         return attr, entry
+
     return parse_chart(chart, convert_background)
 
 
 def main():
     palette = [
-        ('header', 'black,underline', 'light gray', 'standout,underline',
-            'black,underline', '#88a'),
-        ('panel', 'light gray', 'dark blue', '',
-            '#ffd', '#00a'),
-        ('focus', 'light gray', 'dark cyan', 'standout',
-            '#ff8', '#806'),
-        ]
+        ("header", "black,underline", "light gray", "standout,underline", "black,underline", "#88a"),
+        ("panel", "light gray", "dark blue", "", "#ffd", "#00a"),
+        ("focus", "light gray", "dark cyan", "standout", "#ff8", "#806"),
+    ]
 
     screen = urwid.raw_display.Screen()
     screen.register_palette(palette)
@@ -359,7 +358,7 @@ def main():
 
     def fcs(widget):
         # wrap widgets that can take focus
-        return urwid.AttrMap(widget, None, 'focus')
+        return urwid.AttrMap(widget, None, "focus")
 
     def set_mode(colors, is_foreground_chart):
         # set terminal mode and redraw chart
@@ -371,8 +370,8 @@ def main():
             lb[chart_offset] = urwid.Divider()
         else:
             chart = {16: CHART_16, 88: CHART_88, 256: CHART_256, 2**24: CHART_TRUE}[colors]
-            txt = chart_fn(chart, 'default', colors)
-            lb[chart_offset] = urwid.Text(txt, wrap='clip')
+            txt = chart_fn(chart, "default", colors)
+            lb[chart_offset] = urwid.Text(txt, wrap="clip")
 
     def on_mode_change(rb, state, colors):
         # if this radio button is checked
@@ -383,7 +382,7 @@ def main():
     def mode_rb(text, colors, state=False):
         # mode radio buttons
         rb = urwid.RadioButton(mode_radio_buttons, text, state)
-        urwid.connect_signal(rb, 'change', on_mode_change, colors)
+        urwid.connect_signal(rb, "change", on_mode_change, colors)
         return fcs(rb)
 
     def on_chart_change(rb, state):
@@ -393,44 +392,52 @@ def main():
     def click_exit(button):
         raise urwid.ExitMainLoop()
 
-    lb.extend([
-        urwid.AttrMap(urwid.Text("Urwid Palette Test"), 'header'),
-        urwid.AttrMap(urwid.Columns([
-            urwid.Pile([
-                mode_rb("Monochrome", 1),
-                mode_rb("16-Color", 16, True),
-                mode_rb("88-Color", 88),
-                mode_rb("256-Color", 256),
-                mode_rb("24-bit Color", 2**24),]),
-            urwid.Pile([
-                fcs(urwid.RadioButton(chart_radio_buttons,
-                    "Foreground Colors", True, on_chart_change)),
-                fcs(urwid.RadioButton(chart_radio_buttons,
-                    "Background Colors")),
-                urwid.Divider(),
-                fcs(urwid.Button("Exit", click_exit)),
-                ]),
-            ]),'panel')
-        ])
+    lb.extend(
+        [
+            urwid.AttrMap(urwid.Text("Urwid Palette Test"), "header"),
+            urwid.AttrMap(
+                urwid.Columns(
+                    [
+                        urwid.Pile(
+                            [
+                                mode_rb("Monochrome", 1),
+                                mode_rb("16-Color", 16, True),
+                                mode_rb("88-Color", 88),
+                                mode_rb("256-Color", 256),
+                                mode_rb("24-bit Color", 2**24),
+                            ]
+                        ),
+                        urwid.Pile(
+                            [
+                                fcs(urwid.RadioButton(chart_radio_buttons, "Foreground Colors", True, on_chart_change)),
+                                fcs(urwid.RadioButton(chart_radio_buttons, "Background Colors")),
+                                urwid.Divider(),
+                                fcs(urwid.Button("Exit", click_exit)),
+                            ]
+                        ),
+                    ]
+                ),
+                "panel",
+            ),
+        ]
+    )
 
     chart_offset = len(lb)
-    lb.extend([
-        urwid.Divider() # placeholder for the chart
-        ])
+    lb.extend([urwid.Divider()])  # placeholder for the chart
 
-    set_mode(16, True) # displays the chart
+    set_mode(16, True)  # displays the chart
 
     def unhandled_input(key):
-        if key in ('Q','q','esc'):
+        if key in ("Q", "q", "esc"):
             raise urwid.ExitMainLoop()
 
-    urwid.MainLoop(urwid.ListBox(lb), screen=screen,
-        unhandled_input=unhandled_input).run()
+    urwid.MainLoop(urwid.ListBox(lb), screen=screen, unhandled_input=unhandled_input).run()
+
 
 def hex256() -> list[str]:
-    # The color cube is weighted towards the brighter colors, 
-    # with RGB points at 0, 0x5f, 0x87, 0xaf, 0xd7 and 0xff. 
-    # The hex characters '0', '6', '8', 'a', 'd' and 'f' 
+    # The color cube is weighted towards the brighter colors,
+    # with RGB points at 0, 0x5f, 0x87, 0xaf, 0xd7 and 0xff.
+    # The hex characters '0', '6', '8', 'a', 'd' and 'f'
     # xare used as short-forms for these values.
     c256 = [
         (205, 205, 0),
@@ -732,15 +739,263 @@ def hex256() -> list[str]:
         (175, 175, 175),
         (135, 135, 175),
         (175, 135, 135),
-        (175, 135, 175)
+        (175, 135, 175),
     ]
     return set([f"{hex(c[0])[2:].zfill(2)}{hex(c[1])[2:].zfill(2)}{hex(c[2])[2:].zfill(2)}" for c in c256])
 
-c256 = ['afaf00', '87ff00', '767676', 'cd0000', '008787', '87af00', 'cd00cd', '87d787', 'd7af5f', 'afff5f', '949494', 'ffafd7', '875fd7', 'ffffaf', 'af5f87', 'afafff', 'afd787', 'ffafff', '005f00', 'b2b2b2', '5f8700', '5f0087', '5f5f5f', '00d7af', 'ff5faf', '005faf', 'c6c6c6', '5fd7ff', '5f5f00', 'af5fff', 'ffffd7', 'afffd7', '5fd7d7', '87ffff', 'af00af', 'af5fd7', '00875f', '5f87d7', 'd75f5f', 'ffff00', '5f00ff', '5fffff', 'ffaf87', 'afafd7', '00af00', 'ff8700', '87af5f', '005f5f', 'ff87d7', '008700', 'd75f87', 'af00d7', '87af87', '5c5cff', 'd7005f', 'd7d75f', '87d7ff', '87ff5f', 'ff5f00', '1c1c1c', '87ffaf', 'd7d7d7', '6c6c6c', '5f8787', 'af5f00', 'ffd75f', '5fffaf', 'ffd700', 'af8700', '87d7af', '00cd00', 'afafaf', 'ff87ff', 'ff8787', '875f5f', '87afff', 'ff87af', '87d700', '875faf', 'eeeeee', '5f87af', '000000', '5fd75f', 'ffd7d7', 'afaf87', 'afffaf', 'd7af87', 'd7af00', '00d7d7', '585858', 'e4e4e4', 'afd75f', 'dadada', '5fff87', 'ffaf5f', 'e5e5e5', '87d7d7', 'bcbcbc', '121212', '8700d7', 'd7875f', 'd0d0d0', '0087af', 'af87ff', '00afd7', '87afaf', 'ffaf00', '00d7ff', 'd7ff00', '5f5f87', '005f87', '5faf5f', 'd7d7ff', 'ffffff', '7f7f7f', '00d787', '5faf00', 'ffd7af', '5fd7af', '5f5fff', 'a8a8a8', '8787af', '8700ff', 'af005f', 'd7ff87', '87d75f', '00005f', '00afff', '87ffd7', 'af0000', 'ff5fff', '8787d7', '5faf87', '5fafaf', 'd7ff5f', 'af87af', '080808', 'afd7ff', '87005f', '444444', 'd7d7af', '0000d7', '000087', '00ff5f', '5f00d7', '87875f', 'cdcd00', 'd700d7', '5fafd7', '875f00', '808080', '626262', 'ffff87', 'ff00d7', 'ff00af', 'af8787', 'd7afaf', 'ffff5f', 'd7afd7', '00ffff', '5f0000', 'd75fff', 'af0087', '005fd7', '00ffd7', 'ff0087', '5fff00', '5f005f', 'd70087', '878700', '0000ff', '5fafff', 'd7ffaf', '5fd787', 'd7d787', '870087', '0000ee', '87afd7', '0087d7', 'ff0000', '5f875f', 'af875f', '4e4e4e', '0000af', '5fd700', '875fff', '8787ff', '00d700', '00d75f', 'd78787', 'ff5fd7', 'afaf5f', 'ff00ff', 'ff005f', '5fffd7', '9e9e9e', 'd787af', 'd7ffff', 'd787ff', 'ff875f', 'afd7af', 'd700ff', 'ffd7ff', '00ff00', '00af87', 'afffff', '5f5fd7', 'd78700', '0087ff', '303030', '875f87', '5f00af', 'ffafaf', 'ff5f87', 'd75fd7', 'd787d7', 'd75f00', '00afaf', '00af5f', '262626', '87ff87', 'af00ff', 'ff5f5f', '848484', 'd70000', 'af5faf', '00ffaf', '00ff87', 'afd700', 'afff00', 'afff87', '00cdcd', '5f5faf', 'd75faf', 'af5f5f', 'd700af', '878787', '005fff', '5fff5f', 'd7d700', '3a3a3a', '870000', '5f87ff', 'ffd787', 'af87d7', 'd7ffd7', 'd7afff', 'afd7d7']
+
+c256 = [
+    "afaf00",
+    "87ff00",
+    "767676",
+    "cd0000",
+    "008787",
+    "87af00",
+    "cd00cd",
+    "87d787",
+    "d7af5f",
+    "afff5f",
+    "949494",
+    "ffafd7",
+    "875fd7",
+    "ffffaf",
+    "af5f87",
+    "afafff",
+    "afd787",
+    "ffafff",
+    "005f00",
+    "b2b2b2",
+    "5f8700",
+    "5f0087",
+    "5f5f5f",
+    "00d7af",
+    "ff5faf",
+    "005faf",
+    "c6c6c6",
+    "5fd7ff",
+    "5f5f00",
+    "af5fff",
+    "ffffd7",
+    "afffd7",
+    "5fd7d7",
+    "87ffff",
+    "af00af",
+    "af5fd7",
+    "00875f",
+    "5f87d7",
+    "d75f5f",
+    "ffff00",
+    "5f00ff",
+    "5fffff",
+    "ffaf87",
+    "afafd7",
+    "00af00",
+    "ff8700",
+    "87af5f",
+    "005f5f",
+    "ff87d7",
+    "008700",
+    "d75f87",
+    "af00d7",
+    "87af87",
+    "5c5cff",
+    "d7005f",
+    "d7d75f",
+    "87d7ff",
+    "87ff5f",
+    "ff5f00",
+    "1c1c1c",
+    "87ffaf",
+    "d7d7d7",
+    "6c6c6c",
+    "5f8787",
+    "af5f00",
+    "ffd75f",
+    "5fffaf",
+    "ffd700",
+    "af8700",
+    "87d7af",
+    "00cd00",
+    "afafaf",
+    "ff87ff",
+    "ff8787",
+    "875f5f",
+    "87afff",
+    "ff87af",
+    "87d700",
+    "875faf",
+    "eeeeee",
+    "5f87af",
+    "000000",
+    "5fd75f",
+    "ffd7d7",
+    "afaf87",
+    "afffaf",
+    "d7af87",
+    "d7af00",
+    "00d7d7",
+    "585858",
+    "e4e4e4",
+    "afd75f",
+    "dadada",
+    "5fff87",
+    "ffaf5f",
+    "e5e5e5",
+    "87d7d7",
+    "bcbcbc",
+    "121212",
+    "8700d7",
+    "d7875f",
+    "d0d0d0",
+    "0087af",
+    "af87ff",
+    "00afd7",
+    "87afaf",
+    "ffaf00",
+    "00d7ff",
+    "d7ff00",
+    "5f5f87",
+    "005f87",
+    "5faf5f",
+    "d7d7ff",
+    "ffffff",
+    "7f7f7f",
+    "00d787",
+    "5faf00",
+    "ffd7af",
+    "5fd7af",
+    "5f5fff",
+    "a8a8a8",
+    "8787af",
+    "8700ff",
+    "af005f",
+    "d7ff87",
+    "87d75f",
+    "00005f",
+    "00afff",
+    "87ffd7",
+    "af0000",
+    "ff5fff",
+    "8787d7",
+    "5faf87",
+    "5fafaf",
+    "d7ff5f",
+    "af87af",
+    "080808",
+    "afd7ff",
+    "87005f",
+    "444444",
+    "d7d7af",
+    "0000d7",
+    "000087",
+    "00ff5f",
+    "5f00d7",
+    "87875f",
+    "cdcd00",
+    "d700d7",
+    "5fafd7",
+    "875f00",
+    "808080",
+    "626262",
+    "ffff87",
+    "ff00d7",
+    "ff00af",
+    "af8787",
+    "d7afaf",
+    "ffff5f",
+    "d7afd7",
+    "00ffff",
+    "5f0000",
+    "d75fff",
+    "af0087",
+    "005fd7",
+    "00ffd7",
+    "ff0087",
+    "5fff00",
+    "5f005f",
+    "d70087",
+    "878700",
+    "0000ff",
+    "5fafff",
+    "d7ffaf",
+    "5fd787",
+    "d7d787",
+    "870087",
+    "0000ee",
+    "87afd7",
+    "0087d7",
+    "ff0000",
+    "5f875f",
+    "af875f",
+    "4e4e4e",
+    "0000af",
+    "5fd700",
+    "875fff",
+    "8787ff",
+    "00d700",
+    "00d75f",
+    "d78787",
+    "ff5fd7",
+    "afaf5f",
+    "ff00ff",
+    "ff005f",
+    "5fffd7",
+    "9e9e9e",
+    "d787af",
+    "d7ffff",
+    "d787ff",
+    "ff875f",
+    "afd7af",
+    "d700ff",
+    "ffd7ff",
+    "00ff00",
+    "00af87",
+    "afffff",
+    "5f5fd7",
+    "d78700",
+    "0087ff",
+    "303030",
+    "875f87",
+    "5f00af",
+    "ffafaf",
+    "ff5f87",
+    "d75fd7",
+    "d787d7",
+    "d75f00",
+    "00afaf",
+    "00af5f",
+    "262626",
+    "87ff87",
+    "af00ff",
+    "ff5f5f",
+    "848484",
+    "d70000",
+    "af5faf",
+    "00ffaf",
+    "00ff87",
+    "afd700",
+    "afff00",
+    "afff87",
+    "00cdcd",
+    "5f5faf",
+    "d75faf",
+    "af5f5f",
+    "d700af",
+    "878787",
+    "005fff",
+    "5fff5f",
+    "d7d700",
+    "3a3a3a",
+    "870000",
+    "5f87ff",
+    "ffd787",
+    "af87d7",
+    "d7ffd7",
+    "d7afff",
+    "afd7d7",
+]
 
 
 if __name__ == "__main__":
     # main()
     print(hex256())
-
-

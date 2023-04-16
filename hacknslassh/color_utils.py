@@ -303,8 +303,9 @@ c256 = [
     (175, 175, 175),
     (135, 135, 175),
     (175, 135, 135),
-    (175, 135, 175)
+    (175, 135, 175),
 ]
+
 
 def closest_c256(color: tuple[int, int, int]) -> tuple[int, int, int]:
     color_distance = lambda c1, c2: sum((c1[i] - c2[i]) ** 2 for i in range(3))
@@ -351,7 +352,8 @@ class Color(tuple[int, int, int], Enum):
 
     @classmethod
     def fromhex(cls, hex_code: str) -> tuple[int, int, int]:
-        return closest_c256(tuple(int(hex_code[i:i+2], 16) for i in (0, 2, 4)))
+        return closest_c256(tuple(int(hex_code[i : i + 2], 16) for i in (0, 2, 4)))
+
 
 class ColorMix(Enum):
     ORANGE = (Color.fromhex("FD8B4E"), Color.fromhex("612400"), Color.fromhex("FFE0CE"), Color.fromhex("FFB48F"))
@@ -366,7 +368,6 @@ class ColorMix(Enum):
     @classmethod
     def random(cls) -> Color:
         return random.choice(list(cls))
-
 
 
 def mix_color(base: Color, mix: Color = Color.WHITE, weight: float = 0) -> Color:

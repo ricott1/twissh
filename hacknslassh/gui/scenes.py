@@ -923,14 +923,14 @@ class HelpFrame(SubMenu):
             "r: toggle double resolution",
             "k/l: select target",
             "s: select self",
-            "j: toggle auto-target"
+            "j: toggle auto-target",
         ]
 
         quick_items_commands = [
             ("yellow", "Quick items commands"),
             f"1-5: use item",
             f"!-%: drop item",
-            ]
+        ]
 
         player_commands = [("green", "\nPlayer commands")]
 
@@ -973,7 +973,9 @@ class HelpFrame(SubMenu):
             mind,
             [
                 urwid.ListBox(
-                    urwid.SimpleListWalker([urwid.Text(text, wrap="clip") for text in map_commands + quick_items_commands + player_commands + menu_commands])
+                    urwid.SimpleListWalker(
+                        [urwid.Text(text, wrap="clip") for text in map_commands + quick_items_commands + player_commands + menu_commands]
+                    )
                 )
             ],
         )

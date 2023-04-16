@@ -15,6 +15,7 @@ COUNTER_MAX = 10
 MAX_NUM_QUICK_ITEMS = 5
 MIN_ALPHA = 55
 
+
 class Recoil(float, Enum):
     ZERO = 0
     MINIMUM = 0.15
@@ -23,12 +24,15 @@ class Recoil(float, Enum):
     LONG = 1
     MAX = 2
 
+
 class MapSize(object):
     SMALL = (20, 20)
     MEDIUM = (40, 20)
     LARGE = (80, 20)
 
+
 ###DEFAULT KEY MAP
+
 
 class ChatKeyMap(str, Enum):
     SEND = "enter"
@@ -36,6 +40,7 @@ class ChatKeyMap(str, Enum):
     CLEAR = "ctrl k"
     CARRIAGE_RETURN = "ctrl a"
     TOGGLE_WRITE = "ctrl w"
+
 
 class KeyMap(str, Enum):
     INVENTORY_MENU = "I"
@@ -74,7 +79,9 @@ class KeyMap(str, Enum):
     DIG = "d"
     TRANSFORM = "t"
 
+
 MenuKeyMap = [KeyMap.STATUS_MENU, KeyMap.INVENTORY_MENU, KeyMap.EQUIPMENT_MENU, KeyMap.HELP_MENU, KeyMap.CHAT_MENU]
+
 
 class Tile:
     EMPTY = " "

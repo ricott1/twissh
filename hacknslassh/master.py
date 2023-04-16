@@ -52,10 +52,9 @@ class HackNSlassh(UrwidMaster):
         for cat_components in cats_data:
             cat_id = self.world.create_entity(*cat_components)
             self.base_dungeon.set_renderable_entity(cat_id)
-            
+
     def register_new_player(self, mind: UrwidMind, game_class: GameClassName | None = None, gender: GenderType | None = None) -> int:
         all_matches = get_player(mind.avatar.uuid.hex)
-        
 
         if len(all_matches) == 0:
             player_components = create_player(mind, self.base_dungeon, gender, game_class)
@@ -65,7 +64,7 @@ class HackNSlassh(UrwidMaster):
         else:
             print("Error while loading", mind.avatar.uuid.hex)
             return self.disconnect(mind)
-        
+
         player_id = self.world.create_entity(*player_components)
         self.base_dungeon.set_renderable_entity(player_id)
         self.player_ids[mind.avatar.uuid.bytes] = player_id
