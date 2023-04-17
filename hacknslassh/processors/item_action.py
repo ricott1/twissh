@@ -8,6 +8,7 @@ from hacknslassh.components.tokens import CatchableToken
 from hacknslassh.components.user import User
 from hacknslassh.components.acting import Acting
 from hacknslassh.processors.action import Action
+from hacknslassh.utils import distance
 
 from ..components.in_location import Direction, InLocation
 from hacknslassh.constants import *
@@ -16,6 +17,7 @@ class PickUp(Action):
     name = "pick up"
     recoil_cost = Recoil.SHORT
     description = "Pick up an item"
+    range = 2
 
     @classmethod
     def use(cls, world: esper.World, ent_id: int) -> None:
@@ -25,16 +27,23 @@ class PickUp(Action):
             return
         
         in_location = world.component_for_entity(ent_id, InLocation)
-        dungeon = in_location.dungeon
-        target_id = dungeon.get_at(in_location.forward_below)
+        # dungeon = in_location.dungeon
+        target_id = acting.target# dungeon.get_at(in_location.forward_below)
         if not target_id:
             return
+        target_info = world.component_for_entity(target_id, ItemInfo)
+        target_in_location = world.component_for_entity(target_id, InLocation)
+        if distance(in_location.position, target_in_location.position) > cls.range:
+            if user:
+                user.mind.process_event("log", ("red", f"Can\'t pick up {target_info.description}: get closer!"))
+            return
+
         consumable_item = world.try_component(target_id, ConsumableItem)
         equippable_item = world.try_component(target_id, EquippableItem)
         if not consumable_item and not equippable_item:
             return
         
-        target_info = world.component_for_entity(target_id, ItemInfo)
+        
         player_equipment: Equipment = world.try_component(ent_id, Equipment)
         
         if consumable_item:
@@ -65,17 +74,17 @@ class PickUp(Action):
                 return
             
         acting.action_recoil = cls.recoil_cost
-
-        in_location.dungeon.remove_renderable_entity_at(in_location.forward_below)
-        target_in_location = world.component_for_entity(target_id, InLocation)
+        in_location.dungeon.remove_renderable_entity_at(target_in_location.position)
+        
         # world.remove_component(target, InLocation)
         target_in_location.dungeon = None
+        acting.target = None
         
         if user:
             info = world.component_for_entity(ent_id, ActorInfo)
             user.mind.process_event("log", ("green", f"{info.name} picked up {target_info.description.lower()}."))
             user.mind.process_event("redraw_ui")
-            user.mind.process_event("player_acting_changed")
+            user.mind.process_event("acting_target_updated", acting.target)
         for other_ent_id, (other_user, other_in_loc, other_sight) in world.get_components(User, InLocation, Sight):
             if other_ent_id != ent_id and other_in_loc.dungeon == in_location.dungeon and in_location.position in other_sight.visible_tiles:
                 other_user.mind.process_event("redraw_ui")

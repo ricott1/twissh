@@ -8,17 +8,10 @@ necromante resuscita morti
 modify mind.key_map from settings
 
 
-pick up items action (equip on pick up)
-use consumable action
-current target in explorer is highlighted in map (in blue, for instance)
-target is calculated in acting processor, not in Explorer frame. Explorer frame simply updates once target updates (via event)
-
-
 
 ##BUGs
 
 - Shadowed_tiles in dungeon do not work. No idea why.
 - a volte lagga un comando/input
 - Orc abilities sacrifice cats to be used
-- 
 - 
