@@ -3,3 +3,6 @@
  *.pyc
  poetry.lock
  keys/*
+ dist
+ .vscode
+ .venv
