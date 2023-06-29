@@ -1,5 +1,6 @@
 import time
 import esper
+from hacknslassh.components.equipment import Equipment, EquipmentSlot, EquippableItem, RangeWeapon
 from hacknslassh.factories.cat_factory import load_cat, generate_cats
 from hacknslassh.factories.player_factory import create_player, load_player
 from hacknslassh.factories.potion_factory import PotionColor, PotionSize, create_potion
@@ -26,6 +27,8 @@ class HackNSlassh(UrwidMaster):
         self.world = esper.World()
         self.world.add_processor(processor.ActionProcessor())
         self.world.add_processor(processor.DelayCallbackProcessor())
+        self.world.add_processor(processor.ParryCallbackProcessor())
+        self.world.add_processor(processor.ProjectileMovementProcessor(), priority = 1)
         self.world.add_processor(processor.UserInputProcessor(), priority=2)
         self.world.add_processor(processor.AiProcessor(), priority=2)
         self.world.add_processor(processor.DeathProcessor(), priority=4)
@@ -71,15 +74,52 @@ class HackNSlassh(UrwidMaster):
 
         potion_components = create_potion(self.base_dungeon, PotionColor.RED, PotionSize.SMALL)
         potion_id = self.world.create_entity(*potion_components)
-        x, y, z = self.world.component_for_entity(player_id, InLocation).position
+        x, y, _ = self.world.component_for_entity(player_id, InLocation).position
         self.world.component_for_entity(potion_id, InLocation).position = (x, y, 0)
         self.base_dungeon.set_renderable_entity(potion_id)
+
+        size = Size.MEDIUM
+
+        rarity = Rarity.common()
+        equip_components = [
+            ItemInfo("Shirt", f"A simple white shirt. Size: {size.value}."),
+            EquippableItem.body(size),
+            EquipImageCollection.SHIRTS[size]["white"],
+            rarity,
+            InLocation.Equipment(self.base_dungeon, (x, y + 1, 0), fg=rarity.color),
+        ]
+        equip_id = self.world.create_entity(*equip_components)
+        self.base_dungeon.set_renderable_entity(equip_id)
+
+        rarity = Rarity.rare()
+        equip_components = [
+            ItemInfo("Pants", f"Blue pants. Size: {size.value}."),
+            EquippableItem.legs(size),
+            EquipImageCollection.LEGS[size]["blue"],
+            rarity,
+            InLocation.Equipment(self.base_dungeon, (x, y - 1, 0), fg=rarity.color),
+        ]
+        equip_id = self.world.create_entity(*equip_components)
+        self.base_dungeon.set_renderable_entity(equip_id)
+
+        equip_components = [
+            ItemInfo("Bow", f"Standard bow"),
+            EquippableItem.weapon(size),
+            EquipImageCollection.WEAPONS[size]["bow"],
+            RangeWeapon(),
+            rarity,
+            InLocation.Equipment(self.base_dungeon, (x, y - 2, 0), fg=rarity.color),
+        ]
+        equip_id = self.world.create_entity(*equip_components)
+        self.base_dungeon.set_renderable_entity(equip_id)
+
         return player_id
 
     def disconnect(self, mind: UrwidMind) -> None:
         if mind.avatar.uuid.bytes in self.player_ids:
             ent_id = self.player_ids[mind.avatar.uuid.bytes]
-            self.world.component_for_entity(ent_id, RGB).kill()
+            if self.world.entity_exists(ent_id) and self.world.has_component(ent_id, RGB):
+                self.world.component_for_entity(ent_id, RGB).kill()
             print("disconnect", mind.avatar.uuid.hex, "from", self.minds)
 
             # comment next line to keep disconnected bodies in (maybe set them dead)

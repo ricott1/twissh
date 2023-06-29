@@ -63,7 +63,7 @@ def apply_potion(world: esper.World, ent_id: int, color: PotionColor, size: Poti
 
 def create_potion(dungeon: Dungeon, color: PotionColor, size: PotionSize, should_store: bool = False) -> list[Component]:
     effect = lambda world, ent_id: apply_potion(world, ent_id, color, size)
-    info = ItemInfo(f"Potion", f"A {size.value} {color.value} potion")
+    info = ItemInfo(f"{size.value} {color.value} potion.", f"Recover {color.value} mana.")
     if size == PotionSize.SMALL:
         item_rarity = Rarity.common()
     elif size == PotionSize.MEDIUM:
@@ -79,5 +79,5 @@ def create_potion(dungeon: Dungeon, color: PotionColor, size: PotionSize, should
         ConsumableItem(effect),
         info,
         item_rarity,
-        InLocation(dungeon, (x, y, 0), marker="u", fg=getattr(Color, color.value.upper()))
+        InLocation.Potion(dungeon, (x, y, 0), fg=getattr(Color, color.value.upper()))
     ]

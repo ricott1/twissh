@@ -1,5 +1,5 @@
 from __future__ import annotations
-from hacknslassh.constants import Tile, MIN_ALPHA
+from hacknslassh.constants import Range, MIN_ALPHA
 from hacknslassh.color_utils import Color
 from hacknslassh.gui.utils import RGBA_to_RGB, marker_to_urwid_text
 from hacknslassh.utils import distance, nested_dict
@@ -20,6 +20,12 @@ import sys
     v x
 """
 
+class Tile:
+    EMPTY = " "
+    WALL = "█"
+    FLOOR = "."
+    STAIRS_UP = "<"
+    STAIRS_DOWN = ">"
 
 class Cell(object):
     def __init__(self, x: int, y: int, id: int) -> None:
@@ -50,7 +56,7 @@ class Dungeon(object):
         self.visible_cache: dict[tuple[int, int], list[int, int, float]] = {}
         self.urwid_text: list[tuple[urwid.AttrSpec, str] | str] = []
 
-        self.max_x, self.max_y, self.tiles = generate_dungeon(compactness=2)
+        self.max_x, self.max_y, self.tiles = generate_dungeon(compactness=random.randint(0, 4))
         self.map = [[Tile.EMPTY for _ in range(self.max_y + 1)] for _ in range(self.max_x + 1)]
         # self.empty_map = [[Tile.EMPTY for _ in range(self.max_y)] for _ in range(self.max_x)]
 
@@ -58,11 +64,9 @@ class Dungeon(object):
         self.wall_tiles = [pos for pos, tile in self.tiles.items() if tile == Tile.WALL]
 
         for tile in self.wall_tiles:
-            self.set_renderable_entity(self.world.create_entity(InLocation(self, (tile[0], tile[1], 1), marker=Tile.WALL)))
-            # self.empty_map[tile[0]][tile[1]] = marker_to_urwid_text(Tile.WALL, Color.WHITE, None, 255)
+            self.set_renderable_entity(self.world.create_entity(InLocation.Wall(self, (tile[0], tile[1], 1))))
         for tile in self.floor_tiles:
             self.map[tile[0]][tile[1]] = marker_to_urwid_text(Tile.FLOOR, Color.WHITE, None, 255)
-            # self.empty_map[tile[0]][tile[1]] = marker_to_urwid_text(Tile.FLOOR, Color.WHITE, None, 255)
 
     def random_floor_tile(self) -> tuple[int, int]:
         return random.choice(self.floor_tiles)
@@ -83,7 +87,7 @@ class Dungeon(object):
 
     def create_wall_at(self, position: tuple[int, int, int]) -> None:
         if not self.is_wall_at(position):
-            self.set_renderable_entity(self.world.create_entity(InLocation(self, position, marker=Tile.WALL)))
+            self.set_renderable_entity(self.world.create_entity(InLocation.Wall(self, position)))
             x, y, _ = position
             if (x, y) in self.floor_tiles:
                 self.floor_tiles.remove((x, y))
@@ -142,7 +146,7 @@ class Dungeon(object):
 
     def is_empty_at(self, position: tuple[int, int, int]) -> bool:
         x, y, _ = position
-        return self.is_in_bound(position) and self.map[x][y] == Tile.EMPTY
+        return self.is_in_bound(position) and not self.get_at(position)
 
     def get_at(self, position: tuple[int, int, int]) -> int | None:
         x, y, z = position
@@ -220,6 +224,8 @@ def render_dungeon_map(
 def render_map_single_buffer(
     in_loc: InLocation, sight: Sight, camera_offset: tuple[int, int], screen_size: tuple[int, int], target_in_location: InLocation | None
 ) -> list[list[str | tuple[urwid.AttrSpec, str]]]:
+    if not in_loc.dungeon:
+        return []
     max_y, max_x = screen_size
     off_y, off_x = camera_offset
     rendered_map = [[Tile.EMPTY for _ in range(max_y)] for _ in range(max_x)]
@@ -244,16 +250,17 @@ def render_map_single_buffer(
                 continue
             d = distance((x - off_x, y - off_y), (x0, y0))
             a = MIN_ALPHA
-
+            marker, fg, bg = get_tile_info(tile)
             if target_in_location and (target_in_location.position[0] == x - off_x) and (target_in_location.position[1] == y - off_y):
                 marker = target_in_location.marker
-                fg = Color.WHEAT
-                bg = None
-            else:
-                marker, fg, bg = get_tile_info(tile)
+                if distance(target_in_location.position, in_loc.position) <= Range.SHORT:
+                    bg = Color.GREEN
+                else:
+                    bg = Color.YELLOW
+                
 
             if d == 0:
-                marker, fg, bg = in_loc.marker, in_loc.own_fg, in_loc.bg
+                marker, fg, bg = in_loc.marker, Color.WHITE, in_loc.bg
                 a = 255
             elif (x - off_x, y - off_y) in sight.visible_tiles:
                 a = max(MIN_ALPHA, 255 - int((255 - MIN_ALPHA) / sight.radius * d))
@@ -299,17 +306,33 @@ def render_map_double_buffer(
                 continue
 
             top_d = distance((x - off_x, y - off_y), (x0, y0))
-            top_marker, top_fg, _ = get_tile_info(top_tile)
+            if target_in_location and (target_in_location.position[0] == x - off_x) and (target_in_location.position[1] == y - off_y):
+                top_marker = target_in_location.marker
+                if distance(target_in_location.position, in_loc.position) <= Range.SHORT:
+                    top_fg = Color.GREEN
+                else:
+                    top_fg = Color.YELLOW
+            else:
+                top_marker, top_fg, _ = get_tile_info(top_tile)
+
             btm_d = distance((x - off_x + 1, y - off_y), (x0, y0))
-            btm_marker, btm_fg, _ = get_tile_info(btm_tile)
+            if target_in_location and (target_in_location.position[0] == x - off_x + 1) and (target_in_location.position[1] == y - off_y):
+                btm_marker = target_in_location.marker
+                if distance(target_in_location.position, in_loc.position) <= Range.SHORT:
+                    btm_fg = Color.GREEN
+                else:
+                    btm_fg = Color.YELLOW
+            else:
+                btm_marker, btm_fg, _ = get_tile_info(btm_tile)
+
             top_a = MIN_ALPHA
             btm_a = MIN_ALPHA
 
             if top_d == 0:
-                top_fg = in_loc.own_fg
+                top_fg = Color.WHITE
                 top_a = 255
             elif btm_d == 0:
-                btm_fg = in_loc.own_fg
+                btm_fg = Color.WHITE
                 btm_a = 255
             else:
                 if (x - off_x, y - off_y) in sight.visible_tiles:

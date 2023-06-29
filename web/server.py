@@ -34,6 +34,8 @@ import uuid, time
 import urwid
 from urwid.raw_display import Screen
 
+# from .converter_sixel import convert
+
 from zope.interface import Interface, Attribute, implementer
 from twisted.application.service import Application
 from twisted.application.internet import TCPServer
@@ -160,10 +162,13 @@ class UrwidMind(Adapter):
     def __init__(self, original: Componentized) -> None:
         super().__init__(original)
         self.master = None
-        self.connection_error = None
+        self.connection_error: None | AvatarConnectionError = None
         self.ui = None
         self.last_frame = time.time()
         self.callbacks = {}
+        self.twisted_update_loop: LoopingCall | None = None
+        self.terminalProtocol = None
+        self.terminal: None | UrwidServerProtocol = None
 
     @property
     def avatar(self) -> UrwidUser:
@@ -179,7 +184,7 @@ class UrwidMind(Adapter):
         if self.ui:
             self.ui.redraw = True
 
-    def set_terminalProtocol(self, terminalProtocol: TerminalProtocol) -> None:
+    def set_terminalProtocol(self, terminalProtocol: UrwidTerminalProtocol) -> None:
         self.terminalProtocol = terminalProtocol
         self.terminal = terminalProtocol.terminal
         self.unhandled_key_handler = self.unhandled_key_factory(self)
@@ -213,16 +218,22 @@ class UrwidMind(Adapter):
             self.ui.redraw = False
 
     def disconnect(self):
-        self.terminal.write(f"\nGood bye!\n")
         if self.master:
-            if self.avatar.uuid.bytes in self.master.player_ids:
+            if self.avatar.uuid.bytes in self.master.player_ids and self.terminal:
                 self.terminal.write(f"Your player ID is {self.avatar.uuid.hex}\n")
             self.master.disconnect(self)
         if self.ui:
             self.ui.disconnect()
             self.ui = None
+        
+        if self.twisted_update_loop and self.twisted_update_loop.running:
+            self.twisted_update_loop.stop()
 
-        self.terminal.transport.loseConnection()
+        if self.terminal:
+            if self.connection_error:
+                self.terminal.write(self.connection_error.encode())
+            self.terminal.write(f"\nGood bye!\n")
+            self.terminal.transport.loseConnection()
 
     def register_callback(self, event_name: str, callback: Callable, priority: int = 0) -> None:
         if event_name in self.callbacks:
@@ -409,12 +420,14 @@ class UrwidTerminalProtocol(TerminalProtocol):
 
     def __init__(self, urwid_mind: UrwidMind) -> None:
         self.urwid_mind = urwid_mind
-        self.width = 80
+        self.width = 120
         self.height = 24
 
     def connectionMade(self):
         self.urwid_mind.set_terminalProtocol(self)
         self.terminalSize(self.height, self.width)
+        # self.terminal.write('\e[8;50;100t'.encode())
+
 
     def terminalSize(self, height: int, width: int) -> None:
         """Resize the terminal."""
@@ -497,7 +510,7 @@ class UrwidTerminalSession(TerminalSession):
         IUrwidMind(self.original).disconnect()
 
 
-class CONNECTION_ERROR(str, Enum):
+class AvatarConnectionError(str, Enum):
     INVALID_AVATAR_ID = "\nInvalid player ID\nTo create a new game connect with gatti@hostname\nTo recover an existing session connect with [player_id]@hostname\n\n"
     AVATAR_ALREADY_CONNECTED = "\nPlayer ID already connected.\nTo create a new game connect with gatti@hostname\nTo recover an existing session connect with [player_id]@hostname\n\n"
 
@@ -517,7 +530,6 @@ class UrwidRealm(TerminalRealm):
         self.minds: dict[bytes, UrwidMind] = {}
 
         LoopingCall(self.hacknslassh.update).start(self.hacknslassh.UPDATE_STEP)
-        LoopingCall(self.update_minds).start(self.UPDATE_STEP)
 
     def requestAvatar(self, avatarId: bytes, mind: UrwidMind, *interfaces: tuple) -> tuple:
         print("requestAvatar", avatarId, mind, interfaces)
@@ -542,7 +554,7 @@ class UrwidRealm(TerminalRealm):
         print("available player ids", hex_ids)
 
         if avatarId in self.minds:
-            mind.connection_error = CONNECTION_ERROR.AVATAR_ALREADY_CONNECTED
+            mind.connection_error = AvatarConnectionError.AVATAR_ALREADY_CONNECTED
         elif avatarId == b"gatti":
             mind.set_master(self.hacknslassh)
             print("New player id", mind.avatar.uuid.hex)
@@ -554,31 +566,44 @@ class UrwidRealm(TerminalRealm):
                     mind.avatar.uuid = uuid.UUID(hex=h)
                     break
             else:
-                mind.connection_error = CONNECTION_ERROR.INVALID_AVATAR_ID
+                mind.connection_error = AvatarConnectionError.INVALID_AVATAR_ID
 
         comp.setComponent(IUrwidMind, mind)
+
+        mind.twisted_update_loop = LoopingCall(self.update_mind, mind)
+        mind.twisted_update_loop.start(self.UPDATE_STEP)
+
         self.minds[mind.avatar.uuid.bytes] = mind
         return user
 
-    def update_minds(self) -> None:
-        # #then update each mind, that updates each ui if necessary
-        to_delete = []
-        for k, mind in self.minds.items():
-            if not mind.master:
-                mind.terminal.write(mind.connection_error.encode())
-                mind.terminal.transport.loseConnection()
-                to_delete.append(k)
-                continue
 
-            if not mind.ui:
-                to_delete.append(k)
-                continue
+    def update_mind(self, mind: UrwidMind) -> None:
+        if not mind.master and mind.terminal:
+            mind.disconnect()
+            del self.minds[mind.avatar.uuid.bytes]
 
-            if mind.ui.redraw:
-                mind.draw()
+        elif mind.ui and mind.ui.redraw:
+            mind.draw()
 
-        for k in to_delete:
-            del self.minds[k]
+    # def update_minds(self) -> None:
+    #     # #then update each mind, that updates each ui if necessary
+    #     to_delete = []
+    #     for k, mind in self.minds.items():
+    #         if not mind.master:
+    #             mind.terminal.write(mind.connection_error.encode())
+    #             mind.terminal.transport.loseConnection()
+    #             to_delete.append(k)
+    #             continue
+
+    #         if not mind.ui:
+    #             to_delete.append(k)
+    #             continue
+
+    #         if mind.ui.redraw:
+    #             mind.draw()
+
+    #     for k in to_delete:
+    #         del self.minds[k]
 
 
 class NoCheckSSHUserAuthServer(SSHUserAuthServer):

@@ -7,11 +7,26 @@ necromante resuscita morti
 
 modify mind.key_map from settings
 
+fireball  
+        if self.fragment > 1:
+            return ["◉"]
+        return ["◎"]
+
+6 caratteristiche, due per colore
+add catched submenu
+imporve items description(e.g. name= small red potion, description= recover 30 red)
+- riscrivi transform to select correct iamge based on body parts
+- maybe remove gender alltogether, per le transformazioni viene risolto quando scrivo immage composition for actors as well
+- - rifai character selection: random  and customize buttons
+- - fai buttons ganzi
+- quando loadi pg, prima fai status display and ready? button
+- when damaged, add blood on face
+- when dead, change eyes color
 
 
 ##BUGs
 
 - Shadowed_tiles in dungeon do not work. No idea why.
-- a volte lagga un comando/input
-- Orc abilities sacrifice cats to be used
+- a volte lagga un comando/input. questo e' grosso perche' rende il gioco insuabile a random. potrei aggiungere un pulsante to resync, almeno epr capire come e' risolubile. se funziona, vedo cosa fare
+- add cors to mysql. One solution could be to have a separate nodejs script to read-only for app
 - 

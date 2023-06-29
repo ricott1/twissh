@@ -31,6 +31,13 @@ class Language(str, Enum):
         if language == Language.GATTESE:
             return "miao " * ceil(len(text)/5)
 
+class Size(Enum):
+    CAT = auto()
+    SHORT = auto()
+    MEDIUM = auto()
+    TALL = auto()
+    LARGE = auto()
+
 @dataclass
 class ActorInfo(Component):
     """
@@ -43,6 +50,22 @@ class ActorInfo(Component):
     gender: GenderType
     languages: list[Language]
     age: int
+
+    @classmethod
+    def get_size_from_game_class(cls, game_class: GameClassName) -> Size:
+        if game_class == GameClassName.CAT:
+            return Size.CAT
+        if game_class == GameClassName.ELF:
+            return Size.TALL
+        if game_class == GameClassName.ORC:
+            return Size.LARGE
+        if game_class == GameClassName.DWARF:
+            return Size.SHORT
+        if game_class == GameClassName.HUMAN:
+            return Size.MEDIUM
+    @property
+    def size(self) -> Size:
+        return self.get_size_from_game_class(self.game_class)
 
 @dataclass
 class ID(Component):  

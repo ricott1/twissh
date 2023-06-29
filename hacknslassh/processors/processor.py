@@ -1,9 +1,10 @@
 import esper
 from hacknslassh.components.acting import Ai
-from hacknslassh.components.description import ActorInfo
-from hacknslassh.components.item import ItemInfo
+from hacknslassh.components.equipment import Projectile
 from hacknslassh.components.tokens import IncreasedSightToken, TransformedToken
 from hacknslassh.color_utils import Color
+from hacknslassh.components.utils import ParryCallback
+from hacknslassh.constants import Recoil
 from hacknslassh.dungeon import Dungeon
 from hacknslassh.processors.move_actions import MoveDown, MoveLeft, MoveRight, MoveUp
 from hacknslassh.processors.target_action import Target
@@ -11,7 +12,7 @@ from hacknslassh.processors.transform_actions import TransformingToken
 from hacknslassh.utils import distance
 import pygame as pg
 from hacknslassh.components.image import ImageTransition, ImageTransitionStyle
-from hacknslassh.components.in_location import InLocation
+from hacknslassh.components.in_location import ActiveMarkers, Direction, InLocation
 from hacknslassh.components.sight import Sight
 from ..gui.utils import combine_RGB_colors
 from ..components import Image, DelayCallback, RGB, RedRegeneration, BlueRegeneration, GreenRegeneration, Acting, User, DeathCallback
@@ -47,11 +48,52 @@ class TransformedTokenProcessor(esper.Processor):
             if token.on_processor:
                 token.on_processor(self.world, ent_id, deltatime)
             
+class ProjectileMovementProcessor(esper.Processor):
+    def process(self, deltatime: float) -> None:
+        for ent_id, (in_loc, proj, acting, ) in self.world.get_components(InLocation, Projectile, Acting):
+            
+            if not in_loc.dungeon:
+                continue
+            
+            if target_id := in_loc.dungeon.get_at(in_loc.forward):
+                proj.on_hit(self.world, ent_id, target_id)
+                in_loc.dungeon.remove_renderable_entity(ent_id)
+                in_loc.dungeon = None
+                self.world.delete_entity(ent_id)
+
+            elif acting.movement_recoil > 0:
+                acting.movement_recoil -= deltatime
+                continue
+            else:
+                x, y, z = in_loc.position
+                vx = int(in_loc.direction == Direction.DOWN) - int(in_loc.direction == Direction.UP)
+                vy = int(in_loc.direction == Direction.RIGHT) - int(in_loc.direction == Direction.LEFT)
+                new_position = (x + vx, y + vy, z)
+
+                if distance(new_position, proj.origin) > proj.range:
+                    in_loc.dungeon.remove_renderable_entity(ent_id)
+                    in_loc.dungeon = None
+                    self.world.delete_entity(ent_id)
+
+                elif in_loc.dungeon.is_in_bound(new_position):
+                    in_loc.dungeon.remove_renderable_entity(ent_id)
+                    in_loc.position = new_position
+                    in_loc.dungeon.set_renderable_entity(ent_id)
+                    acting.movement_recoil = Recoil.SHORT / (1 + proj.velocity)
+
+                
+                    # self.world.delete_entity(ent_id)
+
+            for other_ent_id, (other_user, other_in_loc, other_sight) in self.world.get_components(User, InLocation, Sight):
+                    if other_ent_id != ent_id and other_in_loc.dungeon == in_loc.dungeon and distance(in_loc.position, other_in_loc.position) <= other_sight.radius:
+                        other_user.mind.process_event("redraw_ui")
+
+
 
 class DeathProcessor(esper.Processor):
     def process(self, deltatime: float) -> None:
         for ent_id, (rgb, _) in self.world.get_components(RGB, Acting):
-            if rgb.alpha <= 0 and not self.world.try_component(ent_id, DeathCallback):
+            if rgb.red.value <= 0 and not self.world.try_component(ent_id, DeathCallback):
                 death_counter = DeathCallback()
                 self.world.add_component(ent_id, death_counter)
                 self.world.component_for_entity(ent_id, Acting).selected_action = None
@@ -59,7 +101,7 @@ class DeathProcessor(esper.Processor):
                 x, y, z = in_location.position
                 in_location.dungeon.remove_renderable_entity(ent_id)
                 in_location.position = (x, y, 0)
-                in_location.marker = "X"
+                in_location.active_markers = ActiveMarkers.DEATH
                 in_location.dungeon.set_renderable_entity(ent_id)
 
 class DeathCallbackProcessor(esper.Processor):
@@ -68,15 +110,24 @@ class DeathCallbackProcessor(esper.Processor):
             delay_cb.delay -= deltatime
             if delay_cb.delay <= 0:
                 self.world.remove_component(ent_id, DeathCallback)
-                in_loc = self.world.component_for_entity(ent_id, InLocation)
-                in_loc.dungeon.remove_renderable_entity(ent_id)
+                if in_loc := self.world.try_component(ent_id, InLocation):
+                    if in_loc.dungeon:
+                        in_loc.dungeon.remove_renderable_entity(ent_id)
+                        in_loc.dungeon = None
                 
                 if user := self.world.try_component(ent_id, User):
                     user.mind.process_event("redraw_ui")
+
+                for other_ent_id, (other_acting, ) in self.world.get_components(Acting, ):
+                    if other_ent_id != ent_id and other_acting.target == ent_id:
+                        other_acting.target = None
+                        if (other_user := self.world.try_component(other_ent_id, User)):
+                            other_user.mind.process_event("acting_target_updated", other_acting.target)
+                
                 for other_ent_id, (other_user, other_in_loc, other_sight) in self.world.get_components(User, InLocation, Sight):
                     if other_ent_id != ent_id and other_in_loc.dungeon == in_loc.dungeon and distance(in_loc.position, other_in_loc.position) <= other_sight.radius:
                         other_user.mind.process_event("redraw_ui")
-                
+                    
                 self.world.delete_entity(ent_id)
         
 
@@ -98,24 +149,18 @@ class ActionProcessor(esper.Processor):
 
 class UpdateTargetProcessor(esper.Processor):
     def process(self, deltatime: float) -> None:
-        for ent_id, (acting, in_loc, sight) in self.world.get_components(Acting, InLocation, Sight):
+        for ent_id, (acting, sight) in self.world.get_components(Acting, Sight):
             if acting.target:
                 target_in_loc = self.world.try_component(acting.target, InLocation)
-                if not target_in_loc:
+                if not target_in_loc or not sight.is_visible(target_in_loc.position[0], target_in_loc.position[1]):
                     acting.target = None
                     if user := self.world.try_component(ent_id, User):
                         user.mind.process_event("acting_target_updated", acting.target)
                     return
-                x, y, _ = target_in_loc.position
-                if not sight.is_visible(x, y):
-                    acting.target = None
-                    if user := self.world.try_component(ent_id, User):
-                        user.mind.process_event("acting_target_updated", acting.target)
-                    return
+                
             elif acting.auto_target:
                 Target.use(self.world, ent_id)
                 
-
 class DelayCallbackProcessor(esper.Processor):
     def process(self, deltatime: float) -> None:
         for ent, (delay_cb, ) in self.world.get_components(DelayCallback):
@@ -123,6 +168,14 @@ class DelayCallbackProcessor(esper.Processor):
             if delay_cb.delay <= 0:
                 delay_cb.callback(self.world, ent)
                 self.world.remove_component(ent, DelayCallback)
+
+class ParryCallbackProcessor(esper.Processor):
+    def process(self, deltatime: float) -> None:
+        for ent, (delay_cb, ) in self.world.get_components(ParryCallback):
+            delay_cb.delay -= deltatime
+            if delay_cb.delay <= 0:
+                delay_cb.callback(self.world, ent)
+                self.world.remove_component(ent, ParryCallback)
 
 class TransformingTokenProcessor(esper.Processor):
     def process(self, deltatime: float) -> None:
@@ -221,11 +274,12 @@ class RegenerationProcessor(esper.Processor):
 class AiProcessor(esper.Processor):
     def process(self, deltatime: float) -> None:
         for ent_id, (in_loc, sight, ai, acting) in self.world.get_components(InLocation, Sight, Ai, Acting):
-    
+            if not in_loc.dungeon:
+                continue
             # entities will be sorted by distance because visible tiles is sorted by distance.
             for tx, ty in sight.visible_tiles:
-                if (_ent_id := in_loc.dungeon.get_at((tx, ty, 1))) \
-                   and distance(in_loc.position, (tx, ty, 1)) > 3 \
+                if _ent_id := in_loc.dungeon.get_at((tx, ty, 1)):
+                   if distance(in_loc.position, (tx, ty, 1)) > 3 \
                    and self.world.try_component(_ent_id, User):
 
                     tx, ty, _ = self.world.component_for_entity(_ent_id, InLocation).position

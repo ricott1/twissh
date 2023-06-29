@@ -741,6 +741,7 @@ def hex256() -> list[str]:
         (175, 135, 135),
         (175, 135, 175),
     ]
+    print(len(c256))
     return set([f"{hex(c[0])[2:].zfill(2)}{hex(c[1])[2:].zfill(2)}{hex(c[2])[2:].zfill(2)}" for c in c256])
 
 
@@ -998,4 +999,18 @@ c256 = [
 
 if __name__ == "__main__":
     # main()
-    print(hex256())
+    print(len(hex256()))
+    input()
+    import urwid
+    txt = []
+    i = 0
+    for c in c256:
+        attr = urwid.AttrSpec("", "#"+c)
+        txt += [(attr, f"  ")]
+        i += 1
+        if i % 32 == 0:
+            txt += ["\n"]
+    fill = urwid.Filler(urwid.Text(txt), 'top')
+    loop = urwid.MainLoop(fill)
+    loop.run()
+    

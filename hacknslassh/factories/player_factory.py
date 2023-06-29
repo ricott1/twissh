@@ -18,6 +18,8 @@ from hacknslassh.processors.dig_actions import Dig
 from hacknslassh.processors.transform_actions import TransformIntoRandom
 from web.server import UrwidMind
 
+from hacknslassh.processors.image_composer import random_image_from_game_class
+
 male_names = (
     "Gorbacioff",
     "Gundam",
@@ -56,15 +58,12 @@ def create_player(mind: UrwidMind, dungeon: Dungeon, gender: GenderType, game_cl
         sight = Sight.cone_sight()
 
     x, y = dungeon.random_free_floor_tile()
-    in_location = InLocation(dungeon, (x, y, 1), fg=(255, 0, 0))
+    in_location = InLocation.Actor(dungeon, (x, y, 1), fg=(255, 0, 0))
     sight.update_visible_and_visited_tiles((x, y), in_location.direction, in_location.dungeon)
     # if game_class == GameClassName.HUMAN:
     #     acting.actions["t"] = TransformIntoDevil()
     if game_class == GameClassName.DWARF:
         acting.actions[KeyMap.DIG] = Dig()
-    # elif game_class == GameClassName.DEVIL:
-    #     acting.actions["r"] = IncreaseSightRadius()
-    #     rgb = characteristics.RGB.devil()
     elif game_class == GameClassName.ORC:
         acting.actions[KeyMap.TRANSFORM] = TransformIntoRandom()
 
@@ -75,8 +74,11 @@ def create_player(mind: UrwidMind, dungeon: Dungeon, gender: GenderType, game_cl
     if should_store:
         values = f'("{mind.avatar.uuid.hex}", "{name}", "{age}", "{gender.value}", "{game_class}", "{rgb.red.value}", "{rgb.green.value}", "{rgb.blue.value}")'
         store("players", values)
+
+    image = random_image_from_game_class(game_class, gender.value.to_bytes() + mind.avatar.uuid.bytes)
+    
     return [
-        ImageCollection.CHARACTERS[gender][game_class].copy(),
+        image,
         rgb,
         ActorInfo(name, "description", game_class, gender, [Language.COMMON], age),
         ID(mind.avatar.uuid.bytes),
@@ -107,7 +109,7 @@ def load_player(mind: UrwidMind, dungeon: Dungeon, player_data: tuple) -> list[C
         sight = Sight.cone_sight()
 
     x, y = dungeon.random_free_floor_tile()    
-    in_location = InLocation(dungeon, (x, y, 1), fg=(255, 0, 0))
+    in_location = InLocation.Actor(dungeon, (x, y, 1), fg=(255, 0, 0))
     sight.update_visible_and_visited_tiles((x, y), in_location.direction, in_location.dungeon)
     # if game_class == GameClassName.HUMAN:
     #     acting.actions["t"] = TransformIntoDevil()
@@ -119,9 +121,10 @@ def load_player(mind: UrwidMind, dungeon: Dungeon, player_data: tuple) -> list[C
     elif game_class == GameClassName.ORC:
         acting.actions[KeyMap.TRANSFORM] = TransformIntoRandom()
 
+    image = random_image_from_game_class(game_class, gender.value.to_bytes() + player_id)
     
     return [
-        ImageCollection.CHARACTERS[gender][game_class].copy(),
+        image,
         rgb,
         ActorInfo(player_data[1], "description", game_class, gender, [Language.COMMON], player_data[2]),
         ID(player_id),

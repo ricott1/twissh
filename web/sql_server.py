@@ -114,7 +114,7 @@ def create_cats_table() -> None:
             "hacknslassh",
             "cats",
             [
-                "id CHAR(24) PRIMARY KEY",
+                "id CHAR(32) PRIMARY KEY",
                 "name VARCHAR(20)",
                 "age SMALLINT",
                 "gender BOOLEAN",
@@ -122,10 +122,8 @@ def create_cats_table() -> None:
                 "red SMALLINT",
                 "green SMALLINT",
                 "blue SMALLINT",
-                "owner VARCHAR(20)",
+                "owner VARCHAR(32)",
                 "rarity SMALLINT",
-                "colors CHAR(24)",
-                "parts CHAR(12)",
             ],
         )
 

@@ -40,6 +40,14 @@ def store(table: str, values: str) -> None:
     cursor.execute(f"INSERT INTO {table} VALUES {values}")
     mydb.commit()
 
+def update_cat_owner(cat_id: str, owner_id: str) -> None:
+    mydb = connect("hacknslassh")
+    cursor = mydb.cursor()
+    print(f"UPDATE cats SET owner = '{owner_id}' WHERE id = '{cat_id}'", len(cat_id), len(owner_id))
+    cursor.execute(f"UPDATE cats SET owner = '{owner_id}' WHERE id = '{cat_id}'")
+    mydb.commit()
+    print(f"UPDATE cats SET owner = '{owner_id}' WHERE id = '{cat_id}'")
+    print(get_cat(cat_id))
 
 def delete_all_cats() -> None:
     mydb = connect("hacknslassh")
@@ -47,6 +55,8 @@ def delete_all_cats() -> None:
     cursor.execute(f"DELETE FROM cats")
     mydb.commit()
 
+def get_cat(cat_id: str) -> tuple:
+    return select("hacknslassh", "cats", ["*"], f"id = '{cat_id}'")
 
 def get_all_cats() -> list[tuple]:
     return select_all("hacknslassh", "cats")

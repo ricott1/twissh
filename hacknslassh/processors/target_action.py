@@ -24,7 +24,7 @@ class ToggleAutoTarget(Action):
         
         acting.auto_target = not acting.auto_target
         if user := world.try_component(ent_id, User):
-            user.mind.process_event("acting_auto_target_updated", acting.auto_target)
+            user.mind.process_event("acting_auto_target_updated", acting.target)
             user.mind.process_event("redraw_ui")
 
 
@@ -47,13 +47,13 @@ class Target(Action):
         # entities will be sorted by distance because visible tiles is sorted by distance.
         for x, y in sight.visible_tiles:
             for z in (1, 0, 2): #first creatures layer, than items, than flyers
-                if target_id := in_location.dungeon.get_at((x, y, z)):
+                # FIXME: within same layer, we should pick as "closest" the entity in the direction of ent_id
+                if in_location.dungeon and (target_id := in_location.dungeon.get_at((x, y, z))):
                     if target_id == ent_id:
                         continue
-                    if world.try_component(target_id, ActorInfo):
+                    if world.try_component(target_id, ActorInfo) or world.try_component(target_id, ItemInfo):
                         entities.append(target_id)
-                    elif world.try_component(target_id, ItemInfo):
-                        entities.append(target_id)
+                
         if not entities:
             return
         

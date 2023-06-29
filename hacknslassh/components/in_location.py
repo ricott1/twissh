@@ -14,19 +14,41 @@ class Direction(str, Enum):
     LEFT = "left"
     RIGHT = "right"
 
-class Markers(object):
+class ActiveMarkers:
     ACTOR = {
         Direction.UP: "▲",
         Direction.DOWN: "▼",
         Direction.LEFT: "◀",
         Direction.RIGHT: "▶",
     }
-    DOUBLE = {
-        Direction.UP: "◢◣",
-        Direction.DOWN: "◥◤",
-        Direction.LEFT: "◀",
-        Direction.RIGHT: "▶",
+    ATTACK = {
+        Direction.UP: "⩓",
+        Direction.DOWN: "⩔",
+        Direction.LEFT: "⪡",
+        Direction.RIGHT: "⪢"
     }
+    PARRY = {
+        Direction.UP: "▀",
+        Direction.DOWN: "▄",
+        Direction.LEFT: "▌",
+        Direction.RIGHT: "▐"
+    }
+    DEATH = {
+        Direction.UP: "X",
+        Direction.DOWN: "X",
+        Direction.LEFT: "X",
+        Direction.RIGHT: "X"
+    }
+    ARROW = {
+        Direction.UP: "↑",
+        Direction.DOWN: "↓",
+        Direction.LEFT: "←",
+        Direction.RIGHT: "→"
+    }
+    WALL = {Direction.UP: "█"}
+    POTION = {Direction.UP: "u"}
+    EQUIPMENT = {Direction.UP: "e"}
+
 
 @dataclass
 class InLocation(Component):
@@ -35,13 +57,16 @@ class InLocation(Component):
     """
 
     dungeon: Dungeon
+    active_markers: dict[Direction, str]
     position: tuple[int, int, int] = (0, 0, 0)
     direction: Direction = Direction.UP
-    marker: str = Markers.ACTOR[Direction.UP]
     fg: tuple[int, int, int] = Color.WHITE
     bg: tuple[int, int, int] | None = None
-    own_fg: tuple[int, int, int] = Color.WHITE
     visibility: int = 255
+
+    @property
+    def marker(self) -> str:
+        return self.active_markers[self.direction]
     
     @property
     def forward(self) -> tuple[int, int, int]:
@@ -93,6 +118,25 @@ class InLocation(Component):
         x, y, z = self.position
         return (x + delta_y, y + delta_x, z)
     
+    @classmethod
+    def Actor(cls, dungeon: Dungeon, position: tuple[int, int, int], fg: tuple[int, int, int] = Color.WHITE) -> InLocation:
+        return cls(dungeon, ActiveMarkers.ACTOR, position = position, fg = fg)
+    
+    @classmethod
+    def Wall(cls, dungeon: Dungeon, position: tuple[int, int, int]) -> InLocation:
+        return cls(dungeon, ActiveMarkers.WALL, position = position)
+    
+    @classmethod
+    def Potion(cls, dungeon: Dungeon, position: tuple[int, int, int], fg: tuple[int, int, int] = Color.WHITE) -> InLocation:
+        return cls(dungeon, ActiveMarkers.POTION, position = position, fg = fg)
+    
+    @classmethod
+    def Arrow(cls, dungeon: Dungeon, position: tuple[int, int, int], direction: Direction = Direction.UP) -> InLocation:
+        return cls(dungeon, ActiveMarkers.ARROW, position = position, direction = direction)
+    
+    @classmethod
+    def Equipment(cls, dungeon: Dungeon, position: tuple[int, int, int], fg: tuple[int, int, int] = Color.WHITE) -> InLocation:
+        return cls(dungeon, ActiveMarkers.EQUIPMENT, position = position, fg = fg)
 
 if __name__ == "__main__":
     from dungeon import is_tile_shadowed_by_walls

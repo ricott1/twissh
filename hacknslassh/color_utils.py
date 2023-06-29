@@ -353,26 +353,3 @@ class Color(tuple[int, int, int], Enum):
     @classmethod
     def fromhex(cls, hex_code: str) -> tuple[int, int, int]:
         return closest_c256(tuple(int(hex_code[i : i + 2], 16) for i in (0, 2, 4)))
-
-
-class ColorMix(Enum):
-    ORANGE = (Color.fromhex("FD8B4E"), Color.fromhex("612400"), Color.fromhex("FFE0CE"), Color.fromhex("FFB48F"))
-    GREY = (Color.fromhex("222222"), Color.fromhex("161213"), Color.fromhex("5C5C5C"), Color.fromhex("3B3232"))
-    TERRA = (Color.fromhex("8A7574"), Color.fromhex("252120"), Color.fromhex("E8CCCB"), Color.fromhex("8A7574"))
-    DUST = (Color.fromhex("989292"), Color.fromhex("2C2829"), Color.fromhex("FFFFFF"), Color.fromhex("989292"))
-    BROWN = (Color.fromhex("522506"), Color.fromhex("000000"), Color.fromhex("905022"), Color.fromhex("1C0C00"))
-    SKY = (Color.fromhex("4EDEFD"), Color.fromhex("000461"), Color.fromhex("CEFFF3"), Color.fromhex("EFFF8F"))
-    PINK = (Color.fromhex("FD4E8D"), Color.fromhex("612400"), Color.fromhex("FFCECE"), Color.fromhex("FF8F8F"))
-    CASALE = (Color.fromhex("FEFEFB"), Color.fromhex("161213"), Color.fromhex("5C5C5C"), Color.fromhex("DF8F53"))
-
-    @classmethod
-    def random(cls) -> Color:
-        return random.choice(list(cls))
-
-
-def mix_color(base: Color, mix: Color = Color.WHITE, weight: float = 0) -> Color:
-    red = int(base[0] * (1 - weight) + mix[0] * weight)
-    green = int(base[1] * (1 - weight) + mix[1] * weight)
-    blue = int(base[2] * (1 - weight) + mix[2] * weight)
-
-    return (red, green, blue)

@@ -1,21 +1,23 @@
 from __future__ import annotations
 import esper
-from hacknslassh.components.description import ActorInfo
+from hacknslassh.components.description import ID, ActorInfo
 from hacknslassh.components.equipment import Equipment, EquippableItem
+from hacknslassh.components.image import Image, ImageComponentOffset, ImageLayer
 from hacknslassh.components.item import ConsumableItem, ItemInfo, QuickItemSlots, QuickItems
-from hacknslassh.components.sight import MAX_SIGHT_RADIUS, Sight
+from hacknslassh.components.sight import Sight
 from hacknslassh.components.tokens import CatchableToken
 from hacknslassh.components.user import User
 from hacknslassh.components.acting import Acting
+from hacknslassh.db_connector import store, update_cat_owner
 from hacknslassh.processors.action import Action
 from hacknslassh.utils import distance
 
-from ..components.in_location import Direction, InLocation
+from ..components.in_location import InLocation
 from hacknslassh.constants import *
 
 class PickUp(Action):
     name = "pick up"
-    recoil_cost = Recoil.SHORT
+    recoil_cost = Recoil.LONG
     description = "Pick up an item"
     range = 2
 
@@ -27,29 +29,28 @@ class PickUp(Action):
             return
         
         in_location = world.component_for_entity(ent_id, InLocation)
-        # dungeon = in_location.dungeon
-        target_id = acting.target# dungeon.get_at(in_location.forward_below)
+        target_id = acting.target
         if not target_id:
             return
-        target_info = world.component_for_entity(target_id, ItemInfo)
+        
+        
+        target_info = world.try_component(target_id, ItemInfo) or world.try_component(target_id, ActorInfo)
+        if not target_info:
+            return
+        
         target_in_location = world.component_for_entity(target_id, InLocation)
         if distance(in_location.position, target_in_location.position) > cls.range:
             if user:
-                user.mind.process_event("log", ("red", f"Can\'t pick up {target_info.description}: get closer!"))
-            return
-
-        consumable_item = world.try_component(target_id, ConsumableItem)
-        equippable_item = world.try_component(target_id, EquippableItem)
-        if not consumable_item and not equippable_item:
+                user.mind.process_event("log", ("red", f"Can\'t pick up {target_info.name}: get closer!"))
             return
         
         
-        player_equipment: Equipment = world.try_component(ent_id, Equipment)
         
-        if consumable_item:
+        if world.try_component(target_id, ConsumableItem):
             #check if the user has free quick item slots, else return and log can't pick up
             player_quick_items = world.component_for_entity(ent_id, QuickItems)
             num_slots = QuickItemSlots.BASE_SLOTS
+            player_equipment: Equipment = world.try_component(ent_id, Equipment)
             if player_equipment and player_equipment.belt and hasattr(player_equipment.belt, "slots"):
                 num_slots += player_equipment.belt.slots
             for i in range(1, num_slots + 1):
@@ -60,30 +61,43 @@ class PickUp(Action):
                     break
             else:
                 if user:
-                    user.mind.process_event("log", ("red", f"Can\'t pick up {target_info.description}: no slot available."))
+                    user.mind.process_event("log", ("red", f"Can\'t pick up {target_info.name}: no free slot"))
                 return
 
-        elif equippable_item:
-            #check if the user has free equipment slots, else return and log can't pick up
-            if not getattr(player_equipment, equippable_item.slot.value):
-                setattr(player_equipment, equippable_item.slot.value, target_id)
-                user.mind.process_event("player_equipment_changed")
-            else:
+        elif equippable_item := world.try_component(target_id, EquippableItem):
+            info = world.component_for_entity(ent_id, ActorInfo)
+            if equippable_item.size != info.size:
                 if user:
-                    user.mind.process_event("log", ("red", f"Can\'t equip {target_info.description}: slot already equipped."))
+                    user.mind.process_event("log", ("red", f"Can\'t equip {target_info.name}: size mismatch"))
                 return
+            player_equipment: Equipment = world.try_component(ent_id, Equipment)
+            if getattr(player_equipment, equippable_item.slot.value):
+                player_equipment.remove(equippable_item.slot)
+            player_equipment.add(equippable_item.slot, target_id)
+            image = world.component_for_entity(ent_id, Image)
+            image.components[equippable_item.image_layer] = {
+                "offset": ImageComponentOffset[info.game_class][equippable_item.image_layer],
+                "surface": world.component_for_entity(target_id, Image).surface
+            }
+            image.compose()
+            user.mind.process_event("player_equipment_changed")
+        elif catchable_token := world.try_component(target_id, CatchableToken):
+            owner_id = world.try_component(ent_id, ID)
+            catchable_token.owner = owner_id.uuid
+            cat_id = world.try_component(target_id, ID)
+            print("\nIDS", cat_id.uuid.hex(), catchable_token.owner.hex())
+            update_cat_owner(cat_id.uuid.hex(), catchable_token.owner.hex())
             
         acting.action_recoil = cls.recoil_cost
         in_location.dungeon.remove_renderable_entity_at(target_in_location.position)
-        
-        # world.remove_component(target, InLocation)
         target_in_location.dungeon = None
         acting.target = None
         
         if user:
             info = world.component_for_entity(ent_id, ActorInfo)
-            user.mind.process_event("log", ("green", f"{info.name} picked up {target_info.description.lower()}."))
+            user.mind.process_event("log", ("green", f"{info.name} picked up {target_info.name}"))
             user.mind.process_event("redraw_ui")
+            user.mind.process_event("player_acting_changed")
             user.mind.process_event("acting_target_updated", acting.target)
         for other_ent_id, (other_user, other_in_loc, other_sight) in world.get_components(User, InLocation, Sight):
             if other_ent_id != ent_id and other_in_loc.dungeon == in_location.dungeon and in_location.position in other_sight.visible_tiles:
@@ -108,12 +122,12 @@ class Drop(Action):
         player_quick_items = world.component_for_entity(ent_id, QuickItems)
         if cls.slot not in player_quick_items.slots or not player_quick_items.slots[cls.slot]:
             if user:
-                user.mind.process_event("log", ("red", f"Nothing to drop on {cls.slot}."))
+                user.mind.process_event("log", ("red", f"Nothing to drop on {cls.slot}"))
             return
         
         if dungeon.get_at(in_location.below):
             if user:
-                user.mind.process_event("log", ("red", f"Can\'t drop here."))
+                user.mind.process_event("log", ("red", f"Can\'t drop here"))
             return
         
         
@@ -129,7 +143,7 @@ class Drop(Action):
         if user:
             info = world.component_for_entity(ent_id, ActorInfo)
             target_info = world.component_for_entity(target_id, ItemInfo)
-            user.mind.process_event("log", ("green", f"{info.name} dropped {target_info.description.lower()}."))
+            user.mind.process_event("log", ("green", f"{info.name} dropped {target_info.name}"))
             user.mind.process_event("player_removed_quick_item", cls.slot)
             user.mind.process_event("redraw_ui")
             user.mind.process_event("player_acting_changed")
@@ -171,7 +185,7 @@ class Use(Action):
         player_quick_items = world.component_for_entity(ent_id, QuickItems)
         if cls.slot not in player_quick_items.slots or not player_quick_items.slots[cls.slot]:
             if user:
-                user.mind.process_event("log", ("red", f"Nothing to use on {cls.slot}."))
+                user.mind.process_event("log", ("red", f"Nothing to use on slot {cls.slot}"))
             return
         
         
@@ -187,7 +201,7 @@ class Use(Action):
         if user:
             info = world.component_for_entity(ent_id, ActorInfo)
             target_info = world.component_for_entity(target_id, ItemInfo)
-            user.mind.process_event("log", ("green", f"{info.name} used {target_info.description.lower()}."))
+            user.mind.process_event("log", ("green", f"{info.name} used {target_info.name}"))
             user.mind.process_event("player_removed_quick_item", cls.slot)
             user.mind.process_event("redraw_ui")
             user.mind.process_event("player_acting_changed")

@@ -1,7 +1,6 @@
 
 
 from hacknslassh.processors.dig_actions import Dig
-from hacknslassh.processors.catch_action import Catch
 from hacknslassh.processors.transform_actions import TransformIntoRandom
 
 from .base import *

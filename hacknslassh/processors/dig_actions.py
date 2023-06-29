@@ -46,7 +46,7 @@ class Dig(Action):
         for pos in target_positions:
             if dungeon.is_empty_at(pos):
                 dungeon.create_wall_at(pos)
-                dungeon.set_renderable_entity(world.create_entity(InLocation(dungeon, pos, marker=Tile.WALL)))
+                dungeon.set_renderable_entity(world.create_entity(InLocation.Wall(dungeon, pos)))
                 
         # Delete dungeon shadow cache since it could have been changed buy the dig.
         for x in range(x0 - MAX_SIGHT_RADIUS, x0 + MAX_SIGHT_RADIUS + 1):

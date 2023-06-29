@@ -15,6 +15,11 @@ COUNTER_MAX = 10
 MAX_NUM_QUICK_ITEMS = 5
 MIN_ALPHA = 55
 
+class Range(float, Enum):
+    SHORT = 1.5
+    MEDIUM = 3
+    LONG = 4
+    MAX = 5
 
 class Recoil(float, Enum):
     ZERO = 0
@@ -61,7 +66,8 @@ class KeyMap(str, Enum):
     LEFT = "left"
     RIGHT = "right"
     PICK_UP = "p"
-    CATCH = "c"
+    ATTACK = "a"
+    PARRY = "s"
     DROP_1 = "!"
     DROP_2 = "@"
     DROP_3 = "#"
@@ -74,18 +80,10 @@ class KeyMap(str, Enum):
     USE_5 = "5"
     TARGET_NEXT = "l"
     TARGET_PREVIOUS = "k"
-    TARGET_SELF = "s"
+    TARGET_SELF = "h"
     TOGGLE_AUTO_TARGET = "j"
     DIG = "d"
     TRANSFORM = "t"
 
 
 MenuKeyMap = [KeyMap.STATUS_MENU, KeyMap.INVENTORY_MENU, KeyMap.EQUIPMENT_MENU, KeyMap.HELP_MENU, KeyMap.CHAT_MENU]
-
-
-class Tile:
-    EMPTY = " "
-    WALL = "█"
-    FLOOR = "."
-    STAIRS_UP = "<"
-    STAIRS_DOWN = ">"

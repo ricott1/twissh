@@ -6,7 +6,7 @@ from hacknslassh.components.user import User
 from hacknslassh.processors.action import Action
 from hacknslassh.utils import distance
 
-from ..components.in_location import Direction, InLocation, Markers
+from ..components.in_location import Direction, InLocation
 from hacknslassh.constants import *
 
 class Move(Action):
@@ -22,7 +22,7 @@ class Move(Action):
         direction = in_location.direction
         if direction != cls.direction:
             in_location.direction = cls.direction
-            in_location.marker = Markers.ACTOR[cls.direction]
+            # in_location.active_markers = ActiveMarkers.ACTOR
             in_location.dungeon.set_renderable_entity(ent_id)
             if user := world.try_component(ent_id, User):
                 user.mind.process_event("redraw_ui")

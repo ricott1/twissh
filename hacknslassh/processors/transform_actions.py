@@ -1,17 +1,21 @@
 from dataclasses import dataclass
 import random
+from hacknslassh.color_utils import Color
 from hacknslassh.components.acting import Acting
 from hacknslassh.components.base import Component
 from hacknslassh.components.in_location import InLocation
+from hacknslassh.components.rarity import Rarity
 from hacknslassh.components.sight import Sight, SightShape
 from hacknslassh.components.characteristics import RGB
 from hacknslassh.components.image import Image, ImageCollection, ImageTransition
-from hacknslassh.components.description import ActorInfo, GameClassName, Language
+from hacknslassh.components.description import ID, ActorInfo, GameClassName, Language
 from hacknslassh.components.tokens import TransformedToken
 from hacknslassh.components.user import User
 from hacknslassh.components.utils import DelayCallback
 from hacknslassh.constants import Recoil
 from hacknslassh.processors.action import Action
+
+from hacknslassh.processors.image_composer import random_image_from_game_class
 
 import esper
 
@@ -59,7 +63,8 @@ class TransformInto(Action):
         elif transformed_token:
             _into = transformed_token._from
 
-        new_surface = ImageCollection.CHARACTERS[_into.gender][_into.game_class].surface
+        _id = world.component_for_entity(ent_id, ID).uuid
+        new_surface = random_image_from_game_class(_into.game_class, _into.gender.value.to_bytes() + _id).surface
         acting.action_recoil = cls.recoil_cost
         
         old_surface = world.component_for_entity(ent_id, Image).surface
@@ -69,7 +74,7 @@ class TransformInto(Action):
         if user := world.try_component(ent_id, User):
             user.mind.process_event("player_acting_changed")
             info = world.component_for_entity(ent_id, ActorInfo)
-            user.mind.process_event("log", ("cyan", f"{info.name} is transforming into {cls.description.lower()}."))
+            user.mind.process_event("log", ("cyan", f"{info.name} is transforming into {_into.description.lower()}"))
         
     @classmethod
     def transform(cls, world: esper.World, ent_id: int, _into: ActorInfo) -> None:
@@ -122,7 +127,8 @@ class TransformInto(Action):
                 return
             
             if not world.try_component(ent_id, TransformingToken):
-                new_surface = ImageCollection.CHARACTERS[transformed_token._from.gender][transformed_token._from.game_class].surface
+                _id = world.component_for_entity(ent_id, ID).uuid
+                new_surface = random_image_from_game_class(transformed_token._from.game_class, transformed_token._from.gender.value.to_bytes() + _id).surface
                 old_surface = world.component_for_entity(ent_id, Image).surface
                 world.add_component(ent_id, ImageTransition(old_surface, new_surface, cls.recoil_cost))
             else:
@@ -134,13 +140,13 @@ class TransformInto(Action):
 
 @dataclass
 class DevilInfo(ActorInfo):
-    description = "A serious devil."
-    game_class = GameClassName.DEVIL.value
+    description = "A serious devil"
+    game_class = GameClassName.DEVIL
 
 @dataclass
 class DwarvilInfo(ActorInfo):
-    description = "A serious, small devil."
-    game_class = GameClassName.DWARVIL.value
+    description = "A serious, small devil"
+    game_class = GameClassName.DWARVIL
 
 class TransformIntoDevil(TransformInto):
     name = "transform_to_devil"
@@ -159,7 +165,7 @@ class TransformIntoDevil(TransformInto):
 @dataclass
 class CatInfo(ActorInfo):
     description = "A serious cat."
-    game_class = GameClassName.CAT.value
+    game_class = GameClassName.CAT
     languages = [Language.GATTESE, Language.COMMON]
 
 @dataclass
@@ -181,15 +187,24 @@ class TransformIntoCat(TransformInto):
 
     @classmethod
     def transform(cls, world: esper.World, ent_id: int, _into: ActorInfo) -> None:
-        old_sight: ActorInfo = world.component_for_entity(ent_id, Sight)
+        old_sight: Sight = world.component_for_entity(ent_id, Sight)
         super().transform(world, ent_id, _into)
         new_sight = world.component_for_entity(ent_id, Sight)
         new_sight.visited_tiles.update(old_sight.visited_tiles)
 
-        # in_loc = world.component_for_entity(ent_id, InLocation)
-        # x, y, _ = in_loc.position
-        # new_sight.update_visible_and_visited_tiles((x, y), in_loc.direction, in_loc.dungeon)
+        in_location: InLocation = world.component_for_entity(ent_id, InLocation)
+        rarity = Rarity.common()
+        in_location.fg = rarity.color
 
+        if user := world.try_component(ent_id, User):
+            user.mind.process_event("redraw_ui")
+    
+    @classmethod
+    def on_processor(cls, world: esper.World, ent_id: int, dt: float) -> None:
+        super().on_processor(world, ent_id, dt)
+        in_location: InLocation = world.component_for_entity(ent_id, InLocation)
+        # reset fg to default
+        in_location.fg = Color.WHITE
         if user := world.try_component(ent_id, User):
             user.mind.process_event("redraw_ui")
 
